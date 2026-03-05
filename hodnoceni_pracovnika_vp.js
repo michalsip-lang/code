@@ -1,0 +1,1588 @@
+(function () {
+
+  // ============================================================
+  // SPUSTIT POUZE NA NEWFORM
+  // ============================================================
+  var isNewForm = /\/NewForm\.aspx$/i.test(location.pathname);
+  if (!isNewForm) return;
+
+  // ============================================================
+  // KONFIG
+  // ============================================================
+  var WEB_URL = "http://portal.samohyl.cz/homeZVK";
+  var LIST_URL = "/homeZVK/Lists/seznam_prodejen";
+
+  // Flag to prevent modal re-opening during PDF save
+  var inPdfSaveFlow = false;
+
+  var FIELD_RM = "regionalni_manager";
+  var FIELD_TITLE = "Title";
+  var FIELD_VEDOUCI = "vedouci_prodejny";
+
+  var FORM_MISTO = "misto_vykonu_prace_vp";
+  var FORM_HODNOCENY = "hodnoceny_vp";
+  var FORM_HODNOTITEL = "hodnotitel_vp";
+  var FORM_OBDOBI = "hodnocene_obdobi_vp";
+
+  var FORM_KOMENTAR_HODNOTITELE = "komentar_hodnotitele_vp";
+  var FORM_KOMENTAR_HODNOCENEHO = "komentar_hodnoceneho_vp";
+  var FORM_UKOLY = "ukoly_vp";
+  var FORM_VYSLEDNA_ZNAMKA = "vysleda_znamka_vp";
+
+  // AdvancedTables internal names
+  var AT_OSOB_CHAR   = "osobnostni_charakteristika_vp";
+  var AT_PROD_SKILLS = "pracovni_prodejni_dovednosti_vp";
+  var AT_LEADERSHIP  = "vedeni_rizeni_lidi";
+  var AT_KNOWLEDGE   = "odborne_znalosti_vp";
+  var AT_OSOBNI      = "osobni_hodnoceni_vp";  // Pozitivní / Negativní (2 sloupce)
+
+  // friendly titles for known AdvancedTables (fallback when header detection fails)
+  var AT_TITLES_MAP = {};
+  AT_TITLES_MAP[AT_OSOB_CHAR]   = "Osobnostní charakteristika";
+  AT_TITLES_MAP[AT_PROD_SKILLS] = "Pracovní / prodejní dovednosti";
+  AT_TITLES_MAP[AT_LEADERSHIP]  = "Vedení / řízení lidí";
+  AT_TITLES_MAP[AT_KNOWLEDGE]   = "Odborné znalosti";
+  AT_TITLES_MAP[AT_OSOBNI]      = "Osobní hodnocení";
+
+  // PDF upload target (server-relative URL knihovny)
+  var HP_PDF_TARGET_FOLDER = "/homeZVK/reporty_zvk";
+
+  // ============================================================
+  // DATA (předvyplnění řádků)
+  // ============================================================
+  var OSOB_CHAR_DATA = [
+    { oblast: "Důslednost", popis: "Dodržování postupů, přesnost při práci se zbožím a pokladnou" },
+    { oblast: "Spolehlivost", popis: "Dochvilnost, stabilní výkon, plnění úkolů dle zadání" },
+    { oblast: "Komunikativnost", popis: "Schopnost komunikovat se zákazníky a kolegy, přívětivost" },
+    { oblast: "Aktivita", popis: "Samostatné vyhledávání práce, iniciativa na prodejně" },
+    { oblast: "Sebereflexe", popis: "Ochota přijímat zpětnou vazbu a zlepšovat se" },
+    { oblast: "Loajalita", popis: "Loajalita vůči firmě a prodejně" },
+    { oblast: "Profesionální vystupování", popis: "Reprezentativní komunikace, vzhled a přístup" },
+    { oblast: "Rozhodnost a samostatnost", popis: "Umí správně řešit problémy a dokáže se rychle a správně rozhodnout v provozních situacích" },
+    { oblast: "Autorita a přirozené vedení", popis: "Umí si udržet respekt týmu, vystupuje rozhodně a férově, působí jako vzor" },
+    { oblast: "Strategické myšlení a proaktivita", popis: "Předchází problémům a aktivně navrhuje řešení" },
+    { oblast: "Zvládání stresu", popis: "Reakce ve špičkách, během reklamací a v konfliktních situacích, schopnost řešit tyto situace" },
+    { oblast: "Orientace na cíl", popis: "Zaměření na výsledky prodejny a firmy" }
+  ];
+
+  var PROD_SKILLS_DATA = [
+    { oblast: "Obsluha zákazníka", popis: "Aktivní zákaznický servis a doporučování sortimentu" },
+    { oblast: "Dodržování prodejního rozhovoru", popis: "Správně dodržuje všechny kroky v rámci prodejního rozhovoru" },
+    { oblast: "Aktivita v rámci příprodeje", popis: "Správně a aktivně nabízí cross-sell a up-sell" },
+    { oblast: "Uzavírání prodeje", popis: "Umí vyhodnotit, kdy a jak správně uzavřít prodej" },
+    { oblast: "Vystavování – merchandising", popis: "Dbá na estetický vzhled a funkční uspořádání prodejny" },
+    { oblast: "Kontrola exspirací a správnost nacenění", popis: "Důsledná správa expirací a správné naceňování na prodejně" },
+    { oblast: "Péče o skladové hospodářství prodejny", popis: "Vhodně nastavuje skladové jednotky a objednávky zboží pro prodejnu" },
+    { oblast: "Znalosti novinek a akcí na prodejně", popis: "Ověřuje si znalosti aktuálních akcí a novinek v prodejně i v e-shopu" },
+    { oblast: "Úklid a pořádek", popis: "Udržuje prodejnu v reprezentativním stavu" },
+    { oblast: "Bezpečnost práce", popis: "Dodržuje interní pravidla a zásady BOZP a hygieny" }
+  ];
+
+  var LEADERSHIP_DATA = [
+    { oblast: "Vedení a rozvoj týmu", popis: "Delegování týmu, motivace zaměstnanců, rozvoj lidí, řešení konfliktů" },
+    { oblast: "Řízení týmu", popis: "Vyžaduje od prodavačů prodejní aktivity dle interních předpisů a metodik s cílem dosáhnout maximálního obratu" },
+    { oblast: "Kontrola a dohled nad prací týmu", popis: "Zadává podřízeným zaměstnancům úkoly a kontroluje jejich provádění" },
+    { oblast: "Organizace provozu prodejny", popis: "Plánování směn a zajištění dostatečné personální kapacity, reakce na neočekávané provozní situace" },
+    { oblast: "Obchodní výsledky a KPI", popis: "Plnění obratového plánu, aktivní práce s reporty a výsledky KPI" },
+    { oblast: "Dodržování procesů a standardů", popis: "Plnění firemních procesů (metodiky, inventury, odpisy, deníky atd.), kontroluje dodržování provozních pravidel" },
+    { oblast: "Kontrola znalostí svého týmu", popis: "Kontroluje znalosti a dovednosti, které podřízení zaměstnanci potřebují k prodeji" }
+  ];
+
+  var KNOWLEDGE_DATA = [
+    { oblast: "Produktové znalosti", popis: "Znalost sortimentu v prodejně i v e-shopu" },
+    { oblast: "Péče o zvířata", popis: "Obecná orientace ve vybavení pro chov, péči a zdraví zvířat" },
+    { oblast: "Znalost značek", popis: "Znalost klíčových značek, rozdílů mezi produkty a nabídky konkurence" },
+    { oblast: "Znalosti novinek a akcí na prodejně", popis: "Ověření si znalostí aktuálních akcí a novinek v prodejně i v e-shopu" },
+    { oblast: "Znalost cross-sellingových vazeb", popis: "Znalost toho, jaký sortiment lze připrodat k určitým výrobkům" }
+  ];
+
+  // ============================================================
+  // LOG + HARD FAIL HANDLER (aby bylo vidět kde to spadne)
+  // ============================================================
+  function log() { try { console.log.apply(console, arguments); } catch (e) {} }
+
+  window.onerror = function (msg, url, line, col, err) {
+    try {
+      alert("Chyba skriptu:\n" + msg + "\nŘádek: " + line + (col ? (", sloupec: " + col) : "") + "\n" + (err && err.stack ? err.stack : ""));
+    } catch (e) {}
+    return false;
+  };
+
+  function xmlEscape(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+  }
+
+  function fireEvent(el, name) {
+    if (!el) return;
+    try {
+      var e = document.createEvent("HTMLEvents");
+      e.initEvent(name, true, false);
+      el.dispatchEvent(e);
+    } catch (ex) { }
+  }
+
+  function fireInputEvents(el) {
+    fireEvent(el, "input");
+    fireEvent(el, "keyup");
+    fireEvent(el, "change");
+    fireEvent(el, "blur");
+  }
+
+  // ============================================================
+  // CSS
+  // ============================================================
+  function ensureStyle() {
+    if (document.getElementById("vp-at-style")) return;
+    var s = document.createElement("style");
+    s.id = "vp-at-style";
+    s.type = "text/css";
+    s.textContent =
+      ".tisa-AdvancedTable .tableWithItems tr.header th{font-weight:700 !important;font-size:13px !important;color:#111 !important;}" +
+      ".vp-hodn-blue{background:#e6f2ff !important;}" +
+      ".vp-hodn-green{background:#e6ffe6 !important;}" +
+      ".vp-hodn-missing{outline:2px solid #d00 !important;outline-offset:-2px !important;border-radius:2px;}" +
+      ".vp-preview h1{margin:0 0 8px 0;font-size:18px;}" +
+      ".vp-preview .meta{margin:0 0 10px 0;font-size:12px;color:#605e5c;page-break-inside:avoid;break-inside:avoid;}" +
+      ".vp-preview .sec{margin:14px 0 6px 0;font-weight:700;font-size:14px;page-break-inside:avoid;break-inside:avoid;}" +
+      ".vp-preview table{width:100%;border-collapse:collapse;font-size:12px;min-width:980px;page-break-inside:avoid;break-inside:avoid;table-layout:fixed;word-wrap:break-word;}" +
+      ".vp-preview thead{page-break-inside:avoid;break-inside:avoid;}" +
+      ".vp-preview tbody tr{page-break-inside:avoid;break-inside:avoid;}" +
+      ".vp-preview th,.vp-preview td{border:1px solid #edebe9;padding:7px;vertical-align:top;}" +
+      ".vp-preview th{background:#faf9f8;font-weight:700;}" +
+      ".vp-table-block .sec{background:#eef;padding:4px 6px;border-radius:4px;}" +
+      ".vp-table-block{page-break-after:always;}";
+    document.head.appendChild(s);
+  }
+
+  // ---------------- MODAL (jednoduchý) ----------------
+  function showSimpleModal(title, buttons) {
+    var back = document.createElement("div");
+    back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999999;display:flex;align-items:center;justify-content:center;";
+    var box = document.createElement("div");
+    box.style.cssText = "background:#fff;padding:20px;border-radius:10px;min-width:360px;max-width:760px;box-shadow:0 10px 40px rgba(0,0,0,.3);";
+
+    var head = document.createElement("div");
+    head.textContent = title;
+    head.style.cssText = "margin:0 0 14px 0;font-weight:700;white-space:pre-wrap;";
+    box.appendChild(head);
+
+    buttons.forEach(function (btn) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = btn.text;
+      b.style.cssText = "display:block;width:100%;margin:6px 0;padding:8px;border:1px solid #ccc;background:#f6f6f6;border-radius:8px;cursor:pointer;";
+      b.onclick = function () {
+        try { document.body.removeChild(back); } catch (e) {}
+        btn.onClick();
+      };
+      box.appendChild(b);
+    });
+
+    back.appendChild(box);
+    document.body.appendChild(back);
+  }
+
+  // ============================================================
+  // FORM helpers
+  // ============================================================
+  function setTextField(internal, value) {
+    var el =
+      document.querySelector("input[id^='" + internal + "_'][type='text'],textarea[id^='" + internal + "_'],select[id^='" + internal + "_']") ||
+      document.querySelector("[id*='" + internal + "_$TextField'],[id*='" + internal + "_$DropDownChoice']") ||
+      document.querySelector("[id^='" + internal + "_'],[id*='" + internal + "_']");
+    if (!el) { log("[VP] Text pole nenalezeno:", internal); return; }
+    el.value = value;
+    fireInputEvents(el);
+  }
+
+  function getTextFieldValue(internal) {
+    var el =
+      document.querySelector("input[id^='" + internal + "_'][type='text'],textarea[id^='" + internal + "_'],select[id^='" + internal + "_']") ||
+      document.querySelector("[id*='" + internal + "_$TextField'],[id*='" + internal + "_$DropDownChoice']") ||
+      document.querySelector("[id^='" + internal + "_'],[id*='" + internal + "_']");
+    if (!el) return "";
+    return (el.value || "").trim();
+  }
+
+  function waitForPeoplePicker(cb) {
+    var tries = 0;
+    var t = setInterval(function () {
+      tries++;
+      if (typeof SPClientPeoplePicker !== "undefined" &&
+          SPClientPeoplePicker.SPClientPeoplePickerDict &&
+          Object.keys(SPClientPeoplePicker.SPClientPeoplePickerDict).length > 0) {
+        clearInterval(t);
+        cb();
+      }
+      if (tries > 120) { clearInterval(t); log("[VP] PeoplePicker timeout."); }
+    }, 250);
+  }
+
+  function findPicker(internal) {
+    var dict = SPClientPeoplePicker.SPClientPeoplePickerDict || {};
+    var keys = Object.keys(dict);
+    var inLow = internal.toLowerCase();
+
+    for (var i = 0; i < keys.length; i++) {
+      var kLow = keys[i].toLowerCase();
+      if (kLow.indexOf(inLow + "_") === 0 && kLow.indexOf("$clientpeoplepicker") !== -1) return dict[keys[i]];
+    }
+    for (var j = 0; j < keys.length; j++) {
+      var kkLow = keys[j].toLowerCase();
+      if (kkLow.indexOf(inLow) !== -1 && kkLow.indexOf("$clientpeoplepicker") !== -1) return dict[keys[j]];
+    }
+    return null;
+  }
+
+  function setPeople(internal, login) {
+    var picker = findPicker(internal);
+    if (!picker) { log("[VP] PeoplePicker nenalezen:", internal); return; }
+    try { picker.DeleteProcessedUser(); } catch (e) { }
+    try { picker.AddUserKeys(login); } catch (e2) { }
+    try { if (picker.ResolveAllUsers) picker.ResolveAllUsers(); } catch (e3) { }
+  }
+
+  // ============================================================
+  // LIST ID
+  // ============================================================
+  function getListId(cb) {
+    var api = WEB_URL + "/_api/web/GetList('" + encodeURIComponent(LIST_URL) + "')?$select=Id";
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", api, true);
+    xhr.setRequestHeader("Accept", "application/json;odata=verbose");
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        var d = JSON.parse(xhr.responseText);
+        cb(d.d.Id);
+      } else {
+        log("[VP] ListId error:", xhr.status, xhr.statusText);
+      }
+    };
+    xhr.send();
+  }
+
+  // ============================================================
+  // AdvancedTable context + sync
+  // ============================================================
+  function findAtContextByInternalName(internalName) {
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT, null, false);
+    var needle = 'FieldInternalName="' + internalName + '"';
+    var node;
+
+    while ((node = walker.nextNode())) {
+      if ((node.nodeValue || "").indexOf(needle) !== -1) {
+        var host = node.parentElement || null;
+        if (!host) return null;
+
+        var td = host.closest ? host.closest("td") : null;
+        if (!td) td = host;
+
+        var hidden = td.querySelector("input[type='hidden'][id^='tisa_controlvalue_']");
+        var panel = td.querySelector("span.tisa-AdvancedTable[id^='tisa_renderpanel_']");
+
+        var textarea =
+          td.querySelector("textarea[id$='TextField']") ||
+          td.querySelector("textarea[id*='" + internalName + "'][id$='TextField']") ||
+          td.querySelector("textarea[title='" + internalName + "']");
+
+        if (hidden && panel) return { hidden: hidden, panel: panel, td: td, textarea: textarea };
+      }
+    }
+    return null;
+  }
+
+  function ensureAtRows(panel, desiredCount, cb) {
+    cb = cb || function () { };
+
+    function getRows() { return Array.prototype.slice.call(panel.querySelectorAll("tr.dataRow")); }
+    function clickAdd() {
+      var add = panel.querySelector("span.add");
+      if (add) { add.click(); return true; }
+      var anyAdd = panel.querySelector("td.cIcon .add");
+      if (anyAdd) { anyAdd.click(); return true; }
+      return false;
+    }
+
+    var guard = 0;
+    (function loop() {
+      var rows = getRows();
+      if (rows.length >= desiredCount) return cb(rows);
+      if (guard++ > 80) return cb(rows);
+
+      var before = rows.length;
+      if (!clickAdd()) return cb(rows);
+
+      setTimeout(function () {
+        var after = getRows().length;
+        if (after <= before) return setTimeout(loop, 140);
+        loop();
+      }, 140);
+    })();
+  }
+
+  function setInputValue(input, value) {
+    if (!input) return;
+    input.value = value;
+    fireInputEvents(input);
+  }
+
+  // DŮLEŽITÉ: ukládání do hidden + TextField jako v inspiraci (Cells)
+  function syncPanelToStorage(panel, ctx) {
+    try {
+      var rows = panel.querySelectorAll("tr.dataRow");
+      var out = [];
+
+      for (var i = 0; i < rows.length; i++) {
+        var tr = rows[i];
+        var inputs = tr.querySelectorAll("input.textInput");
+        if (!inputs || inputs.length < 2) continue;
+
+        var c0 = (inputs[0].value || "").trim();
+        var c1 = (inputs[1].value || "").trim();
+        var c2 = (inputs[2] ? (inputs[2].value || "").trim() : "");
+        var c3 = (inputs[3] ? (inputs[3].value || "").trim() : "");
+
+        if (!c0 && !c1) continue;
+        out.push({ Cells: [c0, c1, c2, c3] });
+      }
+
+      var json = JSON.stringify(out);
+
+      if (ctx.hidden) { ctx.hidden.value = json; fireEvent(ctx.hidden, "change"); }
+      if (ctx.textarea) { ctx.textarea.value = json; fireInputEvents(ctx.textarea); }
+    } catch (e) {
+      log("[VP] syncPanelToStorage error", e);
+    }
+  }
+
+  function syncAllBeforeSave() {
+    var names = [AT_OSOB_CHAR, AT_PROD_SKILLS, AT_LEADERSHIP, AT_KNOWLEDGE, AT_OSOBNI];
+    for (var i = 0; i < names.length; i++) {
+      var ctx = findAtContextByInternalName(names[i]);
+      if (ctx && ctx.panel) syncPanelToStorage(ctx.panel, ctx);
+    }
+    updateOverallAverageField();
+  }
+
+  // ============================================================
+  // Barvy Hodnocení + live sync
+  // ============================================================
+  function setHodnoceniCellState(td, isFilled) {
+    if (!td) return;
+    td.classList.remove("vp-hodn-blue");
+    td.classList.remove("vp-hodn-green");
+    td.classList.add(isFilled ? "vp-hodn-green" : "vp-hodn-blue");
+  }
+
+  function refreshHodnoceniColors(panel) {
+    // Jen buňky Hodnocení (nehýbe s hlavičkou)
+    var tds = panel.querySelectorAll("td.cColumnhodnoceni");
+    for (var i = 0; i < tds.length; i++) {
+      var td = tds[i];
+      var inp = td.querySelector("input.textInput");
+      var v = inp ? (inp.value || "").trim() : "";
+      setHodnoceniCellState(td, v.length > 0);
+      if (inp) inp.classList.remove("vp-hodn-missing");
+    }
+  }
+
+  function bindHodnoceniLive(panel, ctx) {
+    if (!panel) return;
+
+    refreshHodnoceniColors(panel);
+
+    if (panel.__vpBound) return;
+    panel.__vpBound = true;
+
+    function onEdit(e) {
+      var t = e.target;
+      if (!t || !t.classList || !t.classList.contains("textInput")) return;
+
+      var tdH = t.closest ? t.closest("td.cColumnhodnoceni") : null;
+      if (tdH) setHodnoceniCellState(tdH, (t.value || "").trim().length > 0);
+
+      t.classList.remove("vp-hodn-missing");
+      syncPanelToStorage(panel, ctx);
+    }
+
+    panel.addEventListener("keyup", onEdit, true);
+    panel.addEventListener("input", onEdit, true);
+    panel.addEventListener("change", onEdit, true);
+    panel.addEventListener("blur", onEdit, true);
+  }
+
+  // ============================================================
+  // VALIDACE (robustní – když nenajde cColumnhodnoceni, nespadne)
+  // ============================================================
+  function isValidRating(v) {
+    // Normalizuj lokalizovaný formát (čárka → tečka, odstraň whitespace)
+    v = String(v == null ? "" : v).trim().replace(/\s/g, "").replace(/,/g, ".");
+    var num = parseFloat(v);
+    // Validuj: číslo mezi 1 a 5 (včetně formátu 1,00)
+    return !isNaN(num) && num >= 1 && num <= 5 && num === Math.floor(num);
+  }
+
+  function validateAllBeforeSave() {
+    try {
+      var names = [AT_OSOB_CHAR, AT_PROD_SKILLS, AT_LEADERSHIP, AT_KNOWLEDGE];
+      var missing = [];
+
+      for (var n = 0; n < names.length; n++) {
+        var ctx = findAtContextByInternalName(names[n]);
+        if (!ctx || !ctx.panel) continue;
+
+        refreshHodnoceniColors(ctx.panel);
+
+        var rows = ctx.panel.querySelectorAll("tr.dataRow");
+        console.log("[VP] Tab:", names[n], "- počet řádků:", rows.length);
+        
+        for (var i = 0; i < rows.length; i++) {
+          var tr = rows[i];
+          var allInputs = tr.querySelectorAll("input.textInput");
+
+          var inpOblast = tr.querySelector("td.cColumnoblast input.textInput") || (allInputs[0] || null);
+          var inpPopis  = tr.querySelector("td.cColumnpopis input.textInput")  || (allInputs[1] || null);
+          var inpHodn   = tr.querySelector("td.cColumnhodnoceni input.textInput") || tr.querySelector("input[id*='Hodnoceni'], input[title*='Hodnoceni']") || (allInputs[2] || null);
+
+          console.log("[VP] Řádek " + (i + 1) + " - inputů:", allInputs.length, "oblast:", inpOblast ? "✓" : "✗", "popis:", inpPopis ? "✓" : "✗", "hodnocení:", inpHodn ? "✓" : "✗");
+
+          if (!inpOblast && !inpPopis && !inpHodn) continue;
+
+          var oblast = inpOblast ? (inpOblast.value || "").trim() : "";
+          var popis  = inpPopis  ? (inpPopis.value  || "").trim() : "";
+          var hv = inpHodn ? (inpHodn.value || "").trim() : "";
+
+          console.log("[VP]   Obsah - oblast: '" + oblast + "', popis: '" + popis.substring(0, 30) + "...', hodnocení: '" + hv + "'");
+
+          // validuj jen řádky, které mají obsah (u vás jsou předvyplněné)
+          if (!oblast && !popis) continue;
+
+          if (!isValidRating(hv)) {
+            console.log("[VP]   ❌ CHYBA: Hodnocení '" + hv + "' není 1-5");
+            if (inpHodn) inpHodn.classList.add("vp-hodn-missing");
+            missing.push({ tab: names[n], row: i + 1, oblast: oblast || "(bez názvu)" });
+          } else {
+            console.log("[VP]   ✓ OK: Hodnocení '" + hv + "' je validní");
+          }
+        }
+      }
+
+      if (!missing.length) return true;
+
+      // scroll na první chybné pole
+      try {
+        for (var nn = 0; nn < names.length; nn++) {
+          var c2 = findAtContextByInternalName(names[nn]);
+          if (!c2 || !c2.panel) continue;
+          var first = c2.panel.querySelector("input.textInput.vp-hodn-missing");
+          if (first) { first.scrollIntoView({ behavior: "auto", block: "center" }); first.focus(); break; }
+        }
+      } catch (e) {}
+
+      var lines = [];
+      lines.push("Nelze pokračovat – doplňte Hodnocení (1–5).");
+      lines.push("");
+      var max = 25;
+      for (var k = 0; k < missing.length && k < max; k++) {
+        lines.push("- řádek " + missing[k].row + " | " + missing[k].oblast);
+      }
+      if (missing.length > max) lines.push("… a další (" + (missing.length - max) + ")");
+
+      showSimpleModal(lines.join("\n"), [{ text: "Rozumím", onClick: function () { } }]);
+      return false;
+    } catch (e) {
+      console.error("[VP] validateAllBeforeSave failed:", e);
+      alert("Chyba při validaci: " + (e.message || e));
+      throw e;
+    }
+  }
+
+  // ============================================================
+  // Fill AdvancedTable
+  // ============================================================
+  function fillAdvancedTable(internalName, data, done) {
+    var tries = 0;
+    var finished = false;
+
+    var t = setInterval(function () {
+      tries++;
+
+      var ctx = findAtContextByInternalName(internalName);
+      if (!ctx) {
+        if (tries > 160) {
+          clearInterval(t);
+          if (!finished && typeof done === "function") { finished = true; done(false); }
+        }
+        return;
+      }
+
+      clearInterval(t);
+      ensureStyle();
+
+      ensureAtRows(ctx.panel, data.length, function (rows) {
+        if (!rows || rows.length < data.length) {
+          if (!finished && typeof done === "function") { finished = true; done(false); }
+          return;
+        }
+
+        for (var i = 0; i < data.length; i++) {
+          var tr = rows[i];
+          var inputs = tr.querySelectorAll("input.textInput");
+          var inpOblast = inputs[0] || null;
+          var inpPopis  = inputs[1] || null;
+          var inpHodnoc = inputs[2] || null;
+          var inpReseni = inputs[3] || null;
+
+          if (inpOblast && !(inpOblast.value || "").trim()) setInputValue(inpOblast, data[i].oblast);
+          if (inpPopis  && !(inpPopis.value  || "").trim()) setInputValue(inpPopis,  data[i].popis);
+
+          if (inpHodnoc && (inpHodnoc.value || "").trim()) setInputValue(inpHodnoc, "");
+          if (inpReseni && (inpReseni.value || "").trim()) setInputValue(inpReseni, "");
+        }
+
+        syncPanelToStorage(ctx.panel, ctx);
+        setTimeout(function () { syncPanelToStorage(ctx.panel, ctx); }, 80);
+
+        bindHodnoceniLive(ctx.panel, ctx);
+
+        if (!finished && typeof done === "function") { finished = true; done(true); }
+      });
+
+    }, 250);
+  }
+
+  function fillAllTables() {
+    setTimeout(function () {
+      fillAdvancedTable(AT_OSOB_CHAR,   OSOB_CHAR_DATA);
+      fillAdvancedTable(AT_PROD_SKILLS, PROD_SKILLS_DATA);
+      fillAdvancedTable(AT_LEADERSHIP,  LEADERSHIP_DATA);
+      fillAdvancedTable(AT_KNOWLEDGE,   KNOWLEDGE_DATA);
+    }, 250);
+  }
+
+  // ============================================================
+  // PREVIEW HTML (pro náhled + tisk + pdf)
+  // ============================================================
+  function escapeHtml(x) {
+    return String(x || "").replace(/[&<>"]/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c];
+    });
+  }
+
+  // fetch data rows and headers from an AdvancedTable context
+  function getAtData(internalName) {
+    var ctx = findAtContextByInternalName(internalName);
+    if (!ctx || !ctx.panel) return { rows: [], headers: [] };
+
+    var rowsEls = ctx.panel.querySelectorAll("tr.dataRow");
+    var rows = [];
+    for (var i = 0; i < rowsEls.length; i++) {
+      var inputs = rowsEls[i].querySelectorAll("input.textInput");
+      if (!inputs || inputs.length < 1) continue;
+      var vals = [];
+      for (var j = 0; j < inputs.length; j++) {
+        vals.push((inputs[j].value || "").trim());
+      }
+      // ignore completely empty rows
+      if (vals.every(function(v){return !v;})) continue;
+      rows.push(vals);
+    }
+
+    // gather header texts (excluding icon columns)
+    var hdrEls = ctx.panel.querySelectorAll("tr.header th:not(.cIcon)");
+    var headers = [];
+    for (var k = 0; k < hdrEls.length; k++) {
+      headers.push(hdrEls[k].textContent.trim());
+    }
+
+    return { rows: rows, headers: headers };
+  }
+
+  function parseRatingNumber(v) {
+    var s = String(v == null ? "" : v).trim().replace(/\s/g, "").replace(/,/g, ".");
+    if (!s) return NaN;
+    var n = parseFloat(s);
+    return isNaN(n) ? NaN : n;
+  }
+
+  function getAtAverage(internalName) {
+    var d = getAtData(internalName);
+    if (!d || !d.rows || !d.rows.length) return null;
+
+    var ratingIdx = 2;
+    if (d.headers && d.headers.length) {
+      for (var h = 0; h < d.headers.length; h++) {
+        if ((d.headers[h] || "").toLowerCase().indexOf("hodnoc") !== -1) {
+          ratingIdx = h;
+          break;
+        }
+      }
+    }
+
+    var sum = 0;
+    var cnt = 0;
+    for (var i = 0; i < d.rows.length; i++) {
+      var row = d.rows[i] || [];
+      var n = parseRatingNumber(row[ratingIdx]);
+      if (!isNaN(n)) {
+        sum += n;
+        cnt++;
+      }
+    }
+
+    return cnt ? (sum / cnt) : null;
+  }
+
+  function updateOverallAverageField() {
+    var tables = [AT_OSOB_CHAR, AT_PROD_SKILLS, AT_LEADERSHIP, AT_KNOWLEDGE];
+    var sum = 0;
+    var cnt = 0;
+
+    for (var i = 0; i < tables.length; i++) {
+      var avg = getAtAverage(tables[i]);
+      if (avg !== null && !isNaN(avg)) {
+        sum += avg;
+        cnt++;
+      }
+    }
+
+    if (!cnt) {
+      setTextField(FORM_VYSLEDNA_ZNAMKA, "");
+      return "";
+    }
+
+    var overall = sum / cnt;
+    var text = (Math.round(overall * 100) / 100).toFixed(2).replace('.', ',');
+    setTextField(FORM_VYSLEDNA_ZNAMKA, text);
+    return text;
+  }
+
+  function buildAtTableHtml(title, rows, headers, globalCols) {
+    var html = "";
+    html += "<div style='page-break-inside:avoid;break-inside:avoid;margin-bottom:14px;'>";
+    html += "<div class='sec'>" + escapeHtml(title) + "</div>";
+    html += "<div style='overflow:auto;border:1px solid #edebe9;border-radius:6px;page-break-inside:avoid;break-inside:avoid;'>";
+    html += "<table>";
+    var colCount = 0;
+    if (headers && headers.length) {
+      colCount = headers.length;
+    } else if (rows && rows[0]) {
+      colCount = rows[0].length;
+    }
+    if (globalCols && globalCols > colCount) colCount = globalCols;
+    if (colCount > 0) {
+      var pct = (100 / colCount).toFixed(4) + "%";
+      html += "<colgroup>";
+      for (var ci = 0; ci < colCount; ci++) {
+        html += "<col style='width:" + pct + ";'>";
+      }
+      html += "</colgroup>";
+    }
+    html += "<thead><tr>";
+    if (headers && headers.length) {
+      headers.forEach(function(h){
+        html += "<th>" + escapeHtml(h) + "</th>";
+      });
+    } else {
+      html += "<th style='width:22%'>Oblast</th>";
+      html += "<th style='width:58%'>Popis</th>";
+      html += "<th style='width:8%'>Hodnocení</th>";
+      html += "<th style='width:12%'>Jak bude řešeno?</th>";
+    }
+    html += "</tr></thead><tbody>";
+
+    for (var i = 0; i < rows.length; i++) {
+      html += "<tr>";
+      for (var j = 0; j < rows[i].length; j++) {
+        var style = "";
+        if (!headers || headers.length < 4) {
+          if (j === 1) style = " style='white-space:pre-wrap;'";
+          if (j === 2) style = " style='text-align:center;font-weight:700;'";
+        }
+        html += "<td" + style + ">" + escapeHtml(rows[i][j]) + "</td>";
+      }
+      html += "</tr>";
+    }
+
+    html += "</tbody></table>";
+    html += "</div>";
+    html += "</div>";
+    return html;
+  }
+
+  // helper that falls back to people-picker content if text field empty
+  function getFieldValue(internal) {
+    var v = getTextFieldValue(internal);
+    if (v) return v;
+    // try people picker
+    var p = findPicker(internal);
+    if (p && typeof p.GetAllUserInfo === 'function') {
+      try {
+        var arr = p.GetAllUserInfo();
+        if (arr && arr.length) {
+          return arr.map(function(u){ return u.DisplayText; }).join('; ');
+        }
+      } catch (e) { }
+    }
+    return "";
+  }
+
+  // collect values of specific fields only
+  function buildOtherFieldsHtml() {
+    var html = "";
+    html += "<div style='page-break-inside:avoid;break-inside:avoid;margin-bottom:14px;'>";
+    html += "<div class='sec'>Ostatní údaje</div>";
+    html += "<div style='overflow:auto;border:1px solid #edebe9;border-radius:6px;page-break-inside:avoid;break-inside:avoid;'>";
+    html += "<table>";
+    html += "<colgroup><col style='width:40%;'><col style='width:60%;'></colgroup>";
+    html += "<tbody>";
+    
+    var fields = [
+      { internal: FORM_KOMENTAR_HODNOTITELE, label: "Komentář hodnotitele" },
+      { internal: FORM_KOMENTAR_HODNOCENEHO, label: "Komentář hodnoceného" },
+      { internal: FORM_UKOLY, label: "Úkoly" }
+    ];
+    
+    for (var i = 0; i < fields.length; i++) {
+      var value = getTextFieldValue(fields[i].internal);
+      html += "<tr><td style='font-weight:600;word-break:break-word;border:1px solid #edebe9;padding:7px;'>" + escapeHtml(fields[i].label) + "</td>";
+      html += "<td style='word-break:break-word;white-space:pre-wrap;border:1px solid #edebe9;padding:7px;'>" + escapeHtml(value) + "</td></tr>";
+    }
+    
+    html += "</tbody></table>";
+    html += "</div>";
+    html += "</div>";
+    return html;
+  }
+
+  // return list of all AdvancedTable contexts present on page
+  function getAllAtContexts() {
+    var list = [];
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_COMMENT, null, false);
+    var node;
+    while ((node = walker.nextNode())) {
+      var match = /FieldInternalName="([^"]+)"/.exec(node.nodeValue || "");
+      if (match) {
+        var internal = match[1];
+        if (list.some(function(x){return x.internal===internal;})) continue;
+        var ctx = findAtContextByInternalName(internal);
+        if (ctx && ctx.panel) list.push({ internal: internal, panel: ctx.panel });
+      }
+    }
+    return list;
+  }
+
+  function getAtTitle(panel, internal) {
+    // prefer explicit map entry
+    if (internal && AT_TITLES_MAP[internal]) return AT_TITLES_MAP[internal];
+
+    // try header cells
+    var c0 = panel.querySelector("th.cHeadercolumn0");
+    var c1 = panel.querySelector("th.cHeadercolumn1");
+    var t0 = c0 ? c0.textContent.trim() : "";
+    var t1 = c1 ? c1.textContent.trim() : "";
+    if (t0 && t1) return t0 + (t1 ? " / " + t1 : "");
+    // fallback first non-icon header
+    var th = panel.querySelector("tr.header th:not(.cIcon)");
+    return th ? th.textContent.trim() : "";
+  }
+
+  function buildPreviewHtml() {
+    var vyslednaZnamka = updateOverallAverageField() || getTextFieldValue(FORM_VYSLEDNA_ZNAMKA);
+
+    var dt = new Date();
+    var misto = getFieldValue(FORM_MISTO);
+    var obdobi = getFieldValue(FORM_OBDOBI);
+
+    var html = "";
+    html += "<div class='vp-preview'>";
+    html += "<h1>Protokol hodnocení VP pracovníka</h1>";
+    html += "<div class='meta'>";
+    html += "<b>Datum:</b> " + escapeHtml(dt.toLocaleString("cs-CZ")) + "<br/>";
+    html += "<b>Prodejna:</b> " + escapeHtml(misto) + "<br/>";
+    // added header fields for evaluation
+    var hodnoceny = getFieldValue(FORM_HODNOCENY);
+    var hodnotitel = getFieldValue(FORM_HODNOTITEL);
+    html += "<b>Hodnocený:</b> " + escapeHtml(hodnoceny) + "<br/>";
+    html += "<b>Hodnotitel:</b> " + escapeHtml(hodnotitel) + "<br/>";
+    html += "<b>Období:</b> " + escapeHtml(obdobi) + "<br/>";
+    html += "<b>Výsledná známka:</b> " + escapeHtml(vyslednaZnamka) + "<br/>";
+    html += "</div>";
+
+    // advanced tables - keep known order and then append any extra
+    var known = [AT_OSOB_CHAR, AT_PROD_SKILLS, AT_LEADERSHIP, AT_KNOWLEDGE];
+    var all = getAllAtContexts();
+    var sorted = [];
+    known.forEach(function(k){
+      var c = all.find(function(x){return x.internal===k;});
+      if (c) sorted.push(c);
+    });
+    all.forEach(function(c){ if (sorted.indexOf(c) === -1) sorted.push(c); });
+
+    // determine maximum number of columns across all tables
+    var globalMaxCols = 0;
+    sorted.forEach(function(c){
+      var d = getAtData(c.internal);
+      var count = (d.headers && d.headers.length) || (d.rows && d.rows[0] ? d.rows[0].length : 0);
+      if (count > globalMaxCols) globalMaxCols = count;
+    });
+    sorted.forEach(function(c){
+      var title = getAtTitle(c.panel, c.internal) || c.internal;
+      var data = getAtData(c.internal);
+      html += "<div class='vp-table-block'>" + buildAtTableHtml(title, data.rows, data.headers, globalMaxCols) + "</div>";
+    });
+
+    // include rest of form – wrap in vp-table-block so it gets rendered in PDF
+    html += "<div class='vp-table-block'>" + buildOtherFieldsHtml() + "</div>";
+
+    html += "<div class='meta' style='margin-top:14px'>Tisk/PDF vychází z aktuálního stavu formuláře.</div>";
+    html += "</div>";
+    return html;
+  }
+
+  // ============================================================
+  // PREVIEW MODAL – STEJNÝ PRINCIP JAKO V INSPIRACI
+  // (Zrušit / Tisknout / Vygenerovat PDF)
+  // ============================================================
+  function hpOpenPreviewModal(html, onGenPdf, onPrint) {
+    console.log("[VP] hpOpenPreviewModal called");
+    var backdrop = document.createElement("div");
+    backdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2147483647;display:flex;align-items:center;justify-content:center;";
+    var dlg = document.createElement("div");
+    dlg.style.cssText = "background:#fff;border-radius:8px;width:900px;max-width:95vw;max-height:90vh;overflow:hidden;font-family:Segoe UI,Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35);";
+
+    dlg.innerHTML =
+      "<div style='background:#a4262c;color:#fff;padding:12px 16px;font-weight:700;'>Protokol hodnocení VP pracovníka</div>" +
+      "<div style='padding:16px;max-height:70vh;overflow:auto;background:#fff;'>" + html + "</div>" +
+      "<div style='padding:12px 16px;display:flex;gap:10px;justify-content:flex-end;background:#faf9f8;border-top:1px solid #edebe9;'>" +
+      "  <button id='hpClose' type='button' style='padding:8px 14px;border-radius:4px;border:1px solid #8a8886;background:#fff;cursor:pointer;'>Zrušit</button>" +
+      "  <button id='hpPrint' type='button' style='padding:8px 14px;border-radius:4px;border:1px solid #8a8886;background:#fff;cursor:pointer;'>Tisknout</button>" +
+      "  <button id='hpPdf' type='button' style='padding:8px 14px;border-radius:4px;border:1px solid #107c10;background:#107c10;color:#fff;font-weight:600;cursor:pointer;'>Vygenerovat PDF</button>" +
+      "</div>";
+
+    backdrop.appendChild(dlg);
+    document.body.appendChild(backdrop);
+
+    var closeModal = function () { try { backdrop.remove(); } catch (e) {} };
+    dlg.querySelector("#hpClose").onclick = closeModal;
+    dlg.querySelector("#hpPrint").onclick = function () { if (onPrint) onPrint(); };
+    dlg.querySelector("#hpPdf").onclick = function () { if (onGenPdf) onGenPdf(dlg.querySelector("#hpPdf"), closeModal); };
+  }
+
+  // ============================================================
+  // CLICK SAVE – STEJNÉ JAKO V INSPIRACI (spolehlivější než “najít první submit”)
+  // ============================================================
+  function clickSharePointSave() {
+    var inputs = document.querySelectorAll("input[type='submit'],input[type='button'],button");
+    for (var i = 0; i < inputs.length; i++) {
+      var el = inputs[i];
+      var txt = (el.value || el.innerText || el.textContent || "").trim().toLowerCase();
+      var title = (el.title || "").trim().toLowerCase();
+
+      // CZ i EN varianty
+      if (txt === "uložit" || txt === "save" || title === "uložit" || title === "save") {
+        try { el.click(); return true; } catch (e) {}
+      }
+    }
+    return false;
+  }
+
+  // ============================================================
+  // PDF libs + render + upload (stejné jako inspirace)
+  // ============================================================
+  function hpLoadScript(src, cb) {
+    var s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.onload = function () { cb && cb(null); };
+    s.onerror = function () { cb && cb(new Error("Script load fail: " + src)); };
+    document.head.appendChild(s);
+  }
+
+  function hpEnsurePdfLibs(cb) {
+    var need = [];
+    if (!(window.jspdf || window.jsPDF)) need.push("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    if (!(window.html2canvas)) need.push("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+    if (!need.length) return cb && cb(null);
+    var i = 0;
+    function next(err) {
+      if (err) return cb && cb(err);
+      if (i >= need.length) return cb && cb(null);
+      hpLoadScript(need[i++], next);
+    }
+    next();
+  }
+
+  function hpPad(n) { return (n < 10 ? "0" : "") + n; }
+
+  function hpRenderHtmlToPdfBlob(html, cb) {
+    console.log("[VP] hpRenderHtmlToPdfBlob start");
+    hpEnsurePdfLibs(function (err) {
+      if (err) {
+        console.error("[VP] hpEnsurePdfLibs failed", err);
+        return cb && cb(err);
+      }
+
+      // parse html and separate header/meta from table blocks
+      var parser = new DOMParser();
+      var doc2 = parser.parseFromString(html, 'text/html');
+      var preview = doc2.body.querySelector('.vp-preview');
+      var headerHtml = '';
+      if (preview) {
+        var h1 = preview.querySelector('h1');
+        var meta = preview.querySelector('.meta');
+        if (h1) headerHtml += h1.outerHTML;
+        if (meta) headerHtml += meta.outerHTML;
+      }
+      var blocks = preview ? preview.querySelectorAll('.vp-table-block') : [];
+      if (!blocks || !blocks.length) {
+        // fallback to entire html
+        blocks = [preview || doc2.body];
+      }
+
+      var jspdf = window.jspdf || window.jsPDF;
+      var doc = new jspdf.jsPDF("l", "pt", "a4"); // landscape A4
+      var pageWidthPt = doc.internal.pageSize.getWidth();
+      var pageHeightPt = doc.internal.pageSize.getHeight();
+      
+      // PDF page margins (top and bottom)
+      var marginTop = 20;
+      var marginBottom = 20;
+      var contentHeightPt = pageHeightPt - marginTop - marginBottom;
+
+      // Render entire document at once instead of block by block
+      var host = document.createElement("div");
+      host.style.position = "fixed";
+      host.style.left = "-10000px";
+      host.style.top = "0";
+      host.style.width = "297mm";
+      host.style.padding = "12mm";
+      host.style.background = "#fff";
+      host.innerHTML = html;
+      document.body.appendChild(host);
+
+      window.html2canvas(host, { scale: 2, backgroundColor: "#ffffff", logging: false })
+        .then(function (canvas) {
+          var scalePtPerPx = pageWidthPt / canvas.width;
+          var pageHeightPx = Math.floor(contentHeightPt / scalePtPerPx);
+
+          var y = 0;
+          var isFirstPage = true;
+
+          // table blocks – detect entire tables to keep them together
+          var tableBlocksPx = [];
+          var rowStartsPx = [];
+          var rowRangesPx = [];
+          try {
+            var hostRect = host.getBoundingClientRect();
+            var scaleFactor = canvas.height / host.offsetHeight;
+
+            // First: detect table block boundaries (each vp-table-block = complete table)
+            var blocks = host.querySelectorAll(".vp-table-block");
+            for (var bi = 0; bi < blocks.length; bi++) {
+              var block = blocks[bi];
+              var blockRect = block.getBoundingClientRect();
+              var topPx = Math.floor((blockRect.top - hostRect.top) * scaleFactor);
+              var bottomPx = Math.floor((blockRect.bottom - hostRect.top) * scaleFactor);
+              if (bottomPx > 0 && topPx < canvas.height && bottomPx > topPx) {
+                tableBlocksPx.push({ top: topPx, bottom: bottomPx, height: bottomPx - topPx });
+              }
+            }
+            console.log("[VP] Found " + tableBlocksPx.length + " table blocks");
+
+            // Second: detect row boundaries (for splitting oversized tables)
+            var trs = host.querySelectorAll("tr");
+            for (var ri = 0; ri < trs.length; ri++) {
+              var tr = trs[ri];
+              var trRect = tr.getBoundingClientRect();
+              var topPx = Math.floor((trRect.top - hostRect.top) * scaleFactor);
+              var bottomPx = Math.floor((trRect.bottom - hostRect.top) * scaleFactor);
+              if (bottomPx > 0 && topPx < canvas.height && bottomPx > topPx) {
+                rowStartsPx.push(topPx);
+                rowRangesPx.push({ top: topPx, bottom: bottomPx });
+              }
+            }
+            rowStartsPx = rowStartsPx.filter(function (v, idx, arr) {
+              return v > 0 && arr.indexOf(v) === idx;
+            }).sort(function(a, b){ return a - b; });
+            rowRangesPx.sort(function(a, b){ return a.top - b.top; });
+            console.log("[VP] Found " + rowRangesPx.length + " row ranges and " + rowStartsPx.length + " row starts");
+          } catch (e) { console.warn("[VP] breakpoints calc failed", e); }
+
+          while (y < canvas.height) {
+            var maxY = y + pageHeightPx;
+            var sliceEnd = Math.min(maxY, canvas.height);
+
+            // Check if proposed break would cut through a table block
+            if (tableBlocksPx.length && sliceEnd < canvas.height) {
+              for (var tb = 0; tb < tableBlocksPx.length; tb++) {
+                var block = tableBlocksPx[tb];
+                
+                // If break would cut this block AND block fits on one page
+                if (block.top < sliceEnd && block.bottom > sliceEnd && block.height < pageHeightPx * 0.85) {
+                  // Check if we have room to move break before block starts
+                  if (block.top > y + 100) {
+                    // Break before block - it will start fresh on next page
+                    sliceEnd = block.top - 2;
+                    console.log("[VP] Block would be cut - breaking before it at px " + sliceEnd);
+                    break;
+                  }
+                }
+                
+                // If block is too big for one page, use row-aware breaking inside it
+                if (block.top < sliceEnd && block.bottom > sliceEnd && block.height >= pageHeightPx * 0.85) {
+                  console.log("[VP] Large block detected - using row-aware breaking");
+                  
+                  // Try to break at row start
+                  if (rowStartsPx.length) {
+                    var bestStart = -1;
+                    for (var rs = 0; rs < rowStartsPx.length; rs++) {
+                      var s = rowStartsPx[rs];
+                      if (s >= block.top && s <= block.bottom) {
+                        if (s > (y + 20) && s <= (maxY - 2)) bestStart = s;
+                        if (s > maxY) break;
+                      }
+                    }
+                    if (bestStart > 0) {
+                      sliceEnd = bestStart - 2;
+                      console.log("[VP] Breaking at row start px " + bestStart);
+                    }
+                  }
+                  
+                  // Ensure we don't cut mid-row
+                  if (rowRangesPx.length) {
+                    for (var rr = 0; rr < rowRangesPx.length; rr++) {
+                      var r = rowRangesPx[rr];
+                      if (r.top >= block.top && r.bottom <= block.bottom) {
+                        if (r.top < sliceEnd && r.bottom > sliceEnd) {
+                          var safeBreak = r.top - 2;
+                          if (safeBreak > y + 20) {
+                            sliceEnd = safeBreak;
+                          }
+                          break;
+                        }
+                      }
+                    }
+                  }
+                  break;
+                }
+              }
+            }
+            
+            var sliceHeight = Math.min(sliceEnd - y, canvas.height - y);
+            if (sliceHeight <= 0) break;
+
+            var pageCanvas = document.createElement("canvas");
+            pageCanvas.width = canvas.width;
+            pageCanvas.height = sliceHeight;
+
+            var ctx2 = pageCanvas.getContext("2d");
+            ctx2.drawImage(canvas, 0, y, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+
+            var imgData = pageCanvas.toDataURL("image/png");
+
+            if (!isFirstPage) {
+              doc.addPage();
+            }
+            isFirstPage = false;
+
+            var imgHeightPt = sliceHeight * scalePtPerPx;
+            doc.addImage(imgData, "PNG", 0, marginTop, pageWidthPt, imgHeightPt);
+
+            y += sliceHeight;
+          }
+
+          try { document.body.removeChild(host); } catch (x) { }
+          cb && cb(null, doc.output("blob"));
+        })["catch"](function (e) {
+          try { document.body.removeChild(host); } catch (x) { }
+          console.error("[VP] html2canvas error", e);
+          cb && cb(e);
+        });
+    });
+  }
+
+  // upload – aby to nespadlo kvůli fetch, dám fallback na XHR pokud fetch není
+  function hpUploadBlobToFolder(blob, fileName, folderServerRelUrl, cb) {
+    var metadata = null;
+    if (typeof cb !== "function" && typeof arguments[3] === "function") cb = arguments[3];
+    if (typeof arguments[3] === "object" && arguments[3] !== null) metadata = arguments[3];
+    if (typeof arguments[4] === "function") cb = arguments[4];
+
+    var digest = (document.getElementById("__REQUESTDIGEST") || {}).value;
+    if (!digest) return cb && cb(new Error("Chybí __REQUESTDIGEST."));
+
+    var webRel = (window._spPageContextInfo && _spPageContextInfo.webServerRelativeUrl) ? _spPageContextInfo.webServerRelativeUrl.replace(/\/$/, "") : "";
+    var url = webRel + "/_api/web/GetFolderByServerRelativeUrl('" +
+      encodeURIComponent(folderServerRelUrl).replace(/%2F/g, "/") +
+      "')/Files/add(url='" + encodeURIComponent(fileName) + "',overwrite=true)";
+
+    // modern (fetch)
+    if (typeof fetch === "function") {
+      fetch(url, {
+        method: "POST",
+        headers: { "Accept": "application/json;odata=verbose", "X-RequestDigest": digest },
+        body: blob
+      }).then(function (r) {
+        if (!r.ok) throw new Error("Upload selhal: " + r.status);
+        return r.json();
+      }).then(function () {
+        if (!metadata) {
+          cb && cb(null);
+          return;
+        }
+        hpUpdateUploadedFileMetadata(folderServerRelUrl, fileName, metadata, cb);
+      })["catch"](function (e) {
+        cb && cb(e);
+      });
+      return;
+    }
+
+    // fallback (XHR)
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", url, true);
+      xhr.setRequestHeader("Accept", "application/json;odata=verbose");
+      xhr.setRequestHeader("X-RequestDigest", digest);
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          if (!metadata) {
+            cb && cb(null);
+            return;
+          }
+          hpUpdateUploadedFileMetadata(folderServerRelUrl, fileName, metadata, cb);
+        }
+        else cb && cb(new Error("Upload selhal: " + xhr.status + " " + xhr.statusText));
+      };
+      xhr.send(blob);
+    } catch (ex) {
+      cb && cb(ex);
+    }
+  }
+
+  function hpUpdateUploadedFileMetadata(folderServerRelUrl, fileName, fields, cb) {
+    try {
+      var digest = (document.getElementById("__REQUESTDIGEST") || {}).value;
+      if (!digest) return cb && cb(new Error("Chybí __REQUESTDIGEST."));
+
+      var webRel = (window._spPageContextInfo && _spPageContextInfo.webServerRelativeUrl)
+        ? _spPageContextInfo.webServerRelativeUrl.replace(/\/$/, "") : "";
+
+      var folderClean = String(folderServerRelUrl || "").replace(/\/$/, "");
+      var fileRelUrl = folderClean + "/" + fileName;
+      var itemUrl = webRel + "/_api/web/GetFileByServerRelativeUrl('" +
+        encodeURIComponent(fileRelUrl).replace(/%2F/g, "/") +
+        "')/ListItemAllFields";
+
+      function buildBody(itemType) {
+        return JSON.stringify({
+          __metadata: { type: itemType },
+          nadrizeny_text: fields.nadrizeny_text || "",
+          hodnoceny_text: fields.hodnoceny_text || ""
+        });
+      }
+
+      if (typeof fetch === "function") {
+        fetch(itemUrl, {
+          method: "GET",
+          headers: { "Accept": "application/json;odata=verbose" }
+        }).then(function (r) {
+          if (!r.ok) throw new Error("Načtení ListItemAllFields selhalo: " + r.status);
+          return r.json();
+        }).then(function (d) {
+          var itemType = d && d.d && d.d.__metadata && d.d.__metadata.type;
+          if (!itemType) throw new Error("Nelze zjistit typ list itemu pro update metadat.");
+
+          return fetch(itemUrl, {
+            method: "POST",
+            headers: {
+              "Accept": "application/json;odata=verbose",
+              "Content-Type": "application/json;odata=verbose",
+              "X-RequestDigest": digest,
+              "IF-MATCH": "*",
+              "X-HTTP-Method": "MERGE"
+            },
+            body: buildBody(itemType)
+          });
+        }).then(function (r2) {
+          if (!r2.ok) throw new Error("Uložení metadat selhalo: " + r2.status);
+          cb && cb(null);
+        })["catch"](function (e) {
+          cb && cb(e);
+        });
+        return;
+      }
+
+      var xhrGet = new XMLHttpRequest();
+      xhrGet.open("GET", itemUrl, true);
+      xhrGet.setRequestHeader("Accept", "application/json;odata=verbose");
+      xhrGet.onreadystatechange = function () {
+        if (xhrGet.readyState !== 4) return;
+        if (!(xhrGet.status >= 200 && xhrGet.status < 300)) {
+          cb && cb(new Error("Načtení ListItemAllFields selhalo: " + xhrGet.status + " " + xhrGet.statusText));
+          return;
+        }
+
+        var itemType;
+        try {
+          var parsed = JSON.parse(xhrGet.responseText);
+          itemType = parsed && parsed.d && parsed.d.__metadata && parsed.d.__metadata.type;
+        } catch (e) {
+          cb && cb(e);
+          return;
+        }
+        if (!itemType) {
+          cb && cb(new Error("Nelze zjistit typ list itemu pro update metadat."));
+          return;
+        }
+
+        var xhrPost = new XMLHttpRequest();
+        xhrPost.open("POST", itemUrl, true);
+        xhrPost.setRequestHeader("Accept", "application/json;odata=verbose");
+        xhrPost.setRequestHeader("Content-Type", "application/json;odata=verbose");
+        xhrPost.setRequestHeader("X-RequestDigest", digest);
+        xhrPost.setRequestHeader("IF-MATCH", "*");
+        xhrPost.setRequestHeader("X-HTTP-Method", "MERGE");
+        xhrPost.onreadystatechange = function () {
+          if (xhrPost.readyState !== 4) return;
+          if (xhrPost.status >= 200 && xhrPost.status < 300) cb && cb(null);
+          else cb && cb(new Error("Uložení metadat selhalo: " + xhrPost.status + " " + xhrPost.statusText));
+        };
+        xhrPost.send(buildBody(itemType));
+      };
+      xhrGet.send();
+    } catch (ex) {
+      cb && cb(ex);
+    }
+  }
+
+  function sanitizeFileName(s) {
+    s = String(s || "").trim();
+    if (!s) return "bez_nazvu";
+    return s.replace(/[\\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_").substring(0, 80);
+  }
+
+  function makePdfFileName() {
+    var d = new Date();
+    return "Protokol_hodnoceni_VP_pracovnika_" +
+      d.getFullYear() + "-" + hpPad(d.getMonth() + 1) + "-" + hpPad(d.getDate()) + "_" +
+      hpPad(d.getHours()) + hpPad(d.getMinutes()) + hpPad(d.getSeconds()) + ".pdf";
+  }
+
+  function doPrintHtml(html) {
+    try {
+      var w = window.open("", "_blank");
+      if (!w) { alert("Pro tisk povol vyskakovací okna."); return; }
+      w.document.open();
+      w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>Tisk</title></head><body>" + html + "</body></html>");
+      w.document.close();
+      w.focus();
+      w.print();
+    } catch (e) {}
+  }
+
+  // ============================================================
+  // HOOK ULOŽIT: validace -> preview modal -> PDF/tisk/zrušit
+  // PDF: po úspěchu uploadu automaticky klikne SharePoint Uložit
+  // ============================================================
+  function hookSaveButtons() {
+    var inputs = document.querySelectorAll("input[type='submit'],input[type='button'],button");
+    for (var i = 0; i < inputs.length; i++) {
+      (function (btn) {
+        var txt = (btn.value || btn.innerText || btn.textContent || "").trim().toLowerCase();
+        var title = (btn.title || "").trim().toLowerCase();
+        var isSave = (txt === "uložit" || txt === "save" || title === "uložit" || title === "save");
+        if (!isSave) return;
+
+        if (btn.__vpHooked) return;
+        btn.__vpHooked = true;
+
+        btn.addEventListener("click", function (ev) {
+          try {
+            // if we're in PDF save flow, let form save normally without preventing
+            if (inPdfSaveFlow) return;
+            
+            // stop standardní save – chceme nejdřív validaci + preview
+            ev.preventDefault();
+            ev.stopPropagation();
+          } catch (e) {}
+
+          try {
+            syncAllBeforeSave();
+          } catch (eSync) {
+            alert("Chyba při synchronizaci tabulek: " + (eSync && eSync.message ? eSync.message : eSync));
+            return;
+          }
+
+          try {
+            if (!validateAllBeforeSave()) return;
+          } catch (eVal) {
+            alert("Chyba při validaci tabulek: " + (eVal && eVal.message ? eVal.message : eVal));
+            return;
+          }
+
+          var html;
+          try {
+            html = buildPreviewHtml();
+          } catch (eHtml) {
+            alert("Chyba při sestavování náhledu: " + (eHtml && eHtml.message ? eHtml.message : eHtml));
+            return;
+          }
+
+          hpOpenPreviewModal(
+            html,
+            function (pdfBtn, closeModal) {
+              try { pdfBtn.disabled = true; pdfBtn.textContent = "Generuji…"; } catch (e1) {}
+
+              hpRenderHtmlToPdfBlob(html, function (err, blob) {
+                if (err || !blob) {
+                  alert("PDF se nepodařilo vytvořit: " + (err && err.message ? err.message : err));
+                  try { pdfBtn.disabled = false; pdfBtn.textContent = "Vygenerovat PDF"; } catch (e2) {}
+                  return;
+                }
+
+                var fname = makePdfFileName();
+                hpUploadBlobToFolder(blob, fname, HP_PDF_TARGET_FOLDER, {
+                  nadrizeny_text: getFieldValue(FORM_HODNOTITEL),
+                  hodnoceny_text: getFieldValue(FORM_HODNOCENY)
+                }, function (upErr) {
+                  try { pdfBtn.disabled = false; pdfBtn.textContent = "Vygenerovat PDF"; } catch (e3) {}
+                  
+                  if (upErr) {
+                    alert("PDF se nepodařilo nahrát: " + (upErr && upErr.message ? upErr.message : upErr));
+                    return;
+                  }
+
+                  // zavřít modal hned po úspěšném uploadu
+                  try { if (closeModal) closeModal(); } catch (e4) {}
+                  
+                  // pak uložit formulář (set flag aby se znovu neotvíral modal)
+                  inPdfSaveFlow = true;
+                  setTimeout(function () {
+                    var ok = clickSharePointSave();
+                    setTimeout(function () { inPdfSaveFlow = false; }, 500);
+                    if (!ok) {
+                      console.warn("[VP] Nepodařilo se najít tlačítko Uložit. Uživatel musí uložit ručně.");
+                      inPdfSaveFlow = false;
+                    }
+                  }, 200);
+                });
+              });
+            },
+            function () {
+              doPrintHtml(html);
+            }
+          );
+        }, true);
+      })(inputs[i]);
+    }
+  }
+
+  // ============================================================
+  // RM / prodejny flow
+  // ============================================================
+  function getCurrentUser(cb) {
+    console.log("[VP] getCurrentUser start");
+    SP.SOD.executeFunc("sp.js", "SP.ClientContext", function () {
+      try {
+        console.log("[VP] SP.ClientContext loaded");
+        var ctx = new SP.ClientContext(WEB_URL);
+        var user = ctx.get_web().get_currentUser();
+        ctx.load(user);
+        ctx.executeQueryAsync(function () { 
+          console.log("[VP] getCurrentUser success:", user.get_loginName());
+          cb(user); 
+        }, function (s, a) { 
+          console.error("[VP] getCurrentUser SP error:", a.get_message()); 
+          log("[VP] currentUser error:", a.get_message()); 
+        });
+      } catch (e) {
+        console.error("[VP] getCurrentUser exception:", e);
+      }
+    });
+  }
+
+  function loadTitlesForRegionalManager(listId, rmUserId, cb) {
+    console.log("[VP] loadTitlesForRegionalManager start, rmUserId:", rmUserId, "FIELD_RM:", FIELD_RM);
+    SP.SOD.executeFunc("sp.js", "SP.ClientContext", function () {
+      try {
+        var ctx = new SP.ClientContext(WEB_URL);
+        var list = ctx.get_web().get_lists().getById(listId);
+
+        // First: Try to get ALL items to verify list is accessible
+        var camlAll = new SP.CamlQuery();
+        camlAll.set_viewXml("<View><RowLimit>1</RowLimit></View>");
+        var itemsTest = list.getItems(camlAll);
+        ctx.load(itemsTest);
+
+        ctx.executeQueryAsync(function () {
+          console.log("[VP] List accessible ✓, attempting filtered query...");
+          
+          // List is accessible, now try filtered query
+          var ctx2 = new SP.ClientContext(WEB_URL);
+          var list2 = ctx2.get_web().get_lists().getById(listId);
+          
+          var caml = new SP.CamlQuery();
+          caml.set_viewXml(
+            "<View><Query><Where><Eq>" +
+              "<FieldRef Name='" + FIELD_RM + "' LookupId='TRUE' />" +
+              "<Value Type='Integer'>" + rmUserId + "</Value>" +
+            "</Eq></Where></Query>" +
+            "<ViewFields><FieldRef Name='Title' /></ViewFields>" +
+            "<RowLimit>5000</RowLimit>" +
+            "</View>"
+          );
+
+          var items = list2.getItems(caml);
+          ctx2.load(items);
+
+          ctx2.executeQueryAsync(function () {
+            var en = items.getEnumerator();
+            var titles = [];
+            while (en.moveNext()) {
+              var item = en.get_current().get_item(FIELD_TITLE);
+              titles.push(item);
+              console.log("[VP]   Found store:", item);
+            }
+            console.log("[VP] loadTitlesForRegionalManager done, count:", titles.length);
+            if (titles.length === 0) {
+              console.warn("[VP] ⚠️  No stores found! Check if field '" + FIELD_RM + "' exists and has correct LookupId");
+            }
+            cb(titles);
+          }, function (s, a) { 
+            console.error("[VP] Filtered query error:", a.get_message()); 
+            console.log("[VP] ⚠️  Field name might be wrong. Using FIELD_RM='", FIELD_RM, "'");
+            log("[VP] Filtered query error:", a.get_message()); 
+            cb([]);
+          });
+        }, function (s, a) {
+          console.error("[VP] ❌ List not accessible!", a.get_message());
+          console.error("[VP] Check LIST_URL and listId");
+          log("[VP] List error:", a.get_message());
+          cb([]);
+        });
+      } catch (e) {
+        console.error("[VP] loadTitlesForRegionalManager exception:", e);
+        cb([]);
+      }
+    });
+  }
+
+  function loadVedouciAndFinalize(listId, title) {
+    SP.SOD.executeFunc("sp.js", "SP.ClientContext", function () {
+      var ctx = new SP.ClientContext(WEB_URL);
+      var list = ctx.get_web().get_lists().getById(listId);
+
+      var caml = new SP.CamlQuery();
+      caml.set_viewXml(
+        "<View><Query><Where><Eq>" +
+          "<FieldRef Name='" + FIELD_TITLE + "' />" +
+          "<Value Type='Text'>" + xmlEscape(title) + "</Value>" +
+        "</Eq></Where></Query>" +
+        "<ViewFields><FieldRef Name='" + FIELD_VEDOUCI + "' /></ViewFields>" +
+        "<RowLimit>1</RowLimit>" +
+        "</View>"
+      );
+
+      var items = list.getItems(caml);
+      ctx.load(items);
+
+      ctx.executeQueryAsync(function () {
+        var en = items.getEnumerator();
+        if (!en.moveNext()) { fillAllTables(); return; }
+
+        var item = en.get_current();
+        var ved = item.get_item(FIELD_VEDOUCI);
+        if (!ved) { fillAllTables(); return; }
+
+        var uid = ved.get_lookupId();
+        var spUser = ctx.get_web().get_siteUsers().getById(uid);
+        ctx.load(spUser);
+
+        ctx.executeQueryAsync(function () {
+          waitForPeoplePicker(function () {
+            setPeople(FORM_HODNOCENY, spUser.get_loginName());
+            fillAllTables();
+          });
+        }, function () { fillAllTables(); });
+
+      }, function () { fillAllTables(); });
+    });
+  }
+
+  function startMainFlow(user) {
+    console.log("[VP] startMainFlow start, user:", user);
+    waitForPeoplePicker(function () { 
+      console.log("[VP] PeoplePicker ready, setting hodnotitel");
+      setPeople(FORM_HODNOTITEL, user.get_loginName()); 
+    });
+
+    showSimpleModal("Vyberte hodnocené období:", [
+      { text: "Únor (hodnocení 08-01)", onClick: function () { proceedWithPeriod("Únor (hodnocení 08-01)"); } },
+      { text: "Srpen (hodnocení 02-07)", onClick: function () { proceedWithPeriod("Srpen (hodnocení 02-07)"); } },
+      { text: "Mimořádné", onClick: function () { proceedWithPeriod("Mimořádné"); } }
+    ]);
+
+    function proceedWithPeriod(period) {
+      console.log("[VP] proceedWithPeriod:", period);
+      setTextField(FORM_OBDOBI, period);
+
+      getListId(function (listId) {
+        console.log("[VP] got listId:", listId);
+        loadTitlesForRegionalManager(listId, user.get_id(), function (titles) {
+          console.log("[VP] got titles:", titles);
+          if (!titles || !titles.length) { fillAllTables(); return; }
+
+          showSimpleModal("Vyber prodejnu:", titles.map(function (t) {
+            return {
+              text: t,
+              onClick: function () {
+                console.log("[VP] selected store:", t);
+                setTextField(FORM_MISTO, t);
+                loadVedouciAndFinalize(listId, t);
+              }
+            };
+          }));
+        });
+      });
+    }
+  }
+
+  // ============================================================
+  // BOOT
+  // ============================================================
+  function boot() {
+    console.log("[VP] boot start");
+    try {
+      ensureStyle();
+      hookSaveButtons(); // validace + souhrn + pdf/tisk/zrušit
+
+      console.log("[VP] about to call getCurrentUser");
+      getCurrentUser(function (user) {
+        console.log("[VP] boot callback - getCurrentUser done, user:", user);
+        showSimpleModal("Chcete vyplnit formulář jako aktuální přihlášený uživatel?", [
+          { text: "Ano", onClick: function () { startMainFlow(user); } },
+          {
+            text: "Ne",
+            onClick: function () {
+              showSimpleModal(
+                "Upozornění:\nHlavičku formuláře je nutné vyplnit ručně.\n\nTabulky se doplní automaticky.",
+                [{ text: "Rozumím", onClick: function () { fillAllTables(); } }]
+              );
+            }
+          }
+        ]);
+      });
+    } catch (e) {
+      console.error("[VP] boot exception:", e);
+    }
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+
+})();

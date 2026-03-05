@@ -1,0 +1,604 @@
+(function () {
+    "use strict";
+
+    var CONFIG = {
+        sourceListTitle: "seznam_prodejen",
+        sourceFieldInternalName: "lokace_prodejny",
+        sourceWebUrl: "http://portal.samohyl.cz/homeZVK",
+        sourceListServerRelativeUrl: "/homeZVK/Lists/seznam_prodejen",
+
+        targetListTitle: "kniha_urazu",
+        targetFieldInternalName: "osobni_cislo",
+        targetWebUrl: "http://portal.samohyl.cz/bozp_po",
+        targetListServerRelativeUrl: "/bozp_po/Lists/kniha_urazu",
+        targetDispFormUrlBase: "http://portal.samohyl.cz/bozp_po/Lists/kniha_urazu/DispForm.aspx?ID=",
+        launchButtonText: "Zobrazit úrazy na prodejně",
+        secondaryButtonText: "Přehled zaměstnanců BOZP/PO",
+        secondaryButtonLoadingText: "Načítám...",
+        secondaryScriptUrl: "/homeZVK/SiteAssets/prehled_urazu_dalsi_tlacitko.js",
+        secondaryFunctionName: "runDalsiUrazyAkce",
+        launchButtonContainerId: "ti-urazy-button-container",
+        targetMatchFieldCandidates: [
+            "osobni_cislo",
+            "osobni_x005f_cislo",
+            "OsobniCislo",
+            "osobni_cislo_zamestnance",
+            "osobni_x005f_cislo_x005f_zamestnance",
+            "OsobniCisloZamestnance"
+        ],
+        targetPersonalNumberFieldCandidates: [
+            "nakladove_stredisko",
+            "nakladove_x005f_stredisko",
+            "NakladoveStredisko",
+            "nakladove_strediskoId",
+            "nakladove_x005f_strediskoId",
+            "NakladoveStrediskoId"
+        ],
+        targetEmployeeNameFieldCandidates: [
+            "jmeno_prijmeni",
+            "jmeno_x005f_prijmeni",
+            "JmenoPrijmeni"
+        ],
+        targetDateFieldCandidates: [
+            "datum_urazu",
+            "datum_x005f_urazu",
+            "DatumUrazu",
+            "Created"
+        ],
+        targetDescriptionFieldCandidates: [
+            "popis_urazu",
+            "popis_x005f_urazu",
+            "PopisUrazu",
+            "Title"
+        ],
+
+        // Pole, která chceš zobrazit v modalu (uprav dle interních názvů ve Kniha_urazu)
+        targetSelectFields: [
+            "Id",
+            "Title",
+            "osobni_cislo_zamestnance",
+            "popis_urazu",
+            "datum_urazu",
+            "Created"
+        ]
+    };
+
+    function getQueryParam(name) {
+        var match = RegExp("[?&]" + name + "=([^&]*)", "i").exec(window.location.search);
+        return match ? decodeURIComponent(match[1]) : null;
+    }
+
+    function normalizeForCompare(val) {
+        if (val === null || val === undefined) return "";
+        return String(val).replace(/\s+/g, "").replace(/^0+/, "").toLowerCase();
+    }
+
+    function toScalarString(value) {
+        if (value === null || value === undefined) return "";
+        if (Array.isArray(value)) {
+            return value.map(function (v) { return toScalarString(v); }).filter(function (v) { return !!v; }).join(", ");
+        }
+        if (typeof value === "object") {
+            if (Object.prototype.hasOwnProperty.call(value, "results") && Array.isArray(value.results)) {
+                return value.results.map(function (v) { return toScalarString(v); }).filter(function (v) { return !!v; }).join(", ");
+            }
+            if (Object.prototype.hasOwnProperty.call(value, "Value")) return String(value.Value);
+            if (Object.prototype.hasOwnProperty.call(value, "Label")) return String(value.Label);
+            if (Object.prototype.hasOwnProperty.call(value, "Title")) return String(value.Title);
+            if (Object.prototype.hasOwnProperty.call(value, "Name")) return String(value.Name);
+            if (Object.prototype.hasOwnProperty.call(value, "LookupValue")) return String(value.LookupValue);
+            if (Object.prototype.hasOwnProperty.call(value, "LookupId")) return String(value.LookupId);
+            return "";
+        }
+        return String(value);
+    }
+
+    function cleanSharePointDisplayValue(value) {
+        var raw = toScalarString(value).trim();
+        if (!raw) return "";
+
+        var normalizedRaw = raw.replace(/\s*;#\s*/g, ";#");
+        var delimiter = null;
+        if (normalizedRaw.indexOf(";#") >= 0) {
+            delimiter = /;#/;
+        } else if (normalizedRaw.indexOf("#") >= 0) {
+            delimiter = /#/;
+        }
+
+        if (!delimiter) {
+            var plainParts = raw.split(/[;,\t\n\r]+/);
+            var plainCleaned = [];
+            var plainSeen = {};
+
+            for (var j = 0; j < plainParts.length; j++) {
+                var plainPart = (plainParts[j] || "").replace(/^[,;\s]+|[,;\s]+$/g, "").trim();
+                if (!plainPart) continue;
+
+                var plainKey = plainPart.toLowerCase();
+                if (!plainSeen[plainKey]) {
+                    plainSeen[plainKey] = true;
+                    plainCleaned.push(plainPart);
+                }
+            }
+
+            if (plainCleaned.length > 0) return plainCleaned.join(", ");
+            return raw.replace(/^[,;\s]+|[,;\s]+$/g, "").trim();
+        }
+
+        var parts = normalizedRaw.split(delimiter);
+        var cleaned = [];
+        var seen = {};
+
+        for (var i = 0; i < parts.length; i++) {
+            var part = (parts[i] || "").replace(/^[,;\s]+|[,;\s]+$/g, "").trim();
+            if (!part) continue;
+            if (/^\d+$/.test(part)) continue;
+
+            var key = part.toLowerCase();
+            if (!seen[key]) {
+                seen[key] = true;
+                cleaned.push(part);
+            }
+        }
+
+        if (cleaned.length > 0) return cleaned.join(", ");
+
+        return normalizedRaw.replace(/;#/g, " ").replace(/#/g, " ");
+    }
+
+    function normalizeCompareValue(val) {
+        var raw = toScalarString(val).trim();
+        if (!raw) return "";
+
+        if (raw.indexOf(";#") >= 0 || raw.indexOf("#") >= 0) {
+            var parts = raw.split(/;#|#/);
+            var nonEmpty = [];
+            for (var p = 0; p < parts.length; p++) {
+                var part = (parts[p] || "").trim();
+                if (part) nonEmpty.push(part);
+            }
+
+            for (var n = 0; n < nonEmpty.length; n++) {
+                var numCandidate = nonEmpty[n].replace(/\s+/g, "").replace(",", ".");
+                if (/^[-+]?\d+(\.\d+)?$/.test(numCandidate)) {
+                    var parsedEncoded = Number(numCandidate);
+                    if (!isNaN(parsedEncoded) && isFinite(parsedEncoded)) {
+                        return String(parsedEncoded);
+                    }
+                }
+            }
+
+            if (nonEmpty.length) {
+                raw = nonEmpty[0];
+            }
+        }
+
+        var compact = raw.replace(/\s+/g, "");
+        var numericLike = compact.replace(",", ".");
+        if (/^[-+]?\d+(\.\d+)?$/.test(numericLike)) {
+            var parsed = Number(numericLike);
+            if (!isNaN(parsed) && isFinite(parsed)) {
+                return String(parsed);
+            }
+        }
+
+        return compact.replace(/^0+/, "").toLowerCase();
+    }
+
+    function safeHtml(val) {
+        if (val === null || val === undefined) return "";
+        return String(val)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function formatDateTimeCz(val) {
+        if (val === null || val === undefined || val === "") return "";
+
+        var asString = toScalarString(val);
+        var date;
+
+        var spMatch = /^\/Date\((\d+)(?:[+-]\d+)?\)\/$/.exec(asString);
+        if (spMatch) {
+            date = new Date(parseInt(spMatch[1], 10));
+        } else {
+            date = new Date(asString);
+        }
+
+        if (isNaN(date.getTime())) {
+            return asString;
+        }
+
+        var day = date.getDate();
+        var month = date.getMonth() + 1;
+        var year = date.getFullYear();
+        var hours = date.getHours();
+        var minutes = date.getMinutes();
+
+        var hh = hours < 10 ? "0" + hours : String(hours);
+        var mm = minutes < 10 ? "0" + minutes : String(minutes);
+
+        return day + ". " + month + ". " + year + " " + hh + ":" + mm;
+    }
+
+    function httpGetJson(url, success, fail) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", url, true);
+        xhr.setRequestHeader("Accept", "application/json;odata=verbose");
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    success(JSON.parse(xhr.responseText));
+                } catch (e) {
+                    fail("Neplatná JSON odpověď: " + e.message);
+                }
+            } else {
+                fail("HTTP chyba " + xhr.status + " pro URL: " + url + " | Odpověď: " + (xhr.responseText || ""));
+            }
+        };
+        xhr.send();
+    }
+
+    function getFieldValue(item, candidates) {
+        if (!item || !candidates || !candidates.length) return "";
+        for (var i = 0; i < candidates.length; i++) {
+            var key = candidates[i];
+            if (Object.prototype.hasOwnProperty.call(item, key) && item[key] !== null && item[key] !== undefined && item[key] !== "") {
+                var value = item[key];
+                if (typeof value === "object" && toScalarString(value) === "") {
+                    continue;
+                }
+                return value;
+            }
+        }
+        return "";
+    }
+
+    function getMatchValueFromItem(item) {
+        var fromCandidates = getFieldValue(item, CONFIG.targetMatchFieldCandidates);
+        if (fromCandidates !== "" && normalizeCompareValue(fromCandidates) !== "") return fromCandidates;
+
+        var keys = Object.keys(item || {});
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var lower = key.toLowerCase();
+            var looksLikeEmployeeNo = lower.indexOf("osobni") >= 0 && lower.indexOf("cislo") >= 0;
+            if (!looksLikeEmployeeNo) continue;
+
+            var value = item[key];
+            if (value !== null && value !== undefined && value !== "") {
+                if (normalizeCompareValue(value) === "") continue;
+                return value;
+            }
+        }
+
+        return "";
+    }
+
+    function getPersonalNumberValueFromItem(item) {
+        var fromCandidates = getFieldValue(item, CONFIG.targetPersonalNumberFieldCandidates);
+        if (fromCandidates !== "" && cleanSharePointDisplayValue(fromCandidates) !== "") return fromCandidates;
+
+        var keys = Object.keys(item || {});
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var lower = key.toLowerCase();
+            var looksLikeCostCenter = lower.indexOf("nakladove") >= 0 && lower.indexOf("stredisko") >= 0;
+            if (!looksLikeCostCenter) continue;
+
+            var value = item[key];
+            if (value !== null && value !== undefined && value !== "") {
+                if (cleanSharePointDisplayValue(value) === "") continue;
+                return value;
+            }
+        }
+
+        return "";
+    }
+
+    function getCurrentListServerRelativeUrl() {
+        if (window._spPageContextInfo && _spPageContextInfo.webServerRelativeUrl && _spPageContextInfo.listUrl) {
+            var web = _spPageContextInfo.webServerRelativeUrl.replace(/\/$/, "");
+            var listUrl = _spPageContextInfo.listUrl;
+            if (listUrl.indexOf("/") !== 0) listUrl = "/" + listUrl;
+            return web + listUrl;
+        }
+
+        var path = window.location.pathname || "";
+        var lower = path.toLowerCase();
+        var idx = lower.indexOf("/dispform.aspx");
+        return idx > 0 ? path.substring(0, idx) : CONFIG.sourceListServerRelativeUrl;
+    }
+
+    function buildGetListItemUrl(webUrl, listServerRelativeUrl, itemId, selectFields) {
+        return webUrl +
+            "/_api/web/GetList(@list)/items(" + itemId + ")" +
+            "?@list='" + encodeURIComponent(listServerRelativeUrl) + "'" +
+            "&$select=" + selectFields.join(",");
+    }
+
+    function buildGetListItemsUrl(webUrl, listServerRelativeUrl, selectFields) {
+        var url = webUrl +
+            "/_api/web/GetList(@list)/items" +
+            "?@list='" + encodeURIComponent(listServerRelativeUrl) + "'" +
+            "&$top=5000";
+
+        if (selectFields && selectFields.length) {
+            url += "&$select=" + selectFields.join(",");
+        }
+
+        return url;
+    }
+
+    function ensureLaunchButtonContainer() {
+        var existing = document.getElementById(CONFIG.launchButtonContainerId);
+        if (existing) return existing;
+
+        var container = document.createElement("div");
+        container.id = CONFIG.launchButtonContainerId;
+        container.style.margin = "8px 0";
+
+        var scriptNode = document.currentScript;
+        if (scriptNode && scriptNode.parentNode) {
+            scriptNode.parentNode.insertBefore(container, scriptNode.nextSibling);
+        } else {
+            document.body.appendChild(container);
+        }
+
+        return container;
+    }
+
+    function renderLaunchButton(onClick) {
+        var container = ensureLaunchButtonContainer();
+        if (!container) return;
+
+        if (container.getAttribute("data-rendered") === "1") return;
+        container.setAttribute("data-rendered", "1");
+
+        container.style.display = "flex";
+        container.style.gap = "8px";
+        container.style.flexWrap = "wrap";
+
+        var primaryButton = createActionButton(CONFIG.launchButtonText, "Načítám...");
+        primaryButton.addEventListener("click", function () {
+            bindActionToButton(primaryButton, function (done) {
+                onClick(done);
+            }, "Načítám...");
+        });
+        container.appendChild(primaryButton);
+
+        var secondaryButton = createActionButton(CONFIG.secondaryButtonText, CONFIG.secondaryButtonLoadingText);
+        secondaryButton.addEventListener("click", function () {
+            bindActionToButton(secondaryButton, function (done) {
+                runSecondaryAction(done);
+            }, CONFIG.secondaryButtonLoadingText);
+        });
+        container.appendChild(secondaryButton);
+    }
+
+    function createActionButton(text, loadingText) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = text;
+        button.setAttribute("data-original-text", text);
+        button.setAttribute("data-loading-text", loadingText || "Načítám...");
+        button.style.padding = "8px 12px";
+        button.style.cursor = "pointer";
+        button.style.border = "1px solid #0078d4";
+        button.style.background = "#0078d4";
+        button.style.color = "#fff";
+        button.style.borderRadius = "2px";
+        return button;
+    }
+
+    function bindActionToButton(button, action, loadingText) {
+        if (!button || typeof action !== "function") return;
+
+        button.disabled = true;
+        var original = button.getAttribute("data-original-text") || button.textContent;
+        button.textContent = loadingText || button.getAttribute("data-loading-text") || "Načítám...";
+
+        action(function done() {
+            button.disabled = false;
+            button.textContent = original;
+        });
+    }
+
+    function runSecondaryAction(done) {
+        var fnName = CONFIG.secondaryFunctionName;
+        var tryRun = function () {
+            if (window[fnName] && typeof window[fnName] === "function") {
+                try {
+                    window[fnName]();
+                } catch (e) {
+                    console.error("Chyba při spuštění sekundárního skriptu:", e);
+                }
+            } else {
+                console.error("Sekundární funkce nebyla nalezena:", fnName);
+            }
+            if (typeof done === "function") done();
+        };
+
+        if (window[fnName] && typeof window[fnName] === "function") {
+            tryRun();
+            return;
+        }
+
+        loadExternalScriptOnce(CONFIG.secondaryScriptUrl, function () {
+            tryRun();
+        }, function (err) {
+            console.error("Nepodařilo se načíst sekundární skript:", err);
+            if (typeof done === "function") done();
+        });
+    }
+
+    function loadExternalScriptOnce(src, onSuccess, onError) {
+        if (!src) {
+            if (typeof onError === "function") onError("Prázdná URL skriptu.");
+            return;
+        }
+
+        var existing = document.querySelector('script[data-ti-secondary-src="' + src.replace(/"/g, '\\"') + '"]');
+        if (existing) {
+            if (existing.getAttribute("data-ti-loaded") === "1") {
+                if (typeof onSuccess === "function") onSuccess();
+                return;
+            }
+            existing.addEventListener("load", function () {
+                if (typeof onSuccess === "function") onSuccess();
+            });
+            existing.addEventListener("error", function () {
+                if (typeof onError === "function") onError("Load error");
+            });
+            return;
+        }
+
+        var script = document.createElement("script");
+        script.type = "text/javascript";
+        script.src = src;
+        script.setAttribute("data-ti-secondary-src", src);
+        script.onload = function () {
+            script.setAttribute("data-ti-loaded", "1");
+            if (typeof onSuccess === "function") onSuccess();
+        };
+        script.onerror = function () {
+            if (typeof onError === "function") onError("Load error");
+        };
+        document.getElementsByTagName("head")[0].appendChild(script);
+    }
+
+    function showMatchesModal(locationValue, matches) {
+        var html = [];
+        html.push("<div style='padding:12px; font-family:Segoe UI,Arial,sans-serif;'>");
+        html.push("<div style='margin-bottom:10px;'><b>Středisko (lokace_prodejny):</b> " + safeHtml(locationValue) + "</div>");
+        html.push("<div style='margin-bottom:8px;'><b>Nalezeno úrazů:</b> " + matches.length + "</div>");
+        html.push("<table style='width:100%; border-collapse:collapse;'>");
+        html.push("<thead><tr>");
+        html.push("<th style='border:1px solid #ddd; padding:6px;'>ID</th>");
+        html.push("<th style='border:1px solid #ddd; padding:6px;'>Název</th>");
+        html.push("<th style='border:1px solid #ddd; padding:6px;'>Osobní číslo</th>");
+        html.push("<th style='border:1px solid #ddd; padding:6px;'>Zaměstnanec</th>");
+        html.push("<th style='border:1px solid #ddd; padding:6px;'>Datum úrazu</th>");
+        html.push("</tr></thead><tbody>");
+
+        for (var i = 0; i < matches.length; i++) {
+            var it = matches[i];
+            var employeeCell = getPersonalNumberValueFromItem(it);
+            var dateCell = getFieldValue(it, CONFIG.targetDateFieldCandidates);
+            var employeeNameCell = getFieldValue(it, CONFIG.targetEmployeeNameFieldCandidates);
+            var itemId = it.Id;
+            var itemTitle = it.Title || "(bez názvu)";
+            var itemUrl = CONFIG.targetDispFormUrlBase + encodeURIComponent(itemId);
+            html.push("<tr>");
+            html.push("<td style='border:1px solid #ddd; padding:6px;'>" + safeHtml(it.Id) + "</td>");
+            html.push("<td style='border:1px solid #ddd; padding:6px;'><a href='" + safeHtml(itemUrl) + "' target='_blank'>" + safeHtml(itemTitle) + "</a></td>");
+            html.push("<td style='border:1px solid #ddd; padding:6px;'>" + safeHtml(cleanSharePointDisplayValue(employeeCell)) + "</td>");
+            html.push("<td style='border:1px solid #ddd; padding:6px;'>" + safeHtml(cleanSharePointDisplayValue(employeeNameCell || "")) + "</td>");
+            html.push("<td style='border:1px solid #ddd; padding:6px;'>" + safeHtml(formatDateTimeCz(dateCell || "")) + "</td>");
+            html.push("</tr>");
+        }
+
+        html.push("</tbody></table>");
+        html.push("</div>");
+
+        var container = document.createElement("div");
+        container.innerHTML = html.join("");
+
+        SP.UI.ModalDialog.showModalDialog({
+            title: "Přehled úrazů na středisku",
+            html: container,
+            allowMaximize: true,
+            showClose: true,
+            autoSize: true
+        });
+    }
+
+    function run(done) {
+        var itemId = getQueryParam("ID");
+        if (!itemId) {
+            console.log("ID položky není v URL.");
+            if (typeof done === "function") done();
+            return;
+        }
+
+        var sourceListServerRelativeUrl = getCurrentListServerRelativeUrl();
+        var sourceUrl = buildGetListItemUrl(
+            CONFIG.sourceWebUrl,
+            sourceListServerRelativeUrl,
+            itemId,
+            ["Id", CONFIG.sourceFieldInternalName, "Title"]
+        );
+
+        httpGetJson(sourceUrl, function (sourceData) {
+            var sourceItem = sourceData && sourceData.d ? sourceData.d : null;
+            if (!sourceItem) {
+                if (typeof done === "function") done();
+                return;
+            }
+
+            var locationRaw = sourceItem[CONFIG.sourceFieldInternalName];
+            if (!locationRaw) {
+                console.log("Pole " + CONFIG.sourceFieldInternalName + " je prázdné.");
+                if (typeof done === "function") done();
+                return;
+            }
+
+            var locationNorm = normalizeCompareValue(locationRaw);
+
+            var targetUrl = buildGetListItemsUrl(
+                CONFIG.targetWebUrl,
+                CONFIG.targetListServerRelativeUrl,
+                null
+            );
+
+            httpGetJson(targetUrl, function (targetData) {
+                var results = (targetData && targetData.d && targetData.d.results) ? targetData.d.results : [];
+                var matches = [];
+
+                for (var i = 0; i < results.length; i++) {
+                    var employeeValue = getMatchValueFromItem(results[i]) || results[i][CONFIG.targetFieldInternalName];
+                    var employeeRaw = toScalarString(employeeValue).trim();
+                    var employeeNorm = normalizeCompareValue(employeeRaw);
+
+                    if (employeeNorm && employeeNorm === locationNorm) {
+                        matches.push(results[i]);
+                    }
+                }
+
+                if (matches.length > 0) {
+                    showMatchesModal(locationRaw, matches);
+                } else {
+                    console.log("Pro lokaci '" + locationRaw + "' nebyla nalezena shoda v Kniha_urazu.");
+                }
+                if (typeof done === "function") done();
+            }, function (err2) {
+                console.error("Chyba načtení seznamu kniha_urazu:", err2);
+                if (typeof done === "function") done();
+            });
+
+        }, function (err1) {
+            console.error("Chyba načtení položky seznam_prodejen:", err1);
+            if (typeof done === "function") done();
+        });
+    }
+
+    function init() {
+        renderLaunchButton(function (done) {
+            if (window.SP && SP.SOD && SP.SOD.executeOrDelayUntilScriptLoaded) {
+                SP.SOD.executeOrDelayUntilScriptLoaded(function () { run(done); }, "sp.js");
+            } else {
+                run(done);
+            }
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
