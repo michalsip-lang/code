@@ -3,6 +3,15 @@
 (function () {
     "use strict";
 
+    var RIBBON_GROUP_ID = "Ribbon.ListForm.BOZPPO";
+    var RIBBON_TAB_ID = "Ribbon.ListForm.BOZPPO-title";
+    var RIBBON_CUSTOM_BODY_ID = "Ribbon.ListForm.BOZPPO";
+    var RIBBON_OBSERVER = null;
+    var KEEP_ALIVE_TIMER = null;
+    var CUSTOM_TAB_ACTIVE = false;
+    var GLOBAL_TAB_CLICK_BOUND = false;
+    var PRIMARY_ACTION = null;
+
     var CONFIG = {
         sourceListTitle: "seznam_prodejen",
         sourceFieldInternalName: "lokace_prodejny",
@@ -17,6 +26,8 @@
         launchButtonText: "Zobrazit úrazy na prodejně",
         secondaryButtonText: "Přehled zaměstnanců BOZP/PO",
         secondaryButtonLoadingText: "Načítám...",
+        ribbonTabTitle: "Doklady BOZP/PO",
+        ribbonCardTitle: "Doklady ke kontrole BOZP a PO",
         launchButtonContainerId: "ti-urazy-button-container",
         targetMatchFieldCandidates: [
             "osobni_cislo",
@@ -327,78 +338,395 @@
         return url;
     }
 
-    function ensureLaunchButtonContainer() {
-        var existing = document.getElementById(CONFIG.launchButtonContainerId);
-        if (existing) return existing;
+    function isElementVisible(el) {
+        if (!el) return false;
+        if (el.offsetWidth > 0 || el.offsetHeight > 0) return true;
+        if (el.getClientRects && el.getClientRects().length > 0) return true;
+        return false;
+    }
 
-        var container = document.createElement("div");
-        container.id = CONFIG.launchButtonContainerId;
-        container.style.margin = "8px 0";
+    function pickVisibleFirst(nodes) {
+        if (!nodes || !nodes.length) return null;
+        for (var i = 0; i < nodes.length; i++) {
+            if (isElementVisible(nodes[i])) return nodes[i];
+        }
+        return nodes[0] || null;
+    }
 
-        var scriptNode = document.currentScript;
-        if (scriptNode && scriptNode.parentNode) {
-            scriptNode.parentNode.insertBefore(container, scriptNode.nextSibling);
+    function getRibbonBodyHost() {
+        var displayBody = document.getElementById("Ribbon.ListForm.Display");
+        if (displayBody && isElementVisible(displayBody)) return displayBody;
+
+        var ribbonBodies = document.querySelectorAll("#s4-ribbonrow ul.ms-cui-tabBody");
+        var chosenRibbonBody = pickVisibleFirst(ribbonBodies);
+        if (chosenRibbonBody) return chosenRibbonBody;
+
+        var allBodies = document.querySelectorAll("ul.ms-cui-tabBody");
+        return pickVisibleFirst(allBodies);
+    }
+
+    function getRibbonTabsHost() {
+        var ribbonTabLists = document.querySelectorAll("#s4-ribbonrow ul.ms-cui-tts, #s4-ribbonrow ul[role='tablist']");
+        var chosenRibbonList = pickVisibleFirst(ribbonTabLists);
+        if (chosenRibbonList) return chosenRibbonList;
+
+        var allTabLists = document.querySelectorAll("ul.ms-cui-tts, ul[role='tablist']");
+        var chosenAnyList = pickVisibleFirst(allTabLists);
+        if (chosenAnyList) return chosenAnyList;
+
+        var anyTab = document.querySelector("#s4-ribbonrow li.ms-cui-tt") || document.querySelector("li.ms-cui-tt");
+        return anyTab && anyTab.parentNode ? anyTab.parentNode : null;
+    }
+
+    function getCustomTabFromHost(tabsHost) {
+        if (!tabsHost) return null;
+        return tabsHost.querySelector("li[id='" + RIBBON_TAB_ID + "']");
+    }
+
+    function getCustomBodyFromHost(bodyHost) {
+        if (!bodyHost || !bodyHost.parentNode) return null;
+        return bodyHost.parentNode.querySelector("ul[id='" + RIBBON_CUSTOM_BODY_ID + "']");
+    }
+
+    function findParentLi(node) {
+        var n = node;
+        while (n && n !== document) {
+            if (n.tagName && n.tagName.toLowerCase() === "li") return n;
+            n = n.parentNode;
+        }
+        return null;
+    }
+
+    function isRibbonTabLi(li) {
+        if (!li) return false;
+        var parent = li.parentNode;
+        while (parent && parent !== document) {
+            if (parent.tagName && parent.tagName.toLowerCase() === "ul") {
+                var className = parent.className || "";
+                if (className.indexOf("ms-cui-tts") >= 0 || parent.getAttribute("role") === "tablist") {
+                    return true;
+                }
+            }
+            parent = parent.parentNode;
+        }
+        return false;
+    }
+
+    function isCustomTabLi(li) {
+        if (!li) return false;
+        if (li.id === RIBBON_TAB_ID) return true;
+        var label = li.querySelector(".ms-cui-tt-span");
+        if (!label) return false;
+        var text = (label.textContent || "").replace(/\s+/g, " ").trim();
+        return text === CONFIG.ribbonTabTitle;
+    }
+
+    function setButtonLoading(a, loading) {
+        if (!a) return;
+        var label = a.querySelector(".ms-cui-ctl-mediumlabel");
+        var original = a.getAttribute("data-original-text") || "";
+        if (loading) {
+            a.setAttribute("aria-disabled", "true");
+            a.style.pointerEvents = "none";
+            a.style.opacity = "0.6";
+            if (label) label.textContent = a.getAttribute("data-loading-text") || "Načítám...";
         } else {
-            document.body.appendChild(container);
+            a.removeAttribute("aria-disabled");
+            a.style.pointerEvents = "";
+            a.style.opacity = "";
+            if (label) label.textContent = original;
+        }
+    }
+
+    function showCustomTab() {
+        var tabsHost = getRibbonTabsHost();
+        var bodyHost = getRibbonBodyHost();
+        if ((!tabsHost || !bodyHost || !bodyHost.parentNode) && PRIMARY_ACTION) {
+            ensureCustomRibbonGroups(PRIMARY_ACTION);
+            tabsHost = getRibbonTabsHost();
+            bodyHost = getRibbonBodyHost();
+        }
+        if (!tabsHost || !bodyHost || !bodyHost.parentNode) return;
+        CUSTOM_TAB_ACTIVE = true;
+
+        var tabBodies = bodyHost.parentNode.querySelectorAll("ul.ms-cui-tabBody");
+        for (var i = 0; i < tabBodies.length; i++) {
+            if (tabBodies[i].id === RIBBON_CUSTOM_BODY_ID) {
+                tabBodies[i].style.display = "";
+            } else {
+                if (!tabBodies[i].hasAttribute("data-ti-prev-display")) {
+                    tabBodies[i].setAttribute("data-ti-prev-display", tabBodies[i].style.display || "");
+                }
+                tabBodies[i].style.display = "none";
+            }
         }
 
-        return container;
+        var tabs = tabsHost.querySelectorAll("li.ms-cui-tt");
+        for (var t = 0; t < tabs.length; t++) {
+            tabs[t].className = (tabs[t].className || "").replace(/\bms-cui-tt-sel\b/g, "").replace(/\s+/g, " ").trim();
+            tabs[t].setAttribute("aria-selected", isCustomTabLi(tabs[t]) ? "true" : "false");
+        }
+        var customTab = getCustomTabFromHost(tabsHost) || document.getElementById(RIBBON_TAB_ID);
+        if (customTab && customTab.className.indexOf("ms-cui-tt-sel") === -1) {
+            customTab.className = (customTab.className + " ms-cui-tt-sel").replace(/\s+/g, " ").trim();
+        }
     }
 
-    function renderLaunchButton(onClick) {
-        var container = ensureLaunchButtonContainer();
-        if (!container) return;
+    function hideCustomTabBody() {
+        CUSTOM_TAB_ACTIVE = false;
+        var bodyHost = getRibbonBodyHost();
+        if (bodyHost && bodyHost.parentNode) {
+            var tabBodies = bodyHost.parentNode.querySelectorAll("ul.ms-cui-tabBody");
+            for (var i = 0; i < tabBodies.length; i++) {
+                if (tabBodies[i].id === RIBBON_CUSTOM_BODY_ID) {
+                    tabBodies[i].style.display = "none";
+                } else {
+                    if (tabBodies[i].hasAttribute("data-ti-prev-display")) {
+                        tabBodies[i].style.display = tabBodies[i].getAttribute("data-ti-prev-display") || "";
+                        tabBodies[i].removeAttribute("data-ti-prev-display");
+                    }
+                }
+            }
+        } else {
+            var customBody = document.getElementById(RIBBON_CUSTOM_BODY_ID);
+            if (customBody) customBody.style.display = "none";
+        }
 
-        if (container.getAttribute("data-rendered") === "1") return;
-        container.setAttribute("data-rendered", "1");
-
-        container.style.display = "flex";
-        container.style.gap = "8px";
-        container.style.flexWrap = "wrap";
-
-        var primaryButton = createActionButton(CONFIG.launchButtonText, "Načítám...");
-        primaryButton.addEventListener("click", function () {
-            bindActionToButton(primaryButton, function (done) {
-                onClick(done);
-            }, "Načítám...");
-        });
-        container.appendChild(primaryButton);
-
-        var secondaryButton = createActionButton(CONFIG.secondaryButtonText, CONFIG.secondaryButtonLoadingText);
-        secondaryButton.addEventListener("click", function () {
-            bindActionToButton(secondaryButton, function (done) {
-                runSecondaryAction(done);
-            }, CONFIG.secondaryButtonLoadingText);
-        });
-        container.appendChild(secondaryButton);
+        var tabsHost = getRibbonTabsHost();
+        var customTab = getCustomTabFromHost(tabsHost) || document.getElementById(RIBBON_TAB_ID);
+        if (customTab) {
+            customTab.className = (customTab.className || "").replace(/\bms-cui-tt-sel\b/g, "").replace(/\s+/g, " ").trim();
+            customTab.setAttribute("aria-selected", "false");
+        }
     }
 
-    function createActionButton(text, loadingText) {
-        var button = document.createElement("button");
-        button.type = "button";
-        button.textContent = text;
-        button.setAttribute("data-original-text", text);
-        button.setAttribute("data-loading-text", loadingText || "Načítám...");
-        button.style.padding = "8px 12px";
-        button.style.cursor = "pointer";
-        button.style.border = "1px solid #0078d4";
-        button.style.background = "#0078d4";
-        button.style.color = "#fff";
-        button.style.borderRadius = "2px";
-        return button;
+    function createRibbonMediumButton(id, text, onClick) {
+        var a = document.createElement("a");
+        a.className = "ms-cui-ctl-medium";
+        a.id = id;
+        a.href = "javascript:;";
+        a.setAttribute("role", "button");
+        a.setAttribute("unselectable", "on");
+        a.setAttribute("data-original-text", text);
+        a.setAttribute("data-loading-text", "Načítám...");
+
+        var iconContainer = document.createElement("span");
+        iconContainer.className = "ms-cui-ctl-iconContainer";
+        iconContainer.setAttribute("unselectable", "on");
+
+        var iconHolder = document.createElement("span");
+        iconHolder.className = "ms-cui-img-16by16 ms-cui-img-cont-float";
+        iconHolder.setAttribute("unselectable", "on");
+
+        var img = document.createElement("img");
+        img.src = "/_layouts/15/images/placeholder32x32.png";
+        img.style.width = "16px";
+        img.style.height = "16px";
+        img.setAttribute("unselectable", "on");
+
+        var label = document.createElement("span");
+        label.className = "ms-cui-ctl-mediumlabel";
+        label.setAttribute("unselectable", "on");
+        label.textContent = text;
+
+        iconHolder.appendChild(img);
+        iconContainer.appendChild(iconHolder);
+        a.appendChild(iconContainer);
+        a.appendChild(label);
+
+        a.addEventListener("click", function (e) {
+            if (e && e.preventDefault) e.preventDefault();
+            setButtonLoading(a, true);
+            onClick(function done() {
+                setButtonLoading(a, false);
+            });
+            return false;
+        });
+
+        return a;
     }
 
-    function bindActionToButton(button, action, loadingText) {
-        if (!button || typeof action !== "function") return;
+    function createRibbonGroup(groupId, groupTitleText, button) {
+        var li = document.createElement("li");
+        li.className = "ms-cui-group";
+        li.id = groupId;
+        li.setAttribute("unselectable", "on");
 
-        button.disabled = true;
-        var original = button.getAttribute("data-original-text") || button.textContent;
-        button.textContent = loadingText || button.getAttribute("data-loading-text") || "Načítám...";
+        var groupContainer = document.createElement("span");
+        groupContainer.className = "ms-cui-groupContainer";
+        groupContainer.setAttribute("unselectable", "on");
 
-        action(function done() {
-            button.disabled = false;
-            button.textContent = original;
+        var groupBody = document.createElement("span");
+        groupBody.className = "ms-cui-groupBody";
+        groupBody.setAttribute("unselectable", "on");
+
+        var layout = document.createElement("span");
+        layout.className = "ms-cui-layout";
+        layout.id = groupId + "-Layout";
+        layout.setAttribute("unselectable", "on");
+
+        var section = document.createElement("span");
+        section.className = "ms-cui-section";
+        section.id = groupId + "-Section";
+        section.setAttribute("unselectable", "on");
+
+        var row = document.createElement("span");
+        row.className = "ms-cui-row-onerow";
+        row.id = groupId + "-Row";
+        row.setAttribute("unselectable", "on");
+
+        row.appendChild(button);
+        section.appendChild(row);
+        layout.appendChild(section);
+        groupBody.appendChild(layout);
+
+        var groupTitle = document.createElement("span");
+        groupTitle.className = "ms-cui-groupTitle";
+        groupTitle.setAttribute("unselectable", "on");
+        groupTitle.textContent = groupTitleText;
+
+        groupContainer.appendChild(groupBody);
+        groupContainer.appendChild(groupTitle);
+        li.appendChild(groupContainer);
+
+        var sep = document.createElement("span");
+        sep.className = "ms-cui-groupSeparator";
+        sep.setAttribute("unselectable", "on");
+        li.appendChild(sep);
+
+        return li;
+    }
+
+    function ensureCustomRibbonTab() {
+        var tabsHost = getRibbonTabsHost();
+        var bodyHost = getRibbonBodyHost();
+        if (!tabsHost || !bodyHost || !bodyHost.parentNode) return;
+
+        if (!getCustomTabFromHost(tabsHost)) {
+            var sampleTab = tabsHost.querySelector("li.ms-cui-tt") || tabsHost.firstElementChild;
+            var tab = document.createElement("li");
+            tab.id = RIBBON_TAB_ID;
+            tab.className = sampleTab ? (sampleTab.className || "ms-cui-tt").replace(/\bms-cui-tt-sel\b/g, "").trim() : "ms-cui-tt";
+            tab.setAttribute("role", "tab");
+            tab.setAttribute("aria-selected", "false");
+            tab.setAttribute("unselectable", "on");
+
+            var link = document.createElement("a");
+            link.href = "javascript:;";
+            link.className = "ms-cui-tt-a";
+            link.setAttribute("unselectable", "on");
+
+            var label = document.createElement("span");
+            label.className = "ms-cui-tt-span";
+            label.setAttribute("unselectable", "on");
+            label.textContent = CONFIG.ribbonTabTitle;
+
+            link.appendChild(label);
+            tab.appendChild(link);
+            tabsHost.appendChild(tab);
+
+            link.addEventListener("click", function (e) {
+                if (e && e.preventDefault) e.preventDefault();
+                if (e && e.stopPropagation) e.stopPropagation();
+                showCustomTab();
+                return false;
+            });
+
+        }
+
+        if (!getCustomBodyFromHost(bodyHost)) {
+            var customBody = document.createElement("ul");
+            customBody.className = "ms-cui-tabBody";
+            customBody.id = RIBBON_CUSTOM_BODY_ID;
+            customBody.setAttribute("unselectable", "on");
+            customBody.setAttribute("role", "tabpanel");
+            customBody.setAttribute("aria-labelledby", RIBBON_TAB_ID);
+            customBody.style.display = "none";
+            bodyHost.parentNode.appendChild(customBody);
+        }
+
+        if (tabsHost.getAttribute("data-ti-tabs-bound") !== "1") {
+            tabsHost.setAttribute("data-ti-tabs-bound", "1");
+            tabsHost.addEventListener("click", function (e) {
+                var li = findParentLi(e.target || e.srcElement);
+                if (!li || !isRibbonTabLi(li)) return;
+                if (isCustomTabLi(li)) {
+                    if (e && e.preventDefault) e.preventDefault();
+                    if (e && e.stopPropagation) e.stopPropagation();
+                    showCustomTab();
+                    return false;
+                }
+                hideCustomTabBody();
+            });
+        }
+
+        if (!GLOBAL_TAB_CLICK_BOUND) {
+            GLOBAL_TAB_CLICK_BOUND = true;
+            document.addEventListener("click", function (e) {
+                var li = findParentLi(e.target || e.srcElement);
+                if (!li || !isRibbonTabLi(li)) return;
+                if (isCustomTabLi(li)) {
+                    if (e && e.preventDefault) e.preventDefault();
+                    showCustomTab();
+                    return false;
+                }
+                hideCustomTabBody();
+            }, true);
+        }
+    }
+
+    function ensureCustomRibbonGroups(primaryAction) {
+        ensureCustomRibbonTab();
+
+        var bodyHost = getRibbonBodyHost();
+        var body = getCustomBodyFromHost(bodyHost) || document.getElementById(RIBBON_CUSTOM_BODY_ID);
+        if (!body) return;
+
+        if (body.querySelector("li[id='" + RIBBON_GROUP_ID + ".Urazy']")) return;
+
+        body.innerHTML = "";
+
+        var primaryButton = createRibbonMediumButton(RIBBON_GROUP_ID + ".UrazyButton", CONFIG.launchButtonText, function (done) {
+            primaryAction(done);
         });
+        var secondaryButton = createRibbonMediumButton(RIBBON_GROUP_ID + ".SkoleniButton", CONFIG.secondaryButtonText, function (done) {
+            runSecondaryAction(done);
+        });
+
+        var groupUrazy = createRibbonGroup(RIBBON_GROUP_ID + ".Urazy", "Úrazy", primaryButton);
+        var groupSkoleni = createRibbonGroup(RIBBON_GROUP_ID + ".Skoleni", "BOZP a PO", secondaryButton);
+
+        body.appendChild(groupUrazy);
+        body.appendChild(groupSkoleni);
+    }
+
+    function startRibbonObserver(primaryAction) {
+        if (RIBBON_OBSERVER) return;
+
+        var ribbonRoot = document.body;
+        if (!ribbonRoot || !window.MutationObserver) return;
+
+        RIBBON_OBSERVER = new MutationObserver(function () {
+            ensureCustomRibbonGroups(primaryAction);
+            if (CUSTOM_TAB_ACTIVE) {
+                showCustomTab();
+            } else {
+                hideCustomTabBody();
+            }
+        });
+
+        RIBBON_OBSERVER.observe(ribbonRoot, { childList: true, subtree: true });
+    }
+
+    function startKeepAlive(primaryAction) {
+        if (KEEP_ALIVE_TIMER) return;
+
+        KEEP_ALIVE_TIMER = window.setInterval(function () {
+            ensureCustomRibbonGroups(primaryAction);
+            if (CUSTOM_TAB_ACTIVE) {
+                showCustomTab();
+            }
+        }, 1000);
     }
 
     function getUrlFromValueSecondary(value) {
@@ -741,13 +1069,19 @@
     }
 
     function init() {
-        renderLaunchButton(function (done) {
+        var primaryAction = function (done) {
             if (window.SP && SP.SOD && SP.SOD.executeOrDelayUntilScriptLoaded) {
                 SP.SOD.executeOrDelayUntilScriptLoaded(function () { run(done); }, "sp.js");
             } else {
                 run(done);
             }
-        });
+        };
+        PRIMARY_ACTION = primaryAction;
+
+        ensureCustomRibbonGroups(primaryAction);
+        hideCustomTabBody();
+        startRibbonObserver(primaryAction);
+        startKeepAlive(primaryAction);
     }
 
     if (document.readyState === "loading") {
