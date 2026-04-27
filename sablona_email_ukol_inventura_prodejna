@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="cs">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokyn k inventuře prodejny - nesouhlas skladu</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #eef2f7;
+            font-family: Arial, sans-serif;
+            color: #1f2937;
+        }
+
+        table {
+            border-spacing: 0;
+            border-collapse: collapse;
+        }
+
+        .mail-shell {
+            width: 100%;
+            background-color: #eef2f7;
+            padding: 24px 12px;
+        }
+
+        .mail-card {
+            width: 640px;
+            max-width: 640px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border: 1px solid #d9e2ec;
+        }
+
+        .header {
+            background-color: #1f3c88;
+            padding: 28px 32px;
+            text-align: left;
+            color: #ffffff;
+        }
+
+        .header-title {
+            margin: 0;
+            font-size: 24px;
+            line-height: 1.3;
+        }
+
+        .header-subtitle {
+            margin: 8px 0 0;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #dbe7ff;
+        }
+
+        .content {
+            padding: 28px 32px 20px;
+        }
+
+        .intro {
+            margin: 0 0 20px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #4a5568;
+        }
+
+        .data-table {
+            width: 100%;
+            border: 1px solid #d9e2ec;
+            font-size: 13px;
+            color: #1f2937;
+        }
+
+        .data-table td {
+            border: 1px solid #d9e2ec;
+            padding: 10px 12px;
+            vertical-align: top;
+        }
+
+        .data-label {
+            width: 34%;
+            font-weight: bold;
+            background-color: #f8fafc;
+            color: #334155;
+        }
+
+        .section-box {
+            margin-top: 20px;
+            padding: 18px 20px;
+            background-color: #f8fafc;
+            border: 1px solid #d9e2ec;
+            border-left: 4px solid #1f3c88;
+        }
+
+        .difference-box {
+            margin-top: 20px;
+            padding: 18px 20px;
+            background-color: #ffffff;
+            border: 1px solid #d9e2ec;
+        }
+
+        .section-title {
+            margin: 0 0 12px;
+            font-size: 16px;
+            line-height: 1.4;
+            color: #1f2937;
+        }
+
+        .difference-intro {
+            margin: 0 0 14px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #475569;
+        }
+
+        .difference-html table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-family: Arial, sans-serif !important;
+            font-size: 13px !important;
+        }
+
+        .difference-html th {
+            padding: 10px 12px !important;
+            border: 1px solid #d9e2ec !important;
+            background: #eaf0fb !important;
+            color: #1f3c88 !important;
+            text-align: left !important;
+            font-weight: bold !important;
+        }
+
+        .difference-html td {
+            padding: 10px 12px !important;
+            border: 1px solid #d9e2ec !important;
+            color: #1f2937 !important;
+            background: #ffffff !important;
+            vertical-align: top !important;
+        }
+
+        .instruction {
+            margin: 0 0 10px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #334155;
+        }
+
+        .instruction:last-child {
+            margin-bottom: 0;
+        }
+
+        .button-table {
+            width: 100%;
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .button-cell {
+            padding: 6px 8px;
+        }
+
+        .button-link {
+            display: inline-block;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+            line-height: 1.2;
+            padding: 14px 26px;
+            border-radius: 8px;
+            border: 2px solid #1f3c88;
+        }
+
+        .button-primary {
+            background-color: #1f3c88;
+            color: #ffffff;
+        }
+
+        .button-secondary {
+            background-color: #ffffff;
+            color: #1f3c88;
+        }
+
+        .footer {
+            padding: 0 32px 28px;
+            font-size: 12px;
+            line-height: 1.7;
+            text-align: center;
+            color: #64748b;
+        }
+
+        .footer p {
+            margin: 0;
+        }
+
+        .footer a {
+            color: #1f3c88;
+            text-decoration: none;
+        }
+
+        @media screen and (max-width: 640px) {
+            .mail-card {
+                width: 100% !important;
+            }
+
+            .content,
+            .header,
+            .footer {
+                padding-left: 20px !important;
+                padding-right: 20px !important;
+            }
+
+            .button-link {
+                display: block;
+            }
+
+            .button-cell {
+                display: block;
+                width: 100%;
+                padding: 6px 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" class="mail-shell">
+        <tr>
+            <td align="center">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="mail-card">
+                    <tr>
+                        <td class="header">
+                            <h1 class="header-title">Pokyn k inventuře prodejny</h1>
+                            <p class="header-subtitle">Sklad nesouhlasí s rozdílem v transferu. Proveďte inventuru a doplňte výsledek do úkolu.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="content">
+                            <p class="intro">Na základě vyjádření skladu je potřeba ověřit stav položek na prodejně. Níže je přehled údajů, aktualizovaná Advanced Table a komentář skladu pro vyhodnocení inventury.</p>
+
+                            <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" class="data-table">
+                                <tbody>
+                                    <tr>
+                                        <td class="data-label">Prodejna</td>
+                                        <td>{item:prodejna_2a}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="data-label">Datum příjmu transferu</td>
+                                        <td>{wf:datum_prijmu_dl}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="data-label">Číslo DL</td>
+                                        <td>{item:cislo_dl}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="data-label">Číslo transferu</td>
+                                        <td>{item:cislo_transferu}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="difference-box">
+                                <h2 class="section-title">Aktualizovaná Advanced Table (rozdíl v transferu)</h2>
+                                <p class="difference-intro">Použijte tuto aktualizovanou tabulku jako závazný podklad pro inventuru na prodejně.</p>
+                                <div class="difference-html">{item:rozdil_v_toc_html}</div>
+                            </div>
+
+                            <div class="section-box">
+                                <h2 class="section-title">Komentář skladu</h2>
+                                <p class="instruction">Komentář byl zapsán do pole koment_rozdil:</p>
+                                <p class="instruction"><strong>{item:koment_rozdil}</strong></p>
+                            </div>
+
+                            
+
+                            <table class="button-table" role="presentation" border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td class="button-cell">
+                                        <a class="button-link button-secondary"
+                                            href="http://portal.samohyl.cz/homeZVK/Lists/chyby_v_transferech/DispForm.aspx?ID={item:ID}">ZOBRAZIT PODROBNOSTI</a>
+                                    </td>
+                                    <td class="button-cell">
+                                        <a class="button-link button-primary" href="{task:url}">OTEVŘÍT A ZPRACOVAT INVENTURU</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="footer">
+                            <p><strong>Michal Šíp - technická podpora</strong></p>
+                            <p>Smetanova 1058, 512 51 Lomnice nad Popelkou, Czech Republic</p>
+                            <p><a href="mailto:michal.sip@samohyl.cz">michal.sip@samohyl.cz</a> | m: +420 703 188 144</p>
+                            <p><a href="http://www.samohyl.cz">www.samohyl.cz</a></p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>
