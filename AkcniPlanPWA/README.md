@@ -93,12 +93,12 @@ with check (profile_id = auth.uid()::text);
 
 Poznamka: tato politika je bezpecnejsi. Data uvidi jen prihlaseny vlastnik.
 
-### 3) V aplikaci vypln cloud sync
+### 3) Cloud konfigurace v aplikaci
 
-- Supabase URL (`https://xxxx.supabase.co`)
-- Anon key (`Project Settings -> API -> anon public`)
-- E-mail + heslo pro prihlaseni
-- V aplikaci klikni `Vytvorit ucet` (jen poprve) a potom `Prihlasit`
+- Supabase URL a Anon key jsou napevno v aplikaci.
+- Na zarizenich uz neni potreba nic prepisovat.
+- Prihlaseni je vyzadovano az pri kliknuti na `Nahrat do cloudu` nebo `Nacist z cloudu`.
+- Stav pripojeni je zobrazen primo v panelu (`Pripojeno: ANO/NE`).
 
 ### 3b) Prihlaseni pres GitHub (volitelne)
 
@@ -110,7 +110,7 @@ Poznamka: tato politika je bezpecnejsi. Data uvidi jen prihlaseny vlastnik.
 4. V Supabase otevri `Authentication -> URL Configuration`:
 	- `Site URL`: `https://michalsip-lang.github.io/code/`
 	- `Redirect URLs`: pridej `https://michalsip-lang.github.io/code/`
-5. V appce klikni `Prihlasit pres GitHub`.
+5. V appce neni nutne klikat na prihlaseni predem. Pri prvnim `Nahrat/Nacist` probehne presmerovani na GitHub automaticky.
 
 ### 4) Synchronizace
 

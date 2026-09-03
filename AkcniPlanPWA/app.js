@@ -6,6 +6,9 @@ const RECOVERY_KEY = "akcni-plan-recovery-attempted";
 const SYNC_URL_KEY = "akcni-plan-sync-url";
 const SYNC_ANON_KEY = "akcni-plan-sync-anon-key";
 const SYNC_TOKEN_KEY = "akcni-plan-sync-access-token";
+const SYNC_PENDING_ACTION_KEY = "akcni-plan-sync-pending-action";
+const DEFAULT_SYNC_URL = "https://vpjgpcnvpwarvcxfoteo.supabase.co";
+const DEFAULT_SYNC_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwamdwY252cHdhcnZjeGZvdGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDM0MDksImV4cCI6MjEwNDAxOTQwOX0.5bgXCFJZ-gfFfjb7Ua2dmpKU8KMGnyFFtNY3dTUAJPs";
 
 const AREA_ORDER = ["Svp", "Sdp", "Bozp", "Po", "Jine"];
 const STATUS_ORDER = ["Todo", "InProgress", "Done", "Blocked"];
@@ -48,7 +51,7 @@ let activeFilter = null;
 let editTaskId = null;
 let charts = [];
 let storageMode = "indexeddb";
-let syncConfig = { url: "", anonKey: "" };
+let syncConfig = { url: DEFAULT_SYNC_URL, anonKey: DEFAULT_SYNC_ANON_KEY };
 let authState = { accessToken: "", userId: "", email: "" };
 
 init().catch(async (error) => {
@@ -260,6 +263,8 @@ function setupSyncPanel() {
 
   urlInput.value = syncConfig.url;
   keyInput.value = syncConfig.anonKey;
+  urlInput.readOnly = true;
+  keyInput.readOnly = true;
   emailInput.value = authState.email || "";
 
   form.addEventListener("submit", (event) => {
@@ -308,15 +313,16 @@ function setupSyncPanel() {
   });
 
   pushButton.addEventListener("click", async () => {
-    await runSyncAction(pushToCloud);
+    await runSyncAction(pushToCloud, "push");
   });
 
   pullButton.addEventListener("click", async () => {
-    await runSyncAction(pullFromCloud);
+    await runSyncAction(pullFromCloud, "pull");
   });
 
   refreshAuthStatus();
   updateSyncStatus(syncConfigReady() ? "Cloud sync pripraven." : "Cloud sync neni nastaven.");
+  resumePendingSyncAction();
 }
 
 function startGithubOAuth() {
@@ -347,12 +353,17 @@ function hydrateAuthFromUrlHash() {
 
 function loadSyncConfig() {
   try {
+    const url = localStorage.getItem(SYNC_URL_KEY) || DEFAULT_SYNC_URL;
+    const anonKey = localStorage.getItem(SYNC_ANON_KEY) || DEFAULT_SYNC_ANON_KEY;
+    if (!localStorage.getItem(SYNC_URL_KEY) || !localStorage.getItem(SYNC_ANON_KEY)) {
+      saveSyncConfig({ url, anonKey });
+    }
     return {
-      url: localStorage.getItem(SYNC_URL_KEY) || "",
-      anonKey: localStorage.getItem(SYNC_ANON_KEY) || ""
+      url,
+      anonKey
     };
   } catch {
-    return { url: "", anonKey: "" };
+    return { url: DEFAULT_SYNC_URL, anonKey: DEFAULT_SYNC_ANON_KEY };
   }
 }
 
@@ -419,20 +430,20 @@ function parseJwt(token) {
 function refreshAuthStatus() {
   const host = document.getElementById("auth-status");
   if (!syncConfigReady()) {
-    host.textContent = "Nejdriv uloz Supabase URL a Anon key.";
+    host.textContent = "Cloud neni nastaven.";
     return;
   }
 
   if (authState.userId) {
-    host.textContent = `Prihlaseno jako ${authState.email || authState.userId}`;
+    host.textContent = `Pripojeno: ANO (${authState.email || authState.userId})`;
   } else {
-    host.textContent = "Neprihlaseno.";
+    host.textContent = "Pripojeno: NE (prihlasi se az pri Nacist/Nahrat).";
   }
 }
 
 async function runAuthAction(action) {
   if (!syncConfigReady()) {
-    updateSyncStatus("Nejdriv vypln a uloz Supabase URL + Anon key.", true);
+    updateSyncStatus("Cloud neni nastaven.", true);
     return;
   }
 
@@ -500,14 +511,18 @@ function updateSyncStatus(text, isError = false) {
   host.style.color = isError ? "#a61f2c" : "";
 }
 
-async function runSyncAction(action) {
+async function runSyncAction(action, actionName = "") {
   if (!syncConfigReady()) {
-    updateSyncStatus("Nejdriv vypln Supabase URL a Anon key.", true);
+    updateSyncStatus("Cloud neni nastaven.", true);
     return;
   }
 
   if (!authState.accessToken || !authState.userId) {
-    updateSyncStatus("Nejdriv se prihlas pres Supabase Auth.", true);
+    if (actionName) {
+      sessionStorage.setItem(SYNC_PENDING_ACTION_KEY, actionName);
+    }
+    updateSyncStatus("Pro cloud sync je vyzadovano prihlaseni. Presmerovavam na GitHub...");
+    startGithubOAuth();
     return;
   }
 
@@ -518,6 +533,22 @@ async function runSyncAction(action) {
   } catch (error) {
     console.error(error);
     updateSyncStatus(`Sync selhal: ${String(error.message || error)}`, true);
+  }
+}
+
+function resumePendingSyncAction() {
+  const pending = sessionStorage.getItem(SYNC_PENDING_ACTION_KEY);
+  if (!pending || !authState.accessToken || !authState.userId) {
+    return;
+  }
+
+  sessionStorage.removeItem(SYNC_PENDING_ACTION_KEY);
+  if (pending === "push") {
+    runSyncAction(pushToCloud, "push");
+    return;
+  }
+  if (pending === "pull") {
+    runSyncAction(pullFromCloud, "pull");
   }
 }
 
