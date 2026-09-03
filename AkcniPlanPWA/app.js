@@ -127,7 +127,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "8");
+    url.searchParams.set("v", "9");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -945,6 +945,7 @@ function renderTopPriority() {
 
 function renderTasks() {
   const filtered = applyFilter(tasks, activeFilter);
+  const showAllAreas = Boolean(activeFilter);
 
   const filterBadge = document.getElementById("active-filter");
   if (activeFilter) {
@@ -962,12 +963,13 @@ function renderTasks() {
   const grouped = new Map(AREA_ORDER.map((area) => [area, []]));
   filtered.forEach((task) => grouped.get(task.area).push(task));
 
-  renderAreaPicker(grouped);
-  renderAreaPanels(grouped);
+  renderAreaPicker(grouped, showAllAreas);
+  renderAreaPanels(grouped, showAllAreas);
 }
 
-function renderAreaPicker(grouped) {
+function renderAreaPicker(grouped, showAllAreas = false) {
   const host = document.getElementById("area-picker");
+  host.classList.toggle("hidden", showAllAreas);
   host.innerHTML = "";
 
   let firstWithData = AREA_ORDER.find((area) => grouped.get(area).length > 0) || AREA_ORDER[0];
@@ -991,7 +993,7 @@ function renderAreaPicker(grouped) {
   host.dataset.selectedArea = selectedArea;
 }
 
-function renderAreaPanels(grouped) {
+function renderAreaPanels(grouped, showAllAreas = false) {
   const host = document.getElementById("area-panels");
   const selectedArea = document.getElementById("area-picker").dataset.selectedArea || AREA_ORDER[0];
   host.innerHTML = "";
@@ -999,7 +1001,7 @@ function renderAreaPanels(grouped) {
   AREA_ORDER.forEach((area) => {
     const areaTasks = grouped.get(area);
     const panel = document.createElement("article");
-    panel.className = `card area-card area-${area.toLowerCase()}${selectedArea === area ? "" : " hidden"}`;
+    panel.className = `card area-card area-${area.toLowerCase()}${showAllAreas || selectedArea === area ? "" : " hidden"}`;
 
     const rows = areaTasks.length === 0
       ? '<tr><td colspan="7">Zatím bez úkolů.</td></tr>'
@@ -1304,7 +1306,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=8").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=9").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
