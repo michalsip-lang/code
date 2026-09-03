@@ -1,4 +1,4 @@
-const CACHE = "akcni-plan-pwa-v2";
+const CACHE = "akcni-plan-pwa-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -32,8 +32,25 @@ self.addEventListener("fetch", (event) => {
 
   const requestUrl = new URL(event.request.url);
   const isDocumentRequest = event.request.mode === "navigate" || requestUrl.pathname.endsWith("/index.html");
+  const isSameOriginStatic = requestUrl.origin === self.location.origin
+    && (requestUrl.pathname.endsWith(".js")
+      || requestUrl.pathname.endsWith(".css")
+      || requestUrl.pathname.endsWith(".webmanifest"));
 
   if (isDocumentRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  if (isSameOriginStatic) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {

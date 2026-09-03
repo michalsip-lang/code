@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body>
   <nav class="navbar">
@@ -36,6 +36,31 @@
       </div>
 
       <div id="kpi-grid" class="kpi-grid"></div>
+
+      <article class="card mb16">
+        <h2 class="panel-subtitle">Cloud sync (Supabase)</h2>
+        <div class="subtitle mb8">Pro sdileni ukolu mezi iPadem a dalsimi zarizenimi.</div>
+        <form id="sync-form" class="sync-grid">
+          <div>
+            <label for="supabase-url">Supabase URL</label>
+            <input id="supabase-url" name="supabaseUrl" placeholder="https://xxxx.supabase.co" />
+          </div>
+          <div>
+            <label for="supabase-key">Anon key</label>
+            <input id="supabase-key" name="supabaseKey" placeholder="eyJ..." />
+          </div>
+          <div>
+            <label for="sync-profile">Profil (napr. michal)</label>
+            <input id="sync-profile" name="syncProfile" placeholder="michal" />
+          </div>
+          <div class="sync-actions">
+            <button type="submit" class="btn btn-outline">Ulozit nastaveni</button>
+            <button type="button" id="sync-push" class="btn btn-primary">Nahrat do cloudu</button>
+            <button type="button" id="sync-pull" class="btn btn-outline">Nacist z cloudu</button>
+          </div>
+        </form>
+        <div id="sync-status" class="subtitle mt8">Cloud sync neni nastaven.</div>
+      </article>
 
       <div class="grid-2">
         <article class="card">
@@ -109,6 +134,6 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=3"></script>
 </body>
 </html>

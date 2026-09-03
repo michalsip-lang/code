@@ -3,6 +3,9 @@ const DB_VERSION = 2;
 const STORE = "tasks";
 const LS_KEY = "akcni-plan-local-tasks";
 const RECOVERY_KEY = "akcni-plan-recovery-attempted";
+const SYNC_URL_KEY = "akcni-plan-sync-url";
+const SYNC_ANON_KEY = "akcni-plan-sync-anon-key";
+const SYNC_PROFILE_KEY = "akcni-plan-sync-profile";
 
 const AREA_ORDER = ["Svp", "Sdp", "Bozp", "Po", "Jine"];
 const STATUS_ORDER = ["Todo", "InProgress", "Done", "Blocked"];
@@ -45,6 +48,7 @@ let activeFilter = null;
 let editTaskId = null;
 let charts = [];
 let storageMode = "indexeddb";
+let syncConfig = { url: "", anonKey: "", profile: "" };
 
 init().catch(async (error) => {
   console.error(error);
@@ -59,6 +63,7 @@ async function init() {
   setupNavigation();
   setupCreateForm();
   setupAutoForm();
+  setupSyncPanel();
   setupServiceWorker();
 
   try {
@@ -75,7 +80,10 @@ async function init() {
 }
 
 function ensureDomContract() {
-  const requiredIds = ["task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap"];
+  const requiredIds = [
+    "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
+    "sync-form", "supabase-url", "supabase-key", "sync-profile", "sync-push", "sync-pull", "sync-status"
+  ];
   requiredIds.forEach((id) => {
     if (!document.getElementById(id)) {
       throw new Error(`Missing required element: ${id}`);
@@ -231,6 +239,170 @@ function loadTasksFromLocalStorage() {
   }
 }
 
+function setupSyncPanel() {
+  syncConfig = loadSyncConfig();
+
+  const form = document.getElementById("sync-form");
+  const urlInput = document.getElementById("supabase-url");
+  const keyInput = document.getElementById("supabase-key");
+  const profileInput = document.getElementById("sync-profile");
+  const pushButton = document.getElementById("sync-push");
+  const pullButton = document.getElementById("sync-pull");
+
+  urlInput.value = syncConfig.url;
+  keyInput.value = syncConfig.anonKey;
+  profileInput.value = syncConfig.profile;
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    syncConfig = {
+      url: String(urlInput.value || "").trim().replace(/\/$/, ""),
+      anonKey: String(keyInput.value || "").trim(),
+      profile: String(profileInput.value || "").trim()
+    };
+
+    saveSyncConfig(syncConfig);
+    updateSyncStatus(syncConfigReady() ? "Nastaveni sync ulozeno." : "Dopln Supabase URL, Anon key a Profil.", !syncConfigReady());
+  });
+
+  pushButton.addEventListener("click", async () => {
+    await runSyncAction(pushToCloud);
+  });
+
+  pullButton.addEventListener("click", async () => {
+    await runSyncAction(pullFromCloud);
+  });
+
+  updateSyncStatus(syncConfigReady() ? "Cloud sync pripraven." : "Cloud sync neni nastaven.");
+}
+
+function loadSyncConfig() {
+  try {
+    return {
+      url: localStorage.getItem(SYNC_URL_KEY) || "",
+      anonKey: localStorage.getItem(SYNC_ANON_KEY) || "",
+      profile: localStorage.getItem(SYNC_PROFILE_KEY) || ""
+    };
+  } catch {
+    return { url: "", anonKey: "", profile: "" };
+  }
+}
+
+function saveSyncConfig(config) {
+  try {
+    localStorage.setItem(SYNC_URL_KEY, config.url || "");
+    localStorage.setItem(SYNC_ANON_KEY, config.anonKey || "");
+    localStorage.setItem(SYNC_PROFILE_KEY, config.profile || "");
+  } catch (error) {
+    console.warn("Nepodarilo se ulozit sync konfiguraci", error);
+  }
+}
+
+function syncConfigReady() {
+  return Boolean(syncConfig.url && syncConfig.anonKey && syncConfig.profile);
+}
+
+function updateSyncStatus(text, isError = false) {
+  const host = document.getElementById("sync-status");
+  host.textContent = text;
+  host.style.color = isError ? "#a61f2c" : "";
+}
+
+async function runSyncAction(action) {
+  if (!syncConfigReady()) {
+    updateSyncStatus("Nejdriv vypln Supabase URL, Anon key a Profil.", true);
+    return;
+  }
+
+  try {
+    updateSyncStatus("Probiha synchronizace...");
+    await action();
+    renderAll();
+  } catch (error) {
+    console.error(error);
+    updateSyncStatus(`Sync selhal: ${String(error.message || error)}`, true);
+  }
+}
+
+function syncHeaders() {
+  return {
+    "apikey": syncConfig.anonKey,
+    "Authorization": `Bearer ${syncConfig.anonKey}`,
+    "Content-Type": "application/json",
+    "Prefer": "return=minimal"
+  };
+}
+
+async function pushToCloud() {
+  const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
+  const profile = encodeURIComponent(syncConfig.profile);
+
+  const deleteResponse = await fetch(`${baseUrl}?profile_id=eq.${profile}`, {
+    method: "DELETE",
+    headers: syncHeaders()
+  });
+
+  if (!deleteResponse.ok) {
+    throw new Error(`Smazani cloud dat selhalo (${deleteResponse.status})`);
+  }
+
+  const payload = tasks.map((task) => ({
+    profile_id: syncConfig.profile,
+    task_id: task.id,
+    updated_at: task.updatedAt || new Date().toISOString(),
+    task
+  }));
+
+  if (payload.length > 0) {
+    const insertResponse = await fetch(baseUrl, {
+      method: "POST",
+      headers: syncHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (!insertResponse.ok) {
+      throw new Error(`Nahrani cloud dat selhalo (${insertResponse.status})`);
+    }
+  }
+
+  updateSyncStatus(`Nahrano do cloudu: ${tasks.length} ukolu.`);
+}
+
+async function pullFromCloud() {
+  const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
+  const profile = encodeURIComponent(syncConfig.profile);
+  const selectResponse = await fetch(`${baseUrl}?select=task,updated_at&profile_id=eq.${profile}&order=updated_at.desc`, {
+    method: "GET",
+    headers: syncHeaders()
+  });
+
+  if (!selectResponse.ok) {
+    throw new Error(`Nacteni cloud dat selhalo (${selectResponse.status})`);
+  }
+
+  const rows = await selectResponse.json();
+  const incoming = Array.isArray(rows) ? rows.map((row) => normalizeTask(row.task || {})) : [];
+  incoming.forEach((task) => {
+    task.priorityScore = calculatePriority(task);
+  });
+
+  tasks = incoming;
+  await persistAllTasksLocally(tasks);
+  updateSyncStatus(`Nacteno z cloudu: ${tasks.length} ukolu.`);
+}
+
+async function persistAllTasksLocally(list) {
+  if (storageMode === "localstorage") {
+    saveTasksToLocalStorage(list);
+    return;
+  }
+
+  await clearStore();
+  for (const task of list) {
+    await persistTask(task);
+  }
+}
+
 function saveTasksToLocalStorage(list) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(list));
@@ -247,6 +419,7 @@ function newId() {
 }
 
 function normalizeTask(task) {
+  const nowIso = new Date().toISOString();
   return {
     id: task.id || newId(),
     title: String(task.title || "").trim(),
@@ -259,7 +432,8 @@ function normalizeTask(task) {
     status: STATUS_ORDER.includes(task.status) ? task.status : "Todo",
     tags: Array.isArray(task.tags) ? task.tags.map((t) => String(t).trim()).filter(Boolean) : [],
     dependencyIds: Array.isArray(task.dependencyIds) ? task.dependencyIds : [],
-    createdAt: task.createdAt || new Date().toISOString(),
+    createdAt: task.createdAt || nowIso,
+    updatedAt: task.updatedAt || task.createdAt || nowIso,
     completedAt: task.completedAt || null,
     priorityScore: 0
   };
@@ -357,6 +531,7 @@ function setupAutoForm() {
         tags: [],
         dependencyIds: [],
         createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
         completedAt: null
       });
       task.priorityScore = calculatePriority(task);
@@ -397,6 +572,7 @@ async function onCreateOrEditSubmit(event) {
     tags: parseCsv(String(data.get("tagsCsv") || "")),
     dependencyIds,
     createdAt: prev?.createdAt || now.toISOString(),
+    updatedAt: now.toISOString(),
     completedAt: status === "Done" ? (prev?.completedAt || now.toISOString()) : null
   });
 
@@ -650,6 +826,7 @@ async function handleTaskAction(action, id) {
 
   if (action === "done" && task.status !== "Done") {
     task.status = "Done";
+    task.updatedAt = new Date().toISOString();
     task.completedAt = new Date().toISOString();
     task.actualHours = Math.max(task.actualHours, task.estimatedHours);
     task.priorityScore = calculatePriority(task);
@@ -905,7 +1082,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=2").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=3").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);

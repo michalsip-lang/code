@@ -56,3 +56,52 @@ Postup:
 - Pro synchronizaci mezi vice zarizenimi by bylo nutne doplnit cloud backend.
 
 Posledni aktualizace nasazeni: 2026-09-03.
+
+## Synchronizace mezi zarizenimi (Supabase zdarma)
+
+Do aplikace je pridany cloud sync panel na Dashboardu.
+
+### 1) Vytvor Supabase projekt
+
+- registrace: https://supabase.com
+- vytvor novy projekt (free plan)
+
+### 2) V SQL editoru spust tento skript
+
+```sql
+create table if not exists public.tasks_sync (
+	id bigint generated always as identity primary key,
+	profile_id text not null,
+	task_id text not null,
+	updated_at timestamptz not null default now(),
+	task jsonb not null
+);
+
+create index if not exists idx_tasks_sync_profile on public.tasks_sync (profile_id);
+
+alter table public.tasks_sync enable row level security;
+
+drop policy if exists "tasks_sync_open" on public.tasks_sync;
+create policy "tasks_sync_open"
+on public.tasks_sync
+for all
+to anon, authenticated
+using (true)
+with check (true);
+```
+
+Poznamka: tato politika je jednoducha pro osobni pouziti. Kdo zna tvuj anon key + profil, muze data cist/zapisovat.
+
+### 3) V aplikaci vypln cloud sync
+
+- Supabase URL (`https://xxxx.supabase.co`)
+- Anon key (`Project Settings -> API -> anon public`)
+- Profil (napr. `michal`)
+
+### 4) Synchronizace
+
+- `Ulozit nastaveni`
+- `Nahrat do cloudu` na prvnim zarizeni
+- na druhem zarizeni `Nacist z cloudu`
+
+Po kazde vetsi zmene staci jednou kliknout na `Nahrat do cloudu`.
