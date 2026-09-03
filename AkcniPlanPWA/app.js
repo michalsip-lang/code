@@ -5,7 +5,7 @@ const LS_KEY = "akcni-plan-local-tasks";
 const RECOVERY_KEY = "akcni-plan-recovery-attempted";
 const SYNC_URL_KEY = "akcni-plan-sync-url";
 const SYNC_ANON_KEY = "akcni-plan-sync-anon-key";
-const SYNC_PROFILE_KEY = "akcni-plan-sync-profile";
+const SYNC_TOKEN_KEY = "akcni-plan-sync-access-token";
 
 const AREA_ORDER = ["Svp", "Sdp", "Bozp", "Po", "Jine"];
 const STATUS_ORDER = ["Todo", "InProgress", "Done", "Blocked"];
@@ -48,7 +48,8 @@ let activeFilter = null;
 let editTaskId = null;
 let charts = [];
 let storageMode = "indexeddb";
-let syncConfig = { url: "", anonKey: "", profile: "" };
+let syncConfig = { url: "", anonKey: "" };
+let authState = { accessToken: "", userId: "", email: "" };
 
 init().catch(async (error) => {
   console.error(error);
@@ -82,7 +83,8 @@ async function init() {
 function ensureDomContract() {
   const requiredIds = [
     "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
-    "sync-form", "supabase-url", "supabase-key", "sync-profile", "sync-push", "sync-pull", "sync-status"
+    "sync-form", "supabase-url", "supabase-key", "sync-push", "sync-pull", "sync-status",
+    "auth-email", "auth-password", "auth-signup", "auth-login", "auth-logout", "auth-status"
   ];
   requiredIds.forEach((id) => {
     if (!document.getElementById(id)) {
@@ -121,7 +123,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "3");
+    url.searchParams.set("v", "4");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -241,28 +243,60 @@ function loadTasksFromLocalStorage() {
 
 function setupSyncPanel() {
   syncConfig = loadSyncConfig();
+  authState = loadAuthState();
 
   const form = document.getElementById("sync-form");
   const urlInput = document.getElementById("supabase-url");
   const keyInput = document.getElementById("supabase-key");
-  const profileInput = document.getElementById("sync-profile");
+  const emailInput = document.getElementById("auth-email");
+  const passwordInput = document.getElementById("auth-password");
+  const signUpButton = document.getElementById("auth-signup");
+  const loginButton = document.getElementById("auth-login");
+  const logoutButton = document.getElementById("auth-logout");
   const pushButton = document.getElementById("sync-push");
   const pullButton = document.getElementById("sync-pull");
 
   urlInput.value = syncConfig.url;
   keyInput.value = syncConfig.anonKey;
-  profileInput.value = syncConfig.profile;
+  emailInput.value = authState.email || "";
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     syncConfig = {
       url: String(urlInput.value || "").trim().replace(/\/$/, ""),
-      anonKey: String(keyInput.value || "").trim(),
-      profile: String(profileInput.value || "").trim()
+      anonKey: String(keyInput.value || "").trim()
     };
 
     saveSyncConfig(syncConfig);
-    updateSyncStatus(syncConfigReady() ? "Nastaveni sync ulozeno." : "Dopln Supabase URL, Anon key a Profil.", !syncConfigReady());
+    updateSyncStatus(syncConfigReady() ? "Nastaveni sync ulozeno." : "Dopln Supabase URL a Anon key.", !syncConfigReady());
+    refreshAuthStatus();
+  });
+
+  signUpButton.addEventListener("click", async () => {
+    await runAuthAction(async () => {
+      const email = String(emailInput.value || "").trim();
+      const password = String(passwordInput.value || "").trim();
+      await signUpSupabase(email, password);
+      updateSyncStatus("Ucet vytvoren. Ted klikni Prihlasit.");
+    });
+  });
+
+  loginButton.addEventListener("click", async () => {
+    await runAuthAction(async () => {
+      const email = String(emailInput.value || "").trim();
+      const password = String(passwordInput.value || "").trim();
+      await loginSupabase(email, password);
+      refreshAuthStatus();
+      updateSyncStatus("Prihlaseni uspesne.");
+    });
+  });
+
+  logoutButton.addEventListener("click", async () => {
+    await runAuthAction(async () => {
+      clearAuthState();
+      refreshAuthStatus();
+      updateSyncStatus("Odhlaseno.");
+    });
   });
 
   pushButton.addEventListener("click", async () => {
@@ -273,6 +307,7 @@ function setupSyncPanel() {
     await runSyncAction(pullFromCloud);
   });
 
+  refreshAuthStatus();
   updateSyncStatus(syncConfigReady() ? "Cloud sync pripraven." : "Cloud sync neni nastaven.");
 }
 
@@ -280,11 +315,10 @@ function loadSyncConfig() {
   try {
     return {
       url: localStorage.getItem(SYNC_URL_KEY) || "",
-      anonKey: localStorage.getItem(SYNC_ANON_KEY) || "",
-      profile: localStorage.getItem(SYNC_PROFILE_KEY) || ""
+      anonKey: localStorage.getItem(SYNC_ANON_KEY) || ""
     };
   } catch {
-    return { url: "", anonKey: "", profile: "" };
+    return { url: "", anonKey: "" };
   }
 }
 
@@ -292,14 +326,138 @@ function saveSyncConfig(config) {
   try {
     localStorage.setItem(SYNC_URL_KEY, config.url || "");
     localStorage.setItem(SYNC_ANON_KEY, config.anonKey || "");
-    localStorage.setItem(SYNC_PROFILE_KEY, config.profile || "");
   } catch (error) {
     console.warn("Nepodarilo se ulozit sync konfiguraci", error);
   }
 }
 
 function syncConfigReady() {
-  return Boolean(syncConfig.url && syncConfig.anonKey && syncConfig.profile);
+  return Boolean(syncConfig.url && syncConfig.anonKey);
+}
+
+function loadAuthState() {
+  try {
+    const token = localStorage.getItem(SYNC_TOKEN_KEY) || "";
+    if (!token) {
+      return { accessToken: "", userId: "", email: "" };
+    }
+
+    const payload = parseJwt(token);
+    return {
+      accessToken: token,
+      userId: payload?.sub || "",
+      email: payload?.email || ""
+    };
+  } catch {
+    return { accessToken: "", userId: "", email: "" };
+  }
+}
+
+function saveAuthToken(token) {
+  localStorage.setItem(SYNC_TOKEN_KEY, token);
+  const payload = parseJwt(token);
+  authState = {
+    accessToken: token,
+    userId: payload?.sub || "",
+    email: payload?.email || ""
+  };
+}
+
+function clearAuthState() {
+  localStorage.removeItem(SYNC_TOKEN_KEY);
+  authState = { accessToken: "", userId: "", email: "" };
+}
+
+function parseJwt(token) {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) {
+      return null;
+    }
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function refreshAuthStatus() {
+  const host = document.getElementById("auth-status");
+  if (!syncConfigReady()) {
+    host.textContent = "Nejdriv uloz Supabase URL a Anon key.";
+    return;
+  }
+
+  if (authState.userId) {
+    host.textContent = `Prihlaseno jako ${authState.email || authState.userId}`;
+  } else {
+    host.textContent = "Neprihlaseno.";
+  }
+}
+
+async function runAuthAction(action) {
+  if (!syncConfigReady()) {
+    updateSyncStatus("Nejdriv vypln a uloz Supabase URL + Anon key.", true);
+    return;
+  }
+
+  try {
+    await action();
+  } catch (error) {
+    console.error(error);
+    updateSyncStatus(`Auth selhal: ${String(error.message || error)}`, true);
+  }
+}
+
+async function signUpSupabase(email, password) {
+  if (!email || !password) {
+    throw new Error("Vypln e-mail a heslo.");
+  }
+
+  const response = await fetch(`${syncConfig.url}/auth/v1/signup`, {
+    method: "POST",
+    headers: {
+      "apikey": syncConfig.anonKey,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  });
+
+  if (!response.ok) {
+    const body = await safeJson(response);
+    throw new Error(body?.msg || body?.error_description || `Signup selhal (${response.status})`);
+  }
+}
+
+async function loginSupabase(email, password) {
+  if (!email || !password) {
+    throw new Error("Vypln e-mail a heslo.");
+  }
+
+  const response = await fetch(`${syncConfig.url}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: {
+      "apikey": syncConfig.anonKey,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  });
+
+  const body = await safeJson(response);
+  if (!response.ok || !body?.access_token) {
+    throw new Error(body?.msg || body?.error_description || `Login selhal (${response.status})`);
+  }
+
+  saveAuthToken(body.access_token);
+}
+
+async function safeJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 function updateSyncStatus(text, isError = false) {
@@ -310,7 +468,12 @@ function updateSyncStatus(text, isError = false) {
 
 async function runSyncAction(action) {
   if (!syncConfigReady()) {
-    updateSyncStatus("Nejdriv vypln Supabase URL, Anon key a Profil.", true);
+    updateSyncStatus("Nejdriv vypln Supabase URL a Anon key.", true);
+    return;
+  }
+
+  if (!authState.accessToken || !authState.userId) {
+    updateSyncStatus("Nejdriv se prihlas pres Supabase Auth.", true);
     return;
   }
 
@@ -327,7 +490,7 @@ async function runSyncAction(action) {
 function syncHeaders() {
   return {
     "apikey": syncConfig.anonKey,
-    "Authorization": `Bearer ${syncConfig.anonKey}`,
+    "Authorization": `Bearer ${authState.accessToken}`,
     "Content-Type": "application/json",
     "Prefer": "return=minimal"
   };
@@ -335,7 +498,7 @@ function syncHeaders() {
 
 async function pushToCloud() {
   const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
-  const profile = encodeURIComponent(syncConfig.profile);
+  const profile = encodeURIComponent(authState.userId);
 
   const deleteResponse = await fetch(`${baseUrl}?profile_id=eq.${profile}`, {
     method: "DELETE",
@@ -347,7 +510,7 @@ async function pushToCloud() {
   }
 
   const payload = tasks.map((task) => ({
-    profile_id: syncConfig.profile,
+    profile_id: authState.userId,
     task_id: task.id,
     updated_at: task.updatedAt || new Date().toISOString(),
     task
@@ -370,7 +533,7 @@ async function pushToCloud() {
 
 async function pullFromCloud() {
   const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
-  const profile = encodeURIComponent(syncConfig.profile);
+  const profile = encodeURIComponent(authState.userId);
   const selectResponse = await fetch(`${baseUrl}?select=task,updated_at&profile_id=eq.${profile}&order=updated_at.desc`, {
     method: "GET",
     headers: syncHeaders()
@@ -1082,7 +1245,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=3").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=4").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);

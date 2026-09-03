@@ -82,26 +82,28 @@ create index if not exists idx_tasks_sync_profile on public.tasks_sync (profile_
 alter table public.tasks_sync enable row level security;
 
 drop policy if exists "tasks_sync_open" on public.tasks_sync;
-create policy "tasks_sync_open"
+drop policy if exists "tasks_sync_owner" on public.tasks_sync;
+create policy "tasks_sync_owner"
 on public.tasks_sync
 for all
-to anon, authenticated
-using (true)
-with check (true);
+to authenticated
+using (profile_id = auth.uid()::text)
+with check (profile_id = auth.uid()::text);
 ```
 
-Poznamka: tato politika je jednoducha pro osobni pouziti. Kdo zna tvuj anon key + profil, muze data cist/zapisovat.
+Poznamka: tato politika je bezpecnejsi. Data uvidi jen prihlaseny vlastnik.
 
 ### 3) V aplikaci vypln cloud sync
 
 - Supabase URL (`https://xxxx.supabase.co`)
 - Anon key (`Project Settings -> API -> anon public`)
-- Profil (napr. `michal`)
+- E-mail + heslo pro prihlaseni
+- V aplikaci klikni `Vytvorit ucet` (jen poprve) a potom `Prihlasit`
 
 ### 4) Synchronizace
 
 - `Ulozit nastaveni`
 - `Nahrat do cloudu` na prvnim zarizeni
-- na druhem zarizeni `Nacist z cloudu`
+- na druhem zarizeni se prihlas stejnym uctem a klikni `Nacist z cloudu`
 
 Po kazde vetsi zmene staci jednou kliknout na `Nahrat do cloudu`.

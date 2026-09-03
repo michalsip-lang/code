@@ -1,4 +1,4 @@
-const CACHE = "akcni-plan-pwa-v3";
+const CACHE = "akcni-plan-pwa-v4";
 const ASSETS = [
   "./",
   "./index.html",

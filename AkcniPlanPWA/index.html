@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
   <nav class="navbar">
@@ -50,8 +50,17 @@
             <input id="supabase-key" name="supabaseKey" placeholder="eyJ..." />
           </div>
           <div>
-            <label for="sync-profile">Profil (napr. michal)</label>
-            <input id="sync-profile" name="syncProfile" placeholder="michal" />
+            <label for="auth-email">E-mail</label>
+            <input id="auth-email" name="authEmail" type="email" placeholder="tvuj@email.cz" />
+          </div>
+          <div>
+            <label for="auth-password">Heslo</label>
+            <input id="auth-password" name="authPassword" type="password" placeholder="Heslo do Supabase uctu" />
+          </div>
+          <div class="sync-actions">
+            <button type="button" id="auth-signup" class="btn btn-outline">Vytvorit ucet</button>
+            <button type="button" id="auth-login" class="btn btn-primary">Prihlasit</button>
+            <button type="button" id="auth-logout" class="btn btn-outline">Odhlasit</button>
           </div>
           <div class="sync-actions">
             <button type="submit" class="btn btn-outline">Ulozit nastaveni</button>
@@ -59,6 +68,7 @@
             <button type="button" id="sync-pull" class="btn btn-outline">Nacist z cloudu</button>
           </div>
         </form>
+        <div id="auth-status" class="subtitle mt8">Neprihlaseno.</div>
         <div id="sync-status" class="subtitle mt8">Cloud sync neni nastaven.</div>
       </article>
 
@@ -134,6 +144,6 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=3"></script>
+  <script type="module" src="app.js?v=4"></script>
 </body>
 </html>
