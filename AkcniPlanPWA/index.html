@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d5c4f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Akcni plan" />
+  <title>Akcni plan</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Akcni plan</h1>
+    <p>Samostatna iPad aplikace. Data zustavaji jen v tomto zarizeni.</p>
+  </header>
+
+  <main class="shell">
+    <section class="card">
+      <h2>Novy ukol</h2>
+      <form id="task-form">
+        <label for="title">Nazev ukolu</label>
+        <input id="title" name="title" type="text" maxlength="180" required placeholder="Napriklad: Pripravit tydenni plan" />
+
+        <label for="description">Popis</label>
+        <textarea id="description" name="description" rows="3" placeholder="Detaily ukolu"></textarea>
+
+        <div class="row">
+          <div>
+            <label for="status">Stav</label>
+            <select id="status" name="status">
+              <option value="Todo">K vyreseni</option>
+              <option value="InProgress">Rozpracovano</option>
+              <option value="Done">Hotovo</option>
+            </select>
+          </div>
+          <div>
+            <label for="dueDate">Termin</label>
+            <input id="dueDate" name="dueDate" type="date" />
+          </div>
+        </div>
+
+        <button type="submit">Pridat ukol</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="toolbar">
+        <h2>Seznam ukolu</h2>
+        <div class="toolbar-actions">
+          <select id="filter-status" aria-label="Filtr podle stavu">
+            <option value="All">Vse</option>
+            <option value="Todo">K vyreseni</option>
+            <option value="InProgress">Rozpracovano</option>
+            <option value="Done">Hotovo</option>
+          </select>
+          <button id="clear-all" class="ghost" type="button">Smazat vse</button>
+        </div>
+      </div>
+      <ul id="task-list" class="task-list" aria-live="polite"></ul>
+      <p id="empty" class="empty">Zatim zadne ukoly.</p>
+    </section>
+  </main>
+
+  <dialog id="confirm-dialog">
+    <form method="dialog" class="confirm-body">
+      <h3>Opravdu smazat vsechny ukoly?</h3>
+      <p>Tato akce nejde vratit zpet.</p>
+      <div class="confirm-actions">
+        <button value="cancel" class="ghost">Zrusit</button>
+        <button value="confirm" autofocus>Smazat</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
