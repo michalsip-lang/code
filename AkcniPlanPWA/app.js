@@ -1,6 +1,8 @@
 const DB_NAME = "akcni-plan-local";
 const DB_VERSION = 2;
 const STORE = "tasks";
+const LS_KEY = "akcni-plan-local-tasks";
+const RECOVERY_KEY = "akcni-plan-recovery-attempted";
 
 const AREA_ORDER = ["Svp", "Sdp", "Bozp", "Po", "Jine"];
 const STATUS_ORDER = ["Todo", "InProgress", "Done", "Blocked"];
@@ -42,22 +44,82 @@ let tasks = [];
 let activeFilter = null;
 let editTaskId = null;
 let charts = [];
+let storageMode = "indexeddb";
 
-init().catch((error) => {
+init().catch(async (error) => {
   console.error(error);
-  alert("Aplikaci se nepodarilo inicializovat.");
+  const recovered = await tryClientRecovery(error);
+  if (!recovered) {
+    alert("Aplikaci se nepodarilo inicializovat. Na iPadu zkuste vypnout Soukrome prohlizeni nebo povolit data webu pro Safari.");
+  }
 });
 
 async function init() {
-  db = await openDb();
-  tasks = await loadTasks();
-
+  ensureDomContract();
   setupNavigation();
   setupCreateForm();
   setupAutoForm();
   setupServiceWorker();
 
+  try {
+    db = await openDb();
+    storageMode = "indexeddb";
+  } catch (error) {
+    console.warn("IndexedDB neni dostupna, prepinam na localStorage", error);
+    storageMode = "localstorage";
+  }
+
+  tasks = await loadTasks();
+
   renderAll();
+}
+
+function ensureDomContract() {
+  const requiredIds = ["task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap"];
+  requiredIds.forEach((id) => {
+    if (!document.getElementById(id)) {
+      throw new Error(`Missing required element: ${id}`);
+    }
+  });
+}
+
+async function tryClientRecovery(error) {
+  try {
+    if (sessionStorage.getItem(RECOVERY_KEY) === "1") {
+      return false;
+    }
+
+    const message = String(error?.message || error || "").toLowerCase();
+    const shouldRecover = message.includes("missing required element")
+      || message.includes("indexeddb")
+      || message.includes("quota")
+      || message.includes("invalidstateerror")
+      || message.includes("notfounderror");
+
+    if (!shouldRecover) {
+      return false;
+    }
+
+    sessionStorage.setItem(RECOVERY_KEY, "1");
+
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("v", "3");
+    url.searchParams.set("t", String(Date.now()));
+    window.location.replace(url.toString());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function openDb() {
@@ -91,6 +153,10 @@ function tx(mode = "readonly") {
 }
 
 function loadTasks() {
+  if (storageMode === "localstorage") {
+    return Promise.resolve(loadTasksFromLocalStorage());
+  }
+
   return new Promise((resolve, reject) => {
     const request = tx().getAll();
     request.onsuccess = () => {
@@ -105,6 +171,11 @@ function loadTasks() {
 }
 
 function persistTask(task) {
+  if (storageMode === "localstorage") {
+    saveTasksToLocalStorage(tasks);
+    return Promise.resolve();
+  }
+
   return new Promise((resolve, reject) => {
     const request = tx("readwrite").put(task);
     request.onsuccess = () => resolve();
@@ -113,6 +184,12 @@ function persistTask(task) {
 }
 
 function deleteTaskById(id) {
+  if (storageMode === "localstorage") {
+    tasks = tasks.filter((row) => row.id !== id);
+    saveTasksToLocalStorage(tasks);
+    return Promise.resolve();
+  }
+
   return new Promise((resolve, reject) => {
     const request = tx("readwrite").delete(id);
     request.onsuccess = () => resolve();
@@ -121,6 +198,14 @@ function deleteTaskById(id) {
 }
 
 function clearStore() {
+  if (storageMode === "localstorage") {
+    try {
+      localStorage.removeItem(LS_KEY);
+    } catch {
+    }
+    return Promise.resolve();
+  }
+
   return new Promise((resolve, reject) => {
     const request = tx("readwrite").clear();
     request.onsuccess = () => resolve();
@@ -128,9 +213,42 @@ function clearStore() {
   });
 }
 
+function loadTasksFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.map(normalizeTask);
+  } catch {
+    return [];
+  }
+}
+
+function saveTasksToLocalStorage(list) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(list));
+  } catch (error) {
+    console.warn("Nepodarilo se ulozit data do localStorage", error);
+  }
+}
+
+function newId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function normalizeTask(task) {
   return {
-    id: task.id || crypto.randomUUID(),
+    id: task.id || newId(),
     title: String(task.title || "").trim(),
     description: String(task.description || "").trim(),
     dueDate: task.dueDate || "",
@@ -227,7 +345,7 @@ function setupAutoForm() {
 
       const now = new Date();
       const task = normalizeTask({
-        id: crypto.randomUUID(),
+        id: newId(),
         title: line,
         description: "Automaticky vygenerovany ukol z textoveho vstupu.",
         dueDate: toDateInput(addDays(now, 2)),
@@ -267,7 +385,7 @@ async function onCreateOrEditSubmit(event) {
   const prev = editTaskId ? tasks.find((task) => task.id === editTaskId) : null;
 
   const task = normalizeTask({
-    id: editTaskId || crypto.randomUUID(),
+    id: editTaskId || newId(),
     title: data.get("title"),
     description: data.get("description"),
     dueDate: data.get("dueDate"),
