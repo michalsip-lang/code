@@ -100,6 +100,18 @@ Poznamka: tato politika je bezpecnejsi. Data uvidi jen prihlaseny vlastnik.
 - E-mail + heslo pro prihlaseni
 - V aplikaci klikni `Vytvorit ucet` (jen poprve) a potom `Prihlasit`
 
+### 3b) Prihlaseni pres GitHub (volitelne)
+
+1. V Supabase otevri `Authentication -> Providers -> GitHub` a zapni provider.
+2. V GitHub Developers vytvor OAuth App:
+	- Homepage URL: `https://michalsip-lang.github.io/code/`
+	- Authorization callback URL: `https://<TVUJ-PROJECT-REF>.supabase.co/auth/v1/callback`
+3. Client ID + Client Secret vloz zpet do Supabase GitHub provideru.
+4. V Supabase otevri `Authentication -> URL Configuration`:
+	- `Site URL`: `https://michalsip-lang.github.io/code/`
+	- `Redirect URLs`: pridej `https://michalsip-lang.github.io/code/`
+5. V appce klikni `Prihlasit pres GitHub`.
+
 ### 4) Synchronizace
 
 - `Ulozit nastaveni`

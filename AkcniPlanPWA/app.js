@@ -84,7 +84,7 @@ function ensureDomContract() {
   const requiredIds = [
     "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
     "sync-form", "supabase-url", "supabase-key", "sync-push", "sync-pull", "sync-status",
-    "auth-email", "auth-password", "auth-signup", "auth-login", "auth-logout", "auth-status"
+    "auth-email", "auth-password", "auth-signup", "auth-login", "auth-github", "auth-logout", "auth-status"
   ];
   requiredIds.forEach((id) => {
     if (!document.getElementById(id)) {
@@ -123,7 +123,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "4");
+    url.searchParams.set("v", "5");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -244,6 +244,7 @@ function loadTasksFromLocalStorage() {
 function setupSyncPanel() {
   syncConfig = loadSyncConfig();
   authState = loadAuthState();
+  hydrateAuthFromUrlHash();
 
   const form = document.getElementById("sync-form");
   const urlInput = document.getElementById("supabase-url");
@@ -252,6 +253,7 @@ function setupSyncPanel() {
   const passwordInput = document.getElementById("auth-password");
   const signUpButton = document.getElementById("auth-signup");
   const loginButton = document.getElementById("auth-login");
+  const githubButton = document.getElementById("auth-github");
   const logoutButton = document.getElementById("auth-logout");
   const pushButton = document.getElementById("sync-push");
   const pullButton = document.getElementById("sync-pull");
@@ -291,6 +293,12 @@ function setupSyncPanel() {
     });
   });
 
+  githubButton.addEventListener("click", async () => {
+    await runAuthAction(async () => {
+      startGithubOAuth();
+    });
+  });
+
   logoutButton.addEventListener("click", async () => {
     await runAuthAction(async () => {
       clearAuthState();
@@ -309,6 +317,32 @@ function setupSyncPanel() {
 
   refreshAuthStatus();
   updateSyncStatus(syncConfigReady() ? "Cloud sync pripraven." : "Cloud sync neni nastaven.");
+}
+
+function startGithubOAuth() {
+  const redirectTo = getOAuthRedirectUrl();
+  const authUrl = `${syncConfig.url}/auth/v1/authorize?provider=github&redirect_to=${encodeURIComponent(redirectTo)}`;
+  window.location.assign(authUrl);
+}
+
+function getOAuthRedirectUrl() {
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+function hydrateAuthFromUrlHash() {
+  if (!window.location.hash) {
+    return;
+  }
+
+  const hash = new URLSearchParams(window.location.hash.slice(1));
+  const accessToken = hash.get("access_token");
+  if (!accessToken) {
+    return;
+  }
+
+  saveAuthToken(accessToken);
+  const cleanUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+  window.history.replaceState({}, document.title, cleanUrl);
 }
 
 function loadSyncConfig() {
@@ -1245,7 +1279,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=4").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=5").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
