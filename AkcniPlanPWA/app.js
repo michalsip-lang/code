@@ -29,11 +29,11 @@ const STATUS_LABEL = {
 };
 
 const FILTER_LABEL = {
-  overdue: "Po terminu",
-  today: "Na dnesek",
-  week: "Tento tyden",
+  todo: "K vyrizeni",
+  blocked: "Blokovane",
   completed: "Dokoncene",
-  inprogress: "Rozpracovane"
+  inprogress: "Rozpracovane",
+  open: "Otevrene"
 };
 
 const brand = {
@@ -127,7 +127,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "6");
+    url.searchParams.set("v", "7");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -875,11 +875,11 @@ function renderDashboard() {
   kpiGrid.innerHTML = "";
 
   const items = [
-    { key: "overdue", label: "Po terminu", value: kpi.overdue, cls: "kpi-red" },
-    { key: "today", label: "Na dnesek", value: kpi.today, cls: "kpi-grey" },
-    { key: "week", label: "Tento tyden", value: kpi.week, cls: "kpi-blue" },
+    { key: "todo", label: "K vyrizeni", value: kpi.todo, cls: "kpi-red" },
+    { key: "inprogress", label: "Rozpracovane", value: kpi.inprogress, cls: "kpi-blue" },
+    { key: "blocked", label: "Blokovane", value: kpi.blocked, cls: "kpi-grey" },
     { key: "completed", label: "Dokoncene", value: kpi.completed, cls: "kpi-blue" },
-    { key: "inprogress", label: "Rozpracovane", value: kpi.inprogress, cls: "kpi-grey" },
+    { key: "open", label: "Otevrene", value: kpi.open, cls: "kpi-grey" },
     { key: null, label: "KPI plneni", value: `${kpi.completionRate.toFixed(1)}%`, cls: "kpi-light" }
   ];
 
@@ -1131,56 +1131,41 @@ function calculatePriority(task) {
 }
 
 function getKpi() {
-  const now = new Date();
-  const today = stripTime(now);
-  const weekEnd = addDays(today, 7);
-
-  const open = tasks.filter((task) => task.status !== "Done");
+  const todo = tasks.filter((task) => task.status === "Todo");
+  const inprogress = tasks.filter((task) => task.status === "InProgress");
+  const blocked = tasks.filter((task) => task.status === "Blocked");
   const done = tasks.filter((task) => task.status === "Done");
-
-  const overdue = open.filter((task) => task.dueDate && new Date(`${task.dueDate}T00:00:00`) < today).length;
-  const todayCount = open.filter((task) => task.dueDate && sameDate(new Date(`${task.dueDate}T00:00:00`), today)).length;
-  const week = open.filter((task) => {
-    if (!task.dueDate) {
-      return false;
-    }
-    const due = new Date(`${task.dueDate}T00:00:00`);
-    return due >= today && due <= weekEnd;
-  }).length;
+  const open = tasks.filter((task) => task.status !== "Done");
 
   return {
-    overdue,
-    today: todayCount,
-    week,
+    todo: todo.length,
+    blocked: blocked.length,
     completed: done.length,
-    inprogress: tasks.filter((task) => task.status === "InProgress").length,
+    inprogress: inprogress.length,
+    open: open.length,
     completionRate: tasks.length ? (done.length / tasks.length) * 100 : 0
   };
 }
 
 function applyFilter(list, filter) {
-  const now = new Date();
-  const today = stripTime(now);
-  const weekEnd = addDays(today, 7);
-
   if (!filter) {
     return list;
   }
 
-  if (filter === "overdue") {
-    return list.filter((task) => task.status !== "Done" && task.dueDate && new Date(`${task.dueDate}T00:00:00`) < today);
+  if (filter === "todo") {
+    return list.filter((task) => task.status === "Todo");
   }
-  if (filter === "today") {
-    return list.filter((task) => task.status !== "Done" && task.dueDate && sameDate(new Date(`${task.dueDate}T00:00:00`), today));
-  }
-  if (filter === "week") {
-    return list.filter((task) => task.status !== "Done" && task.dueDate && new Date(`${task.dueDate}T00:00:00`) >= today && new Date(`${task.dueDate}T00:00:00`) <= weekEnd);
+  if (filter === "blocked") {
+    return list.filter((task) => task.status === "Blocked");
   }
   if (filter === "completed") {
     return list.filter((task) => task.status === "Done");
   }
   if (filter === "inprogress") {
     return list.filter((task) => task.status === "InProgress");
+  }
+  if (filter === "open") {
+    return list.filter((task) => task.status !== "Done");
   }
 
   return list;
@@ -1319,7 +1304,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=6").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=7").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
