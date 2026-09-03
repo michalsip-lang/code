@@ -81,14 +81,18 @@ async function init() {
   tasks = await loadTasks();
 
   renderAll();
+  await runSyncAction(pullFromCloud, "pull", {
+    promptOnAuth: true,
+    authPrompt: "Pro automatické načtení z cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
+  });
 }
 
 function ensureDomContract() {
   const requiredIds = [
     "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
-    "sync-form", "supabase-url", "supabase-key", "sync-push", "sync-pull", "sync-status", "sync-quick-status",
+    "sync-form", "supabase-url", "supabase-key", "sync-status", "sync-quick-status",
     "nav-auth-status",
-    "auth-email", "auth-password", "auth-signup", "auth-login", "auth-github", "auth-logout", "auth-status"
+    "auth-github", "auth-logout", "auth-status"
   ];
   requiredIds.forEach((id) => {
     if (!document.getElementById(id)) {
@@ -127,7 +131,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "10");
+    url.searchParams.set("v", "11");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -253,51 +257,17 @@ function setupSyncPanel() {
   const form = document.getElementById("sync-form");
   const urlInput = document.getElementById("supabase-url");
   const keyInput = document.getElementById("supabase-key");
-  const emailInput = document.getElementById("auth-email");
-  const passwordInput = document.getElementById("auth-password");
-  const signUpButton = document.getElementById("auth-signup");
-  const loginButton = document.getElementById("auth-login");
   const githubButton = document.getElementById("auth-github");
   const logoutButton = document.getElementById("auth-logout");
-  const pushButton = document.getElementById("sync-push");
-  const pullButton = document.getElementById("sync-pull");
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+  });
 
   urlInput.value = syncConfig.url;
   keyInput.value = syncConfig.anonKey;
   urlInput.readOnly = true;
   keyInput.readOnly = true;
-  emailInput.value = authState.email || "";
-
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    syncConfig = {
-      url: String(urlInput.value || "").trim().replace(/\/$/, ""),
-      anonKey: String(keyInput.value || "").trim()
-    };
-
-    saveSyncConfig(syncConfig);
-    updateSyncStatus(syncConfigReady() ? "Nastavení sync uloženo." : "Doplň Supabase URL a Anon key.", !syncConfigReady());
-    refreshAuthStatus();
-  });
-
-  signUpButton.addEventListener("click", async () => {
-    await runAuthAction(async () => {
-      const email = String(emailInput.value || "").trim();
-      const password = String(passwordInput.value || "").trim();
-      await signUpSupabase(email, password);
-      updateSyncStatus("Účet vytvořen. Teď klikni Přihlásit.");
-    });
-  });
-
-  loginButton.addEventListener("click", async () => {
-    await runAuthAction(async () => {
-      const email = String(emailInput.value || "").trim();
-      const password = String(passwordInput.value || "").trim();
-      await loginSupabase(email, password);
-      refreshAuthStatus();
-      updateSyncStatus("Přihlášení úspěšné.");
-    });
-  });
 
   githubButton.addEventListener("click", async () => {
     await runAuthAction(async () => {
@@ -313,16 +283,8 @@ function setupSyncPanel() {
     });
   });
 
-  pushButton.addEventListener("click", async () => {
-    await runSyncAction(pushToCloud, "push");
-  });
-
-  pullButton.addEventListener("click", async () => {
-    await runSyncAction(pullFromCloud, "pull");
-  });
-
   refreshAuthStatus();
-  updateSyncStatus(syncConfigReady() ? "Cloud sync připraven." : "Cloud sync není nastaven.");
+  updateSyncStatus(syncConfigReady() ? "Cloud sync je připraven (automatický režim)." : "Cloud sync není nastaven.");
   resumePendingSyncAction();
 }
 
@@ -461,48 +423,6 @@ async function runAuthAction(action) {
   }
 }
 
-async function signUpSupabase(email, password) {
-  if (!email || !password) {
-    throw new Error("Vyplň e-mail a heslo.");
-  }
-
-  const response = await fetch(`${syncConfig.url}/auth/v1/signup`, {
-    method: "POST",
-    headers: {
-      "apikey": syncConfig.anonKey,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ email, password })
-  });
-
-  if (!response.ok) {
-    const body = await safeJson(response);
-    throw new Error(body?.msg || body?.error_description || `Registrace selhala (${response.status})`);
-  }
-}
-
-async function loginSupabase(email, password) {
-  if (!email || !password) {
-    throw new Error("Vyplň e-mail a heslo.");
-  }
-
-  const response = await fetch(`${syncConfig.url}/auth/v1/token?grant_type=password`, {
-    method: "POST",
-    headers: {
-      "apikey": syncConfig.anonKey,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ email, password })
-  });
-
-  const body = await safeJson(response);
-  if (!response.ok || !body?.access_token) {
-    throw new Error(body?.msg || body?.error_description || `Přihlášení selhalo (${response.status})`);
-  }
-
-  saveAuthToken(body.access_token);
-}
-
 async function safeJson(response) {
   try {
     return await response.json();
@@ -520,17 +440,32 @@ function updateSyncStatus(text, isError = false) {
   quickHost.style.color = isError ? "#a61f2c" : "";
 }
 
-async function runSyncAction(action, actionName = "") {
+async function runSyncAction(action, actionName = "", options = {}) {
+  const {
+    promptOnAuth = false,
+    authPrompt = "Pro cloud sync je vyžadováno přihlášení přes GitHub. Přihlásit se teď?"
+  } = options;
+
   if (!syncConfigReady()) {
     updateSyncStatus("Cloud není nastaven.", true);
     return;
   }
 
   if (!authState.accessToken || !authState.userId) {
+    let shouldLogin = true;
+    if (promptOnAuth) {
+      shouldLogin = window.confirm(authPrompt);
+    }
+
+    if (!shouldLogin) {
+      updateSyncStatus("Synchronizace nebyla provedena: uživatel není přihlášen.", true);
+      return;
+    }
+
     if (actionName) {
       sessionStorage.setItem(SYNC_PENDING_ACTION_KEY, actionName);
     }
-    updateSyncStatus("Pro cloud sync je vyžadováno přihlášení. Přesměrovávám na GitHub...");
+    updateSyncStatus("Přesměrovávám na GitHub přihlášení...");
     startGithubOAuth();
     return;
   }
@@ -830,6 +765,10 @@ function setupAutoForm() {
 
     form.reset();
     renderAll();
+    await runSyncAction(pushToCloud, "push", {
+      promptOnAuth: true,
+      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
+    });
     showView("tasks");
   });
 }
@@ -878,6 +817,10 @@ async function onCreateOrEditSubmit(event) {
   await persistTask(task);
   resetCreateForm();
   renderAll();
+  await runSyncAction(pushToCloud, "push", {
+    promptOnAuth: true,
+    authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
+  });
   showView("tasks");
 }
 
@@ -1122,6 +1065,10 @@ async function handleTaskAction(action, id) {
     task.priorityScore = calculatePriority(task);
     await persistTask(task);
     renderAll();
+    await runSyncAction(pushToCloud, "push", {
+      promptOnAuth: true,
+      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
+    });
     return;
   }
 
@@ -1133,6 +1080,10 @@ async function handleTaskAction(action, id) {
     tasks = tasks.filter((row) => row.id !== id);
     await deleteTaskById(id);
     renderAll();
+    await runSyncAction(pushToCloud, "push", {
+      promptOnAuth: true,
+      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
+    });
   }
 }
 
@@ -1357,7 +1308,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=10").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=11").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
