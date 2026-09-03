@@ -54,3 +54,5 @@ Postup:
 - Data zustavaji jen v tom iPadu (a v tom prohlizeci).
 - Kdyz smazes data webu v Safari, smazou se i ukoly.
 - Pro synchronizaci mezi vice zarizenimi by bylo nutne doplnit cloud backend.
+
+Posledni aktualizace nasazeni: 2026-09-03.
