@@ -33,6 +33,12 @@ h1, h2, h3, h4, h5, .brand { font-family: "Barlow Condensed", "Segoe UI", sans-s
   box-shadow: 0 12px 30px rgba(41, 41, 130, 0.22);
 }
 
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .brand {
   color: #fff;
   font-size: 1.6rem;
@@ -55,6 +61,15 @@ h1, h2, h3, h4, h5, .brand { font-family: "Barlow Condensed", "Segoe UI", sans-s
 
 .nav-link.is-active,
 .nav-link:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+.nav-auth-status {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.12);
+}
 
 .shell {
   max-width: 1280px;
@@ -322,6 +337,8 @@ textarea:focus, input:focus, select:focus {
 
 @media (max-width: 760px) {
   .navbar { flex-direction: column; align-items: flex-start; }
+  .nav-left { flex-direction: column; align-items: flex-start; gap: 10px; width: 100%; }
+  .nav-auth-status { width: 100%; }
   .grid-2 { grid-template-columns: 1fr; }
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .area-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

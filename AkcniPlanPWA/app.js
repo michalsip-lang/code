@@ -86,7 +86,8 @@ async function init() {
 function ensureDomContract() {
   const requiredIds = [
     "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
-    "sync-form", "supabase-url", "supabase-key", "sync-push", "sync-pull", "sync-status",
+    "sync-form", "supabase-url", "supabase-key", "sync-push", "sync-pull", "sync-status", "sync-quick-status",
+    "nav-auth-status",
     "auth-email", "auth-password", "auth-signup", "auth-login", "auth-github", "auth-logout", "auth-status"
   ];
   requiredIds.forEach((id) => {
@@ -126,7 +127,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "5");
+    url.searchParams.set("v", "6");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -429,15 +430,20 @@ function parseJwt(token) {
 
 function refreshAuthStatus() {
   const host = document.getElementById("auth-status");
+  const navHost = document.getElementById("nav-auth-status");
   if (!syncConfigReady()) {
     host.textContent = "Cloud neni nastaven.";
+    navHost.textContent = "Pripojeno: NE";
     return;
   }
 
   if (authState.userId) {
-    host.textContent = `Pripojeno: ANO (${authState.email || authState.userId})`;
+    const userLabel = authState.email || authState.userId;
+    host.textContent = `Pripojeno: ANO (${userLabel})`;
+    navHost.textContent = `Uzivatel: ${userLabel}`;
   } else {
     host.textContent = "Pripojeno: NE (prihlasi se az pri Nacist/Nahrat).";
+    navHost.textContent = "Pripojeno: NE";
   }
 }
 
@@ -507,8 +513,11 @@ async function safeJson(response) {
 
 function updateSyncStatus(text, isError = false) {
   const host = document.getElementById("sync-status");
+  const quickHost = document.getElementById("sync-quick-status");
   host.textContent = text;
   host.style.color = isError ? "#a61f2c" : "";
+  quickHost.textContent = text;
+  quickHost.style.color = isError ? "#a61f2c" : "";
 }
 
 async function runSyncAction(action, actionName = "") {
@@ -1310,7 +1319,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=5").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=6").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);

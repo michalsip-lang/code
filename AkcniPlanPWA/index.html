@@ -13,16 +13,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
   <nav class="navbar">
-    <div class="brand">Akcni plan</div>
-    <div class="nav-links">
-      <button class="nav-link is-active" data-nav="dashboard">Dashboard</button>
-      <button class="nav-link" data-nav="tasks">Ukoly</button>
-      <button class="nav-link" data-nav="create">Novy ukol</button>
+    <div class="nav-left">
+      <div class="brand">Akcni plan</div>
+      <div class="nav-links">
+        <button class="nav-link is-active" data-nav="dashboard">Dashboard</button>
+        <button class="nav-link" data-nav="tasks">Ukoly</button>
+        <button class="nav-link" data-nav="create">Novy ukol</button>
+        <button class="nav-link" data-nav="settings">Nastaveni</button>
+      </div>
     </div>
+    <div id="nav-auth-status" class="nav-auth-status">Pripojeno: NE</div>
   </nav>
 
   <main class="shell">
@@ -38,39 +42,13 @@
       <div id="kpi-grid" class="kpi-grid"></div>
 
       <article class="card mb16">
-        <h2 class="panel-subtitle">Cloud sync (Supabase)</h2>
-        <div class="subtitle mb8">Pro sdileni ukolu mezi iPadem a dalsimi zarizenimi.</div>
-        <form id="sync-form" class="sync-grid">
-          <div>
-            <label for="supabase-url">Supabase URL</label>
-            <input id="supabase-url" name="supabaseUrl" placeholder="https://xxxx.supabase.co" />
-          </div>
-          <div>
-            <label for="supabase-key">Anon key</label>
-            <input id="supabase-key" name="supabaseKey" placeholder="eyJ..." />
-          </div>
-          <div>
-            <label for="auth-email">E-mail</label>
-            <input id="auth-email" name="authEmail" type="email" placeholder="tvuj@email.cz" />
-          </div>
-          <div>
-            <label for="auth-password">Heslo</label>
-            <input id="auth-password" name="authPassword" type="password" placeholder="Heslo do Supabase uctu" />
-          </div>
-          <div class="sync-actions">
-            <button type="button" id="auth-signup" class="btn btn-outline">Vytvorit ucet</button>
-            <button type="button" id="auth-login" class="btn btn-primary">Prihlasit</button>
-            <button type="button" id="auth-github" class="btn btn-outline">Prihlasit pres GitHub</button>
-            <button type="button" id="auth-logout" class="btn btn-outline">Odhlasit</button>
-          </div>
-          <div class="sync-actions">
-            <button type="submit" class="btn btn-outline">Ulozit nastaveni</button>
-            <button type="button" id="sync-push" class="btn btn-primary">Nahrat do cloudu</button>
-            <button type="button" id="sync-pull" class="btn btn-outline">Nacist z cloudu</button>
-          </div>
-        </form>
-        <div id="auth-status" class="subtitle mt8">Neprihlaseno.</div>
-        <div id="sync-status" class="subtitle mt8">Cloud sync neni nastaven.</div>
+        <h2 class="panel-subtitle">Cloud sync</h2>
+        <div class="subtitle mb8">Rychle akce pro nahrani a stazeni ukolu.</div>
+        <div class="sync-actions">
+          <button type="button" id="sync-push" class="btn btn-primary">Nahrat do cloudu</button>
+          <button type="button" id="sync-pull" class="btn btn-outline">Nacist z cloudu</button>
+        </div>
+        <div id="sync-quick-status" class="subtitle mt8">Cloud sync pripraven.</div>
       </article>
 
       <div class="grid-2">
@@ -131,6 +109,47 @@
         <form id="task-form" class="form-grid"></form>
       </article>
     </section>
+
+    <section id="view-settings" class="view">
+      <div class="top-row">
+        <div>
+          <h1 class="page-title">Nastaveni</h1>
+          <div class="subtitle">Cloud sync, prihlaseni a stav pripojeni.</div>
+        </div>
+      </div>
+
+      <article class="card mb16">
+        <h2 class="panel-subtitle">Cloud sync (Supabase)</h2>
+        <div class="subtitle mb8">Nastaveni je ulozeno centralne pro aplikaci.</div>
+        <form id="sync-form" class="sync-grid">
+          <div>
+            <label for="supabase-url">Supabase URL</label>
+            <input id="supabase-url" name="supabaseUrl" placeholder="https://xxxx.supabase.co" />
+          </div>
+          <div>
+            <label for="supabase-key">Anon key</label>
+            <input id="supabase-key" name="supabaseKey" placeholder="eyJ..." />
+          </div>
+          <div>
+            <label for="auth-email">E-mail</label>
+            <input id="auth-email" name="authEmail" type="email" placeholder="tvuj@email.cz" />
+          </div>
+          <div>
+            <label for="auth-password">Heslo</label>
+            <input id="auth-password" name="authPassword" type="password" placeholder="Heslo do Supabase uctu" />
+          </div>
+          <div class="sync-actions">
+            <button type="button" id="auth-signup" class="btn btn-outline">Vytvorit ucet</button>
+            <button type="button" id="auth-login" class="btn btn-primary">Prihlasit</button>
+            <button type="button" id="auth-github" class="btn btn-outline">Prihlasit pres GitHub</button>
+            <button type="button" id="auth-logout" class="btn btn-outline">Odhlasit</button>
+            <button type="submit" class="btn btn-outline">Ulozit nastaveni</button>
+          </div>
+        </form>
+        <div id="auth-status" class="subtitle mt8">Neprihlaseno.</div>
+        <div id="sync-status" class="subtitle mt8">Cloud sync neni nastaven.</div>
+      </article>
+    </section>
   </main>
 
   <dialog id="confirm-dialog">
@@ -145,6 +164,6 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=5"></script>
+  <script type="module" src="app.js?v=6"></script>
 </body>
 </html>
