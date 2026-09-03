@@ -9,6 +9,8 @@ const SYNC_TOKEN_KEY = "akcni-plan-sync-access-token";
 const SYNC_PENDING_ACTION_KEY = "akcni-plan-sync-pending-action";
 const DEFAULT_SYNC_URL = "https://vpjgpcnvpwarvcxfoteo.supabase.co";
 const DEFAULT_SYNC_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwamdwY252cHdhcnZjeGZvdGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDM0MDksImV4cCI6MjEwNDAxOTQwOX0.5bgXCFJZ-gfFfjb7Ua2dmpKU8KMGnyFFtNY3dTUAJPs";
+const AUTO_PUSH_DEBOUNCE_MS = 700;
+const AUTO_PULL_THROTTLE_MS = 20000;
 
 const AREA_ORDER = ["Svp", "Sdp", "Bozp", "Po", "Jine"];
 const STATUS_ORDER = ["Todo", "InProgress", "Done", "Blocked"];
@@ -53,6 +55,10 @@ let charts = [];
 let storageMode = "indexeddb";
 let syncConfig = { url: DEFAULT_SYNC_URL, anonKey: DEFAULT_SYNC_ANON_KEY };
 let authState = { accessToken: "", userId: "", email: "" };
+let autoSyncTimer = null;
+let autoSyncInFlight = false;
+let autoSyncQueued = false;
+let lastAutoPullAt = 0;
 
 init().catch(async (error) => {
   console.error(error);
@@ -81,8 +87,9 @@ async function init() {
   tasks = await loadTasks();
 
   renderAll();
+  setupAutoSyncTriggers();
   await runSyncAction(pullFromCloud, "pull", {
-    promptOnAuth: true,
+    authMode: "prompt-login",
     authPrompt: "Pro automatické načtení z cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
   });
 }
@@ -423,14 +430,6 @@ async function runAuthAction(action) {
   }
 }
 
-async function safeJson(response) {
-  try {
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
-
 function updateSyncStatus(text, isError = false) {
   const host = document.getElementById("sync-status");
   const quickHost = document.getElementById("sync-quick-status");
@@ -442,7 +441,7 @@ function updateSyncStatus(text, isError = false) {
 
 async function runSyncAction(action, actionName = "", options = {}) {
   const {
-    promptOnAuth = false,
+    authMode = "force-login",
     authPrompt = "Pro cloud sync je vyžadováno přihlášení přes GitHub. Přihlásit se teď?"
   } = options;
 
@@ -452,14 +451,19 @@ async function runSyncAction(action, actionName = "", options = {}) {
   }
 
   if (!authState.accessToken || !authState.userId) {
+    if (authMode === "silent-skip") {
+      updateSyncStatus("Synchronizace čeká na přihlášení přes GitHub.", true);
+      return false;
+    }
+
     let shouldLogin = true;
-    if (promptOnAuth) {
+    if (authMode === "prompt-login") {
       shouldLogin = window.confirm(authPrompt);
     }
 
     if (!shouldLogin) {
       updateSyncStatus("Synchronizace nebyla provedena: uživatel není přihlášen.", true);
-      return;
+      return false;
     }
 
     if (actionName) {
@@ -467,16 +471,69 @@ async function runSyncAction(action, actionName = "", options = {}) {
     }
     updateSyncStatus("Přesměrovávám na GitHub přihlášení...");
     startGithubOAuth();
-    return;
+    return false;
   }
 
   try {
     updateSyncStatus("Probíhá synchronizace...");
     await action();
     renderAll();
+    return true;
   } catch (error) {
     console.error(error);
     updateSyncStatus(`Sync selhal: ${String(error.message || error)}`, true);
+    return false;
+  }
+}
+
+function setupAutoSyncTriggers() {
+  const tryAutoPull = () => {
+    const now = Date.now();
+    if (now - lastAutoPullAt < AUTO_PULL_THROTTLE_MS) {
+      return;
+    }
+    lastAutoPullAt = now;
+    runSyncAction(pullFromCloud, "pull", { authMode: "silent-skip" });
+  };
+
+  window.addEventListener("focus", tryAutoPull);
+  window.addEventListener("online", tryAutoPull);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      tryAutoPull();
+    }
+  });
+}
+
+function scheduleAutoPush(reason = "") {
+  if (autoSyncTimer) {
+    window.clearTimeout(autoSyncTimer);
+  }
+
+  autoSyncTimer = window.setTimeout(() => {
+    autoSyncTimer = null;
+    void executeAutoPush(reason);
+  }, AUTO_PUSH_DEBOUNCE_MS);
+}
+
+async function executeAutoPush(reason = "") {
+  if (autoSyncInFlight) {
+    autoSyncQueued = true;
+    return;
+  }
+
+  autoSyncInFlight = true;
+  try {
+    await runSyncAction(pushToCloud, "push", {
+      authMode: "prompt-login",
+      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
+    });
+  } finally {
+    autoSyncInFlight = false;
+    if (autoSyncQueued) {
+      autoSyncQueued = false;
+      scheduleAutoPush(reason || "queued");
+    }
   }
 }
 
@@ -765,10 +822,7 @@ function setupAutoForm() {
 
     form.reset();
     renderAll();
-    await runSyncAction(pushToCloud, "push", {
-      promptOnAuth: true,
-      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
-    });
+    scheduleAutoPush("bulk-create");
     showView("tasks");
   });
 }
@@ -777,6 +831,7 @@ async function onCreateOrEditSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const data = new FormData(form);
+  const wasEdit = Boolean(editTaskId);
 
   const dependencyIds = Array.from(form.querySelector("#dependency-select").selectedOptions)
     .map((opt) => opt.value)
@@ -817,10 +872,7 @@ async function onCreateOrEditSubmit(event) {
   await persistTask(task);
   resetCreateForm();
   renderAll();
-  await runSyncAction(pushToCloud, "push", {
-    promptOnAuth: true,
-    authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
-  });
+  scheduleAutoPush(wasEdit ? "edit-task" : "create-task");
   showView("tasks");
 }
 
@@ -1065,10 +1117,7 @@ async function handleTaskAction(action, id) {
     task.priorityScore = calculatePriority(task);
     await persistTask(task);
     renderAll();
-    await runSyncAction(pushToCloud, "push", {
-      promptOnAuth: true,
-      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
-    });
+    scheduleAutoPush("mark-done");
     return;
   }
 
@@ -1080,10 +1129,7 @@ async function handleTaskAction(action, id) {
     tasks = tasks.filter((row) => row.id !== id);
     await deleteTaskById(id);
     renderAll();
-    await runSyncAction(pushToCloud, "push", {
-      promptOnAuth: true,
-      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
-    });
+    scheduleAutoPush("delete-task");
   }
 }
 
@@ -1425,5 +1471,6 @@ window.AkcniPlanPwa = {
     await clearStore();
     tasks = [];
     renderAll();
+    scheduleAutoPush("clear-all");
   }
 };
