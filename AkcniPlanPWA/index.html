@@ -13,9 +13,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=13" />
+  <link rel="stylesheet" href="styles.css?v=14" />
 </head>
 <body>
+  <section id="auth-gate" class="auth-gate hidden">
+    <div class="auth-gate-card">
+      <h1>Přístup omezen</h1>
+      <p id="auth-gate-message">Pro používání aplikace je nutné přihlášení přes GitHub.</p>
+      <button type="button" id="gate-login" class="btn btn-primary">Přihlásit přes GitHub</button>
+    </div>
+  </section>
+
   <nav class="navbar">
     <div class="nav-left">
       <div class="brand">Akční plán</div>
@@ -29,7 +37,7 @@
     <div id="nav-auth-status" class="nav-auth-status">Připojeno: NE</div>
   </nav>
 
-  <main class="shell">
+  <main id="app-shell" class="shell">
     <section id="view-dashboard" class="view is-active">
       <div class="top-row">
         <div>
@@ -138,6 +146,6 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=13"></script>
+  <script type="module" src="app.js?v=14"></script>
 </body>
 </html>

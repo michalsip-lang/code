@@ -21,6 +21,42 @@ body {
   font-family: "Source Sans 3", "Segoe UI", sans-serif;
 }
 
+body.auth-locked .navbar,
+body.auth-locked .shell {
+  display: none;
+}
+
+.auth-gate {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.auth-gate.hidden {
+  display: none;
+}
+
+.auth-gate-card {
+  width: min(520px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 20px 40px rgba(20, 22, 47, 0.15);
+  padding: 24px;
+}
+
+.auth-gate-card h1 {
+  margin: 0 0 10px;
+  color: var(--samohyl-blue);
+}
+
+.auth-gate-card p {
+  margin: 0 0 16px;
+  color: var(--samohyl-grey);
+}
+
 h1, h2, h3, h4, h5, .brand { font-family: "Barlow Condensed", "Segoe UI", sans-serif; }
 
 .navbar {

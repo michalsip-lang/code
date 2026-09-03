@@ -73,10 +73,18 @@ init().catch(async (error) => {
 async function init() {
   ensureDomContract();
   setupNavigation();
-  setupCreateForm();
-  setupAutoForm();
   setupSyncPanel();
   setupServiceWorker();
+
+  if (!isAuthenticated()) {
+    lockApp("Pro používání aplikace je nutné přihlášení přes GitHub.");
+    updateSyncStatus("Přístup odepřen: nejste přihlášen.", true);
+    return;
+  }
+
+  unlockApp();
+  setupCreateForm();
+  setupAutoForm();
 
   try {
     db = await openDb();
@@ -98,6 +106,7 @@ async function init() {
 
 function ensureDomContract() {
   const requiredIds = [
+    "auth-gate", "auth-gate-message", "gate-login", "app-shell",
     "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
     "sync-form", "supabase-url", "supabase-key", "sync-status", "sync-quick-status",
     "nav-auth-status",
@@ -140,7 +149,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "13");
+    url.searchParams.set("v", "14");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -266,6 +275,7 @@ function setupSyncPanel() {
   const form = document.getElementById("sync-form");
   const urlInput = document.getElementById("supabase-url");
   const keyInput = document.getElementById("supabase-key");
+  const gateLoginButton = document.getElementById("gate-login");
   const githubButton = document.getElementById("auth-github");
   const logoutButton = document.getElementById("auth-logout");
 
@@ -284,13 +294,24 @@ function setupSyncPanel() {
     });
   });
 
+  gateLoginButton.addEventListener("click", async () => {
+    await runAuthAction(async () => {
+      startGithubOAuth();
+    });
+  });
+
   logoutButton.addEventListener("click", async () => {
     await runAuthAction(async () => {
       clearAuthState();
       refreshAuthStatus();
       updateSyncStatus("Odhlášeno.");
+      lockApp("Byli jste odhlášeni. Pro další práci se přihlaste přes GitHub.");
     });
   });
+
+  if (isAuthenticated()) {
+    unlockApp();
+  }
 
   refreshAuthStatus();
   updateSyncStatus(syncConfigReady() ? "Cloud sync je připraven (automatický režim)." : "Cloud sync není nastaven.");
@@ -360,6 +381,12 @@ function loadAuthState() {
     }
 
     const payload = parseJwt(token);
+    const expMs = (payload?.exp || 0) * 1000;
+    if (!payload?.sub || !expMs || Date.now() >= expMs) {
+      localStorage.removeItem(SYNC_TOKEN_KEY);
+      return { accessToken: "", userId: "", email: "" };
+    }
+
     return {
       accessToken: token,
       userId: payload?.sub || "",
@@ -383,6 +410,24 @@ function saveAuthToken(token) {
 function clearAuthState() {
   localStorage.removeItem(SYNC_TOKEN_KEY);
   authState = { accessToken: "", userId: "", email: "" };
+}
+
+function isAuthenticated() {
+  return Boolean(authState.accessToken && authState.userId);
+}
+
+function lockApp(message) {
+  const gate = document.getElementById("auth-gate");
+  const gateMessage = document.getElementById("auth-gate-message");
+  gateMessage.textContent = message;
+  gate.classList.remove("hidden");
+  document.body.classList.add("auth-locked");
+}
+
+function unlockApp() {
+  const gate = document.getElementById("auth-gate");
+  gate.classList.add("hidden");
+  document.body.classList.remove("auth-locked");
 }
 
 function parseJwt(token) {
@@ -1365,7 +1410,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=13").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=14").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
