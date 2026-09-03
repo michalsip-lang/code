@@ -6,27 +6,27 @@
   <meta name="theme-color" content="#292982" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Akcni plan" />
-  <title>Akcni plan</title>
+  <meta name="apple-mobile-web-app-title" content="Akční plán" />
+  <title>Akční plán</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="stylesheet" href="styles.css?v=8" />
 </head>
 <body>
   <nav class="navbar">
     <div class="nav-left">
-      <div class="brand">Akcni plan</div>
+      <div class="brand">Akční plán</div>
       <div class="nav-links">
         <button class="nav-link is-active" data-nav="dashboard">Dashboard</button>
-        <button class="nav-link" data-nav="tasks">Ukoly</button>
-        <button class="nav-link" data-nav="create">Novy ukol</button>
-        <button class="nav-link" data-nav="settings">Nastaveni</button>
+        <button class="nav-link" data-nav="tasks">Úkoly</button>
+        <button class="nav-link" data-nav="create">Nový úkol</button>
+        <button class="nav-link" data-nav="settings">Nastavení</button>
       </div>
     </div>
-    <div id="nav-auth-status" class="nav-auth-status">Pripojeno: NE</div>
+    <div id="nav-auth-status" class="nav-auth-status">Připojeno: NE</div>
   </nav>
 
   <main class="shell">
@@ -34,33 +34,33 @@
       <div class="top-row">
         <div>
           <h1 class="page-title">Dashboard</h1>
-          <div class="subtitle">Osobni rizeni ukolu v barvach Samohyl.</div>
+          <div class="subtitle">Osobní řízení úkolů v barvách Samohyl.</div>
         </div>
-        <button class="btn btn-primary" data-nav-target="create">Pridat ukol</button>
+        <button class="btn btn-primary" data-nav-target="create">Přidat úkol</button>
       </div>
 
       <div id="kpi-grid" class="kpi-grid"></div>
 
       <article class="card mb16">
         <h2 class="panel-subtitle">Cloud sync</h2>
-        <div class="subtitle mb8">Rychle akce pro nahrani a stazeni ukolu.</div>
+        <div class="subtitle mb8">Rychlé akce pro nahrání a stažení úkolů.</div>
         <div class="sync-actions">
-          <button type="button" id="sync-push" class="btn btn-primary">Nahrat do cloudu</button>
-          <button type="button" id="sync-pull" class="btn btn-outline">Nacist z cloudu</button>
+          <button type="button" id="sync-push" class="btn btn-primary">Nahrát do cloudu</button>
+          <button type="button" id="sync-pull" class="btn btn-outline">Načíst z cloudu</button>
         </div>
-        <div id="sync-quick-status" class="subtitle mt8">Cloud sync pripraven.</div>
+        <div id="sync-quick-status" class="subtitle mt8">Cloud sync připraven.</div>
       </article>
 
       <div class="grid-2">
         <article class="card">
-          <h2 class="panel-title">Doporuceni</h2>
+          <h2 class="panel-title">Doporučení</h2>
           <ul id="recommendations" class="list"></ul>
         </article>
         <article class="card">
           <h2 class="panel-title">Top priority</h2>
           <div class="table-wrap">
             <table class="table">
-              <thead><tr><th>Ukol</th><th>Termin</th><th>Skore</th><th>Stav</th></tr></thead>
+              <thead><tr><th>Úkol</th><th>Termín</th><th>Skóre</th><th>Stav</th></tr></thead>
               <tbody id="top-priority-body"></tbody>
             </table>
           </div>
@@ -68,29 +68,29 @@
       </div>
 
       <div class="grid-2">
-        <article class="card"><h3 class="panel-subtitle">Trend dokonceni (den)</h3><canvas id="dailyChart"></canvas></article>
-        <article class="card"><h3 class="panel-subtitle">Porovnani tydnu</h3><canvas id="weeklyChart"></canvas></article>
-        <article class="card"><h3 class="panel-subtitle">Mesicni trend</h3><canvas id="monthlyChart"></canvas></article>
-        <article class="card"><h3 class="panel-subtitle">Rozlozeni stavu</h3><canvas id="statusChart"></canvas></article>
-        <article class="card span-2"><h3 class="panel-subtitle">Heatmapa produktivity (120 dni)</h3><div id="heatmap" class="heatmap-grid"></div></article>
+        <article class="card"><h3 class="panel-subtitle">Trend dokončení (den)</h3><canvas id="dailyChart"></canvas></article>
+        <article class="card"><h3 class="panel-subtitle">Porovnání týdnů</h3><canvas id="weeklyChart"></canvas></article>
+        <article class="card"><h3 class="panel-subtitle">Měsíční trend</h3><canvas id="monthlyChart"></canvas></article>
+        <article class="card"><h3 class="panel-subtitle">Rozložení stavu</h3><canvas id="statusChart"></canvas></article>
+        <article class="card span-2"><h3 class="panel-subtitle">Heatmapa produktivity (120 dní)</h3><div id="heatmap" class="heatmap-grid"></div></article>
       </div>
     </section>
 
     <section id="view-tasks" class="view">
       <div class="top-row">
         <div>
-          <h1 class="page-title">Ukoly</h1>
-          <div class="subtitle">Prioritizovane ukoly podle firemnich oblasti.</div>
+          <h1 class="page-title">Úkoly</h1>
+          <div class="subtitle">Prioritizované úkoly podle firemních oblastí.</div>
           <div id="active-filter" class="filter-badge hidden"></div>
         </div>
-        <button class="btn btn-primary" data-nav-target="create">Novy ukol</button>
+        <button class="btn btn-primary" data-nav-target="create">Nový úkol</button>
       </div>
 
       <article class="card mb16">
-        <h2 class="panel-subtitle">Automaticke vytvoreni ukolu</h2>
+        <h2 class="panel-subtitle">Automatické vytvoření úkolů</h2>
         <form id="auto-form">
-          <textarea id="auto-input" rows="3" placeholder="Kazdy radek bude novy ukol"></textarea>
-          <button class="btn btn-outline" type="submit">Vytvorit automaticky</button>
+          <textarea id="auto-input" rows="3" placeholder="Každý řádek bude nový úkol"></textarea>
+          <button class="btn btn-outline" type="submit">Vytvořit automaticky</button>
         </form>
       </article>
 
@@ -101,8 +101,8 @@
     <section id="view-create" class="view">
       <div class="top-row">
         <div>
-          <h1 class="page-title">Novy ukol</h1>
-          <div class="subtitle">Stejna struktura formulare jako desktopova verze.</div>
+          <h1 class="page-title">Nový úkol</h1>
+          <div class="subtitle">Stejná struktura formuláře jako desktopová verze.</div>
         </div>
       </div>
       <article class="card">
@@ -113,14 +113,14 @@
     <section id="view-settings" class="view">
       <div class="top-row">
         <div>
-          <h1 class="page-title">Nastaveni</h1>
-          <div class="subtitle">Cloud sync, prihlaseni a stav pripojeni.</div>
+          <h1 class="page-title">Nastavení</h1>
+          <div class="subtitle">Cloud sync, přihlášení a stav připojení.</div>
         </div>
       </div>
 
       <article class="card mb16">
         <h2 class="panel-subtitle">Cloud sync (Supabase)</h2>
-        <div class="subtitle mb8">Nastaveni je ulozeno centralne pro aplikaci.</div>
+        <div class="subtitle mb8">Nastavení je uloženo centrálně pro aplikaci.</div>
         <form id="sync-form" class="sync-grid">
           <div>
             <label for="supabase-url">Supabase URL</label>
@@ -136,34 +136,34 @@
           </div>
           <div>
             <label for="auth-password">Heslo</label>
-            <input id="auth-password" name="authPassword" type="password" placeholder="Heslo do Supabase uctu" />
+            <input id="auth-password" name="authPassword" type="password" placeholder="Heslo do Supabase účtu" />
           </div>
           <div class="sync-actions">
-            <button type="button" id="auth-signup" class="btn btn-outline">Vytvorit ucet</button>
-            <button type="button" id="auth-login" class="btn btn-primary">Prihlasit</button>
-            <button type="button" id="auth-github" class="btn btn-outline">Prihlasit pres GitHub</button>
-            <button type="button" id="auth-logout" class="btn btn-outline">Odhlasit</button>
-            <button type="submit" class="btn btn-outline">Ulozit nastaveni</button>
+            <button type="button" id="auth-signup" class="btn btn-outline">Vytvořit účet</button>
+            <button type="button" id="auth-login" class="btn btn-primary">Přihlásit</button>
+            <button type="button" id="auth-github" class="btn btn-outline">Přihlásit přes GitHub</button>
+            <button type="button" id="auth-logout" class="btn btn-outline">Odhlásit</button>
+            <button type="submit" class="btn btn-outline">Uložit nastavení</button>
           </div>
         </form>
-        <div id="auth-status" class="subtitle mt8">Neprihlaseno.</div>
-        <div id="sync-status" class="subtitle mt8">Cloud sync neni nastaven.</div>
+        <div id="auth-status" class="subtitle mt8">Nepřihlášeno.</div>
+        <div id="sync-status" class="subtitle mt8">Cloud sync není nastaven.</div>
       </article>
     </section>
   </main>
 
   <dialog id="confirm-dialog">
     <form method="dialog" class="confirm-body">
-      <h3>Smazat ukol?</h3>
-      <p>Tato akce nejde vratit.</p>
+      <h3>Smazat úkol?</h3>
+      <p>Tato akce nejde vrátit.</p>
       <div class="confirm-actions">
-        <button value="cancel" class="btn btn-outline">Zrusit</button>
+        <button value="cancel" class="btn btn-outline">Zrušit</button>
         <button value="confirm" class="btn btn-danger" autofocus>Smazat</button>
       </div>
     </form>
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=7"></script>
+  <script type="module" src="app.js?v=8"></script>
 </body>
 </html>

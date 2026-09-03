@@ -22,18 +22,18 @@ const AREA_LABEL = {
 };
 
 const STATUS_LABEL = {
-  Todo: "K vyrizeni",
-  InProgress: "Rozpracovano",
+  Todo: "K vyřízení",
+  InProgress: "Rozpracováno",
   Done: "Hotovo",
-  Blocked: "Blokovano"
+  Blocked: "Blokováno"
 };
 
 const FILTER_LABEL = {
-  todo: "K vyrizeni",
-  blocked: "Blokovane",
-  completed: "Dokoncene",
-  inprogress: "Rozpracovane",
-  open: "Otevrene"
+  todo: "K vyřízení",
+  blocked: "Blokované",
+  completed: "Dokončené",
+  inprogress: "Rozpracované",
+  open: "Otevřené"
 };
 
 const brand = {
@@ -58,7 +58,7 @@ init().catch(async (error) => {
   console.error(error);
   const recovered = await tryClientRecovery(error);
   if (!recovered) {
-    alert("Aplikaci se nepodarilo inicializovat. Na iPadu zkuste vypnout Soukrome prohlizeni nebo povolit data webu pro Safari.");
+    alert("Aplikaci se nepodařilo inicializovat. Na iPadu zkuste vypnout soukromé prohlížení nebo povolit data webu pro Safari.");
   }
 });
 
@@ -74,7 +74,7 @@ async function init() {
     db = await openDb();
     storageMode = "indexeddb";
   } catch (error) {
-    console.warn("IndexedDB neni dostupna, prepinam na localStorage", error);
+    console.warn("IndexedDB není dostupná, přepínám na localStorage", error);
     storageMode = "localstorage";
   }
 
@@ -127,7 +127,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "7");
+    url.searchParams.set("v", "8");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -276,7 +276,7 @@ function setupSyncPanel() {
     };
 
     saveSyncConfig(syncConfig);
-    updateSyncStatus(syncConfigReady() ? "Nastaveni sync ulozeno." : "Dopln Supabase URL a Anon key.", !syncConfigReady());
+    updateSyncStatus(syncConfigReady() ? "Nastavení sync uloženo." : "Doplň Supabase URL a Anon key.", !syncConfigReady());
     refreshAuthStatus();
   });
 
@@ -285,7 +285,7 @@ function setupSyncPanel() {
       const email = String(emailInput.value || "").trim();
       const password = String(passwordInput.value || "").trim();
       await signUpSupabase(email, password);
-      updateSyncStatus("Ucet vytvoren. Ted klikni Prihlasit.");
+      updateSyncStatus("Účet vytvořen. Teď klikni Přihlásit.");
     });
   });
 
@@ -295,7 +295,7 @@ function setupSyncPanel() {
       const password = String(passwordInput.value || "").trim();
       await loginSupabase(email, password);
       refreshAuthStatus();
-      updateSyncStatus("Prihlaseni uspesne.");
+      updateSyncStatus("Přihlášení úspěšné.");
     });
   });
 
@@ -309,7 +309,7 @@ function setupSyncPanel() {
     await runAuthAction(async () => {
       clearAuthState();
       refreshAuthStatus();
-      updateSyncStatus("Odhlaseno.");
+      updateSyncStatus("Odhlášeno.");
     });
   });
 
@@ -322,7 +322,7 @@ function setupSyncPanel() {
   });
 
   refreshAuthStatus();
-  updateSyncStatus(syncConfigReady() ? "Cloud sync pripraven." : "Cloud sync neni nastaven.");
+  updateSyncStatus(syncConfigReady() ? "Cloud sync připraven." : "Cloud sync není nastaven.");
   resumePendingSyncAction();
 }
 
@@ -373,7 +373,7 @@ function saveSyncConfig(config) {
     localStorage.setItem(SYNC_URL_KEY, config.url || "");
     localStorage.setItem(SYNC_ANON_KEY, config.anonKey || "");
   } catch (error) {
-    console.warn("Nepodarilo se ulozit sync konfiguraci", error);
+    console.warn("Nepodařilo se uložit sync konfiguraci", error);
   }
 }
 
@@ -432,24 +432,24 @@ function refreshAuthStatus() {
   const host = document.getElementById("auth-status");
   const navHost = document.getElementById("nav-auth-status");
   if (!syncConfigReady()) {
-    host.textContent = "Cloud neni nastaven.";
-    navHost.textContent = "Pripojeno: NE";
+    host.textContent = "Cloud není nastaven.";
+    navHost.textContent = "Připojeno: NE";
     return;
   }
 
   if (authState.userId) {
     const userLabel = authState.email || authState.userId;
-    host.textContent = `Pripojeno: ANO (${userLabel})`;
-    navHost.textContent = `Uzivatel: ${userLabel}`;
+    host.textContent = `Připojeno: ANO (${userLabel})`;
+    navHost.textContent = `Uživatel: ${userLabel}`;
   } else {
-    host.textContent = "Pripojeno: NE (prihlasi se az pri Nacist/Nahrat).";
-    navHost.textContent = "Pripojeno: NE";
+    host.textContent = "Připojeno: NE (přihlásí se až při Načíst/Nahrát).";
+    navHost.textContent = "Připojeno: NE";
   }
 }
 
 async function runAuthAction(action) {
   if (!syncConfigReady()) {
-    updateSyncStatus("Cloud neni nastaven.", true);
+    updateSyncStatus("Cloud není nastaven.", true);
     return;
   }
 
@@ -463,7 +463,7 @@ async function runAuthAction(action) {
 
 async function signUpSupabase(email, password) {
   if (!email || !password) {
-    throw new Error("Vypln e-mail a heslo.");
+    throw new Error("Vyplň e-mail a heslo.");
   }
 
   const response = await fetch(`${syncConfig.url}/auth/v1/signup`, {
@@ -477,13 +477,13 @@ async function signUpSupabase(email, password) {
 
   if (!response.ok) {
     const body = await safeJson(response);
-    throw new Error(body?.msg || body?.error_description || `Signup selhal (${response.status})`);
+    throw new Error(body?.msg || body?.error_description || `Registrace selhala (${response.status})`);
   }
 }
 
 async function loginSupabase(email, password) {
   if (!email || !password) {
-    throw new Error("Vypln e-mail a heslo.");
+    throw new Error("Vyplň e-mail a heslo.");
   }
 
   const response = await fetch(`${syncConfig.url}/auth/v1/token?grant_type=password`, {
@@ -497,7 +497,7 @@ async function loginSupabase(email, password) {
 
   const body = await safeJson(response);
   if (!response.ok || !body?.access_token) {
-    throw new Error(body?.msg || body?.error_description || `Login selhal (${response.status})`);
+    throw new Error(body?.msg || body?.error_description || `Přihlášení selhalo (${response.status})`);
   }
 
   saveAuthToken(body.access_token);
@@ -522,7 +522,7 @@ function updateSyncStatus(text, isError = false) {
 
 async function runSyncAction(action, actionName = "") {
   if (!syncConfigReady()) {
-    updateSyncStatus("Cloud neni nastaven.", true);
+    updateSyncStatus("Cloud není nastaven.", true);
     return;
   }
 
@@ -530,13 +530,13 @@ async function runSyncAction(action, actionName = "") {
     if (actionName) {
       sessionStorage.setItem(SYNC_PENDING_ACTION_KEY, actionName);
     }
-    updateSyncStatus("Pro cloud sync je vyzadovano prihlaseni. Presmerovavam na GitHub...");
+    updateSyncStatus("Pro cloud sync je vyžadováno přihlášení. Přesměrovávám na GitHub...");
     startGithubOAuth();
     return;
   }
 
   try {
-    updateSyncStatus("Probiha synchronizace...");
+    updateSyncStatus("Probíhá synchronizace...");
     await action();
     renderAll();
   } catch (error) {
@@ -580,7 +580,7 @@ async function pushToCloud() {
   });
 
   if (!deleteResponse.ok) {
-    throw new Error(`Smazani cloud dat selhalo (${deleteResponse.status})`);
+    throw new Error(`Smazání cloud dat selhalo (${deleteResponse.status})`);
   }
 
   const payload = tasks.map((task) => ({
@@ -598,11 +598,11 @@ async function pushToCloud() {
     });
 
     if (!insertResponse.ok) {
-      throw new Error(`Nahrani cloud dat selhalo (${insertResponse.status})`);
+      throw new Error(`Nahrání cloud dat selhalo (${insertResponse.status})`);
     }
   }
 
-  updateSyncStatus(`Nahrano do cloudu: ${tasks.length} ukolu.`);
+  updateSyncStatus(`Nahráno do cloudu: ${tasks.length} úkolů.`);
 }
 
 async function pullFromCloud() {
@@ -614,7 +614,7 @@ async function pullFromCloud() {
   });
 
   if (!selectResponse.ok) {
-    throw new Error(`Nacteni cloud dat selhalo (${selectResponse.status})`);
+    throw new Error(`Načtení cloud dat selhalo (${selectResponse.status})`);
   }
 
   const rows = await selectResponse.json();
@@ -625,7 +625,7 @@ async function pullFromCloud() {
 
   tasks = incoming;
   await persistAllTasksLocally(tasks);
-  updateSyncStatus(`Nacteno z cloudu: ${tasks.length} ukolu.`);
+  updateSyncStatus(`Načteno z cloudu: ${tasks.length} úkolů.`);
 }
 
 async function persistAllTasksLocally(list) {
@@ -644,7 +644,7 @@ function saveTasksToLocalStorage(list) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(list));
   } catch (error) {
-    console.warn("Nepodarilo se ulozit data do localStorage", error);
+    console.warn("Nepodařilo se uložit data do localStorage", error);
   }
 }
 
@@ -701,12 +701,12 @@ function setupCreateForm() {
   const form = document.getElementById("task-form");
 
   form.innerHTML = `
-    <div class="col-12"><label>Nazev</label><input name="title" required maxlength="180" /></div>
+    <div class="col-12"><label>Název</label><input name="title" required maxlength="180" /></div>
     <div class="col-12"><label>Popis</label><textarea name="description" rows="3"></textarea></div>
-    <div class="col-3"><label>Termin</label><input name="dueDate" type="date" /></div>
+    <div class="col-3"><label>Termín</label><input name="dueDate" type="date" /></div>
     <div class="col-3"><label>Odhad pracnosti (h)</label><input name="estimatedHours" type="number" step="0.25" min="0" value="2" /></div>
-    <div class="col-3"><label>Skutecna pracnost (h)</label><input name="actualHours" type="number" step="0.25" min="0" value="0" /></div>
-    <div class="col-3"><label>Dulezitost (1-5)</label><input name="importance" type="number" min="1" max="5" value="3" /></div>
+    <div class="col-3"><label>Skutečná pracnost (h)</label><input name="actualHours" type="number" step="0.25" min="0" value="0" /></div>
+    <div class="col-3"><label>Důležitost (1-5)</label><input name="importance" type="number" min="1" max="5" value="3" /></div>
     <div class="col-4"><label>Oblast</label>
       <select name="area">
         <option value="Svp">SVP</option>
@@ -718,15 +718,15 @@ function setupCreateForm() {
     </div>
     <div class="col-4"><label>Stav</label>
       <select name="status">
-        <option value="Todo">K vyrizeni</option>
-        <option value="InProgress">Rozpracovano</option>
+        <option value="Todo">K vyřízení</option>
+        <option value="InProgress">Rozpracováno</option>
         <option value="Done">Hotovo</option>
-        <option value="Blocked">Blokovano</option>
+        <option value="Blocked">Blokováno</option>
       </select>
     </div>
-    <div class="col-4"><label>Stitky (CSV)</label><input name="tagsCsv" placeholder="napr. Finance, Report" /></div>
-    <div class="col-12"><label>Zavislosti</label><select name="dependencyIds" multiple size="6" id="dependency-select"></select></div>
-    <div class="col-12"><button class="btn btn-primary" type="submit">Ulozit ukol</button> <button class="btn btn-outline" type="button" id="cancel-edit">Zrusit upravy</button></div>
+    <div class="col-4"><label>Štítky (CSV)</label><input name="tagsCsv" placeholder="např. Finance, Report" /></div>
+    <div class="col-12"><label>Závislosti</label><select name="dependencyIds" multiple size="6" id="dependency-select"></select></div>
+    <div class="col-12"><button class="btn btn-primary" type="submit">Uložit úkol</button> <button class="btn btn-outline" type="button" id="cancel-edit">Zrušit úpravy</button></div>
   `;
 
   form.addEventListener("submit", onCreateOrEditSubmit);
@@ -758,7 +758,7 @@ function setupAutoForm() {
       const task = normalizeTask({
         id: newId(),
         title: line,
-        description: "Automaticky vygenerovany ukol z textoveho vstupu.",
+        description: "Automaticky vygenerovaný úkol z textového vstupu.",
         dueDate: toDateInput(addDays(now, 2)),
         estimatedHours: 1,
         actualHours: 0,
@@ -833,7 +833,7 @@ async function onCreateOrEditSubmit(event) {
 function resetCreateForm() {
   editTaskId = null;
   document.getElementById("task-form").reset();
-  document.querySelector("#task-form button[type='submit']").textContent = "Ulozit ukol";
+  document.querySelector("#task-form button[type='submit']").textContent = "Uložit úkol";
 }
 
 function refreshDependencyOptions() {
@@ -875,12 +875,12 @@ function renderDashboard() {
   kpiGrid.innerHTML = "";
 
   const items = [
-    { key: "todo", label: "K vyrizeni", value: kpi.todo, cls: "kpi-red" },
-    { key: "inprogress", label: "Rozpracovane", value: kpi.inprogress, cls: "kpi-blue" },
-    { key: "blocked", label: "Blokovane", value: kpi.blocked, cls: "kpi-grey" },
-    { key: "completed", label: "Dokoncene", value: kpi.completed, cls: "kpi-blue" },
-    { key: "open", label: "Otevrene", value: kpi.open, cls: "kpi-grey" },
-    { key: null, label: "KPI plneni", value: `${kpi.completionRate.toFixed(1)}%`, cls: "kpi-light" }
+    { key: "todo", label: "K vyřízení", value: kpi.todo, cls: "kpi-red" },
+    { key: "inprogress", label: "Rozpracované", value: kpi.inprogress, cls: "kpi-blue" },
+    { key: "blocked", label: "Blokované", value: kpi.blocked, cls: "kpi-grey" },
+    { key: "completed", label: "Dokončené", value: kpi.completed, cls: "kpi-blue" },
+    { key: "open", label: "Otevřené", value: kpi.open, cls: "kpi-grey" },
+    { key: null, label: "KPI plnění", value: `${kpi.completionRate.toFixed(1)}%`, cls: "kpi-light" }
   ];
 
   items.forEach((item) => {
@@ -909,16 +909,16 @@ function renderRecommendations() {
 
   const tips = [];
   if (overdue > 0) {
-    tips.push(`Mas ${overdue} ukolu po terminu. Zacni dnes jejich shortlistem.`);
+    tips.push(`Máš ${overdue} úkolů po termínu. Začni dnes jejich shortlistem.`);
   }
   if (blocked > 0) {
-    tips.push(`Mas ${blocked} blokovanych ukolu. Over zavislosti a dalsi krok.`);
+    tips.push(`Máš ${blocked} blokovaných úkolů. Ověř závislosti a další krok.`);
   }
   if (next3Days > 12) {
-    tips.push("Kapacita dalsich 3 dni je vysoka. Presun cast ukolu nebo sniz scope.");
+    tips.push("Kapacita dalších 3 dní je vysoká. Přesuň část úkolů nebo sniž scope.");
   }
   if (tips.length === 0) {
-    tips.push("Plan vypada stabilne. Drz fokus na top 3 ukolech podle skore.");
+    tips.push("Plán vypadá stabilně. Drž fokus na top 3 úkolech podle skóre.");
   }
 
   host.innerHTML = tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join("");
@@ -940,7 +940,7 @@ function renderTopPriority() {
         <td>${STATUS_LABEL[task.status]}</td>
       </tr>
     `)
-    .join("") || '<tr><td colspan="4">Zatim bez ukolu.</td></tr>';
+    .join("") || '<tr><td colspan="4">Zatím bez úkolů.</td></tr>';
 }
 
 function renderTasks() {
@@ -949,7 +949,7 @@ function renderTasks() {
   const filterBadge = document.getElementById("active-filter");
   if (activeFilter) {
     filterBadge.classList.remove("hidden");
-    filterBadge.innerHTML = `Filtr: ${FILTER_LABEL[activeFilter] || activeFilter} <button class="btn btn-outline btn-sm" id="clear-filter">Zrusit filtr</button>`;
+    filterBadge.innerHTML = `Filtr: ${FILTER_LABEL[activeFilter] || activeFilter} <button class="btn btn-outline btn-sm" id="clear-filter">Zrušit filtr</button>`;
     document.getElementById("clear-filter").addEventListener("click", () => {
       activeFilter = null;
       renderTasks();
@@ -979,7 +979,7 @@ function renderAreaPicker(grouped) {
   AREA_ORDER.forEach((area) => {
     const button = document.createElement("button");
     button.className = `area-picker area-${area.toLowerCase()}${selectedArea === area ? " is-active" : ""}`;
-    button.innerHTML = `<span class="area-title">${AREA_LABEL[area]}</span><span class="area-count">${grouped.get(area).length} ukolu</span>`;
+    button.innerHTML = `<span class="area-title">${AREA_LABEL[area]}</span><span class="area-count">${grouped.get(area).length} úkolů</span>`;
     button.addEventListener("click", () => {
       host.dataset.selectedArea = area;
       renderAreaPicker(grouped);
@@ -1002,7 +1002,7 @@ function renderAreaPanels(grouped) {
     panel.className = `card area-card area-${area.toLowerCase()}${selectedArea === area ? "" : " hidden"}`;
 
     const rows = areaTasks.length === 0
-      ? '<tr><td colspan="7">Zatim bez ukolu.</td></tr>'
+      ? '<tr><td colspan="7">Zatím bez úkolů.</td></tr>'
       : areaTasks
         .slice()
         .sort((a, b) => b.priorityScore - a.priorityScore)
@@ -1032,11 +1032,11 @@ function renderAreaPanels(grouped) {
     panel.innerHTML = `
       <div class="top-row">
         <h2 class="panel-title">${AREA_LABEL[area]}</h2>
-        <span class="badge badge-grey">${areaTasks.length} ukolu</span>
+        <span class="badge badge-grey">${areaTasks.length} úkolů</span>
       </div>
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>Ukol</th><th>Priorita</th><th>Termin</th><th>Pracnost</th><th>Stav</th><th>Stitky</th><th>Akce</th></tr></thead>
+          <thead><tr><th>Úkol</th><th>Priorita</th><th>Termín</th><th>Pracnost</th><th>Stav</th><th>Štítky</th><th>Akce</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -1103,7 +1103,7 @@ function editTask(task) {
     opt.selected = task.dependencyIds.includes(opt.value);
   });
 
-  form.querySelector("button[type='submit']").textContent = "Ulozit zmeny";
+  form.querySelector("button[type='submit']").textContent = "Uložit změny";
 }
 
 function calculatePriority(task) {
@@ -1185,7 +1185,7 @@ function renderCharts() {
     type: "line",
     data: {
       labels: Object.keys(daily),
-      datasets: [{ label: "Dokoncene ukoly / den", data: Object.values(daily), borderColor: brand.blue, backgroundColor: brand.blueSoft, tension: 0.3, fill: true }]
+      datasets: [{ label: "Dokončené úkoly / den", data: Object.values(daily), borderColor: brand.blue, backgroundColor: brand.blueSoft, tension: 0.3, fill: true }]
     }
   }));
 
@@ -1193,7 +1193,7 @@ function renderCharts() {
     type: "bar",
     data: {
       labels: Object.keys(weekly),
-      datasets: [{ label: "Dokoncene ukoly / tyden", data: Object.values(weekly), backgroundColor: brand.red }]
+      datasets: [{ label: "Dokončené úkoly / týden", data: Object.values(weekly), backgroundColor: brand.red }]
     }
   }));
 
@@ -1201,7 +1201,7 @@ function renderCharts() {
     type: "line",
     data: {
       labels: Object.keys(monthly),
-      datasets: [{ label: "Dokoncene ukoly / mesic", data: Object.values(monthly), borderColor: brand.grey, backgroundColor: brand.greySoft, tension: 0.3 }]
+      datasets: [{ label: "Dokončené úkoly / měsíc", data: Object.values(monthly), borderColor: brand.grey, backgroundColor: brand.greySoft, tension: 0.3 }]
     }
   }));
 
@@ -1304,7 +1304,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=7").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=8").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
@@ -1319,10 +1319,10 @@ function inferArea(text) {
   if (source.includes("sdp") || source.includes("distribuc")) {
     return "Sdp";
   }
-  if (source.includes("bozp") || source.includes("bezpecnost")) {
+  if (source.includes("bozp") || source.includes("bezpecnost") || source.includes("bezpečnost")) {
     return "Bozp";
   }
-  if (source.includes("pozar") || source.includes("hasic") || source.includes(" po ")) {
+  if (source.includes("pozar") || source.includes("požar") || source.includes("hasic") || source.includes("hasič") || source.includes(" po ")) {
     return "Po";
   }
   return "Jine";
@@ -1398,7 +1398,7 @@ function isoWeek(date) {
 function askConfirm() {
   const dialog = document.getElementById("confirm-dialog");
   if (typeof dialog.showModal !== "function") {
-    return Promise.resolve(window.confirm("Smazat ukol?"));
+    return Promise.resolve(window.confirm("Smazat úkol?"));
   }
 
   dialog.showModal();

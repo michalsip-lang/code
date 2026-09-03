@@ -1,6 +1,6 @@
 {
-  "name": "Akcni plan",
-  "short_name": "Akcni plan",
+  "name": "Akční plán",
+  "short_name": "Akční plán",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f2efe7",
