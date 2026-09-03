@@ -787,7 +787,9 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js").catch((error) => {
+  navigator.serviceWorker.register("./service-worker.js?v=2").then((registration) => {
+    registration.update();
+  }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
   });
 }
