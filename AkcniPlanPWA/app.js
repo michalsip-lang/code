@@ -127,7 +127,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "9");
+    url.searchParams.set("v", "10");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -572,6 +572,10 @@ function syncHeaders() {
 
 async function pushToCloud() {
   const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
+  const remoteTasks = await fetchRemoteTasks();
+  const mergedTasks = mergeTaskLists(tasks, remoteTasks);
+  tasks = mergedTasks;
+  await persistAllTasksLocally(tasks);
   const profile = encodeURIComponent(authState.userId);
 
   const deleteResponse = await fetch(`${baseUrl}?profile_id=eq.${profile}`, {
@@ -583,7 +587,7 @@ async function pushToCloud() {
     throw new Error(`Smazání cloud dat selhalo (${deleteResponse.status})`);
   }
 
-  const payload = tasks.map((task) => ({
+  const payload = mergedTasks.map((task) => ({
     profile_id: authState.userId,
     task_id: task.id,
     updated_at: task.updatedAt || new Date().toISOString(),
@@ -602,10 +606,22 @@ async function pushToCloud() {
     }
   }
 
-  updateSyncStatus(`Nahráno do cloudu: ${tasks.length} úkolů.`);
+  updateSyncStatus(`Nahráno do cloudu: ${mergedTasks.length} úkolů.`);
 }
 
 async function pullFromCloud() {
+  const remoteTasks = await fetchRemoteTasks();
+  const mergedTasks = mergeTaskLists(tasks, remoteTasks);
+  mergedTasks.forEach((task) => {
+    task.priorityScore = calculatePriority(task);
+  });
+
+  tasks = mergedTasks;
+  await persistAllTasksLocally(tasks);
+  updateSyncStatus(`Načteno z cloudu: ${tasks.length} úkolů.`);
+}
+
+async function fetchRemoteTasks() {
   const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
   const profile = encodeURIComponent(authState.userId);
   const selectResponse = await fetch(`${baseUrl}?select=task,updated_at&profile_id=eq.${profile}&order=updated_at.desc`, {
@@ -618,14 +634,49 @@ async function pullFromCloud() {
   }
 
   const rows = await selectResponse.json();
-  const incoming = Array.isArray(rows) ? rows.map((row) => normalizeTask(row.task || {})) : [];
-  incoming.forEach((task) => {
-    task.priorityScore = calculatePriority(task);
+  return Array.isArray(rows) ? rows.map((row) => normalizeTask(row.task || {})) : [];
+}
+
+function mergeTaskLists(localList, remoteList) {
+  const map = new Map();
+
+  remoteList.forEach((task) => {
+    map.set(task.id, normalizeTask(task));
   });
 
-  tasks = incoming;
-  await persistAllTasksLocally(tasks);
-  updateSyncStatus(`Načteno z cloudu: ${tasks.length} úkolů.`);
+  localList.forEach((task) => {
+    const localTask = normalizeTask(task);
+    const remoteTask = map.get(localTask.id);
+    if (!remoteTask) {
+      map.set(localTask.id, localTask);
+      return;
+    }
+
+    map.set(localTask.id, pickNewerTask(localTask, remoteTask));
+  });
+
+  return Array.from(map.values());
+}
+
+function pickNewerTask(first, second) {
+  const firstTs = Date.parse(first.updatedAt || first.createdAt || "") || 0;
+  const secondTs = Date.parse(second.updatedAt || second.createdAt || "") || 0;
+
+  if (firstTs > secondTs) {
+    return first;
+  }
+  if (secondTs > firstTs) {
+    return second;
+  }
+
+  if (first.status === "Done" && second.status !== "Done") {
+    return first;
+  }
+  if (second.status === "Done" && first.status !== "Done") {
+    return second;
+  }
+
+  return second;
 }
 
 async function persistAllTasksLocally(list) {
@@ -1306,7 +1357,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=9").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=10").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
