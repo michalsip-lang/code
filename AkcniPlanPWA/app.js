@@ -11,6 +11,7 @@ const DEFAULT_SYNC_URL = "https://vpjgpcnvpwarvcxfoteo.supabase.co";
 const DEFAULT_SYNC_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwamdwY252cHdhcnZjeGZvdGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDM0MDksImV4cCI6MjEwNDAxOTQwOX0.5bgXCFJZ-gfFfjb7Ua2dmpKU8KMGnyFFtNY3dTUAJPs";
 const AUTO_PUSH_DEBOUNCE_MS = 700;
 const AUTO_PULL_THROTTLE_MS = 20000;
+const AUTO_PULL_INTERVAL_MS = 45000;
 
 const AREA_ORDER = ["Svp", "Sdp", "Bozp", "Po", "Jine"];
 const STATUS_ORDER = ["Todo", "InProgress", "Done", "Blocked"];
@@ -59,6 +60,7 @@ let autoSyncTimer = null;
 let autoSyncInFlight = false;
 let autoSyncQueued = false;
 let lastAutoPullAt = 0;
+let autoPullIntervalId = null;
 
 init().catch(async (error) => {
   console.error(error);
@@ -138,7 +140,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "11");
+    url.searchParams.set("v", "12");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -503,6 +505,15 @@ function setupAutoSyncTriggers() {
       tryAutoPull();
     }
   });
+
+  if (!autoPullIntervalId) {
+    autoPullIntervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      tryAutoPull();
+    }, AUTO_PULL_INTERVAL_MS);
+  }
 }
 
 function scheduleAutoPush(reason = "") {
@@ -1354,7 +1365,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=11").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=12").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
