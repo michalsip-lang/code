@@ -10,6 +10,9 @@ const SYNC_PENDING_ACTION_KEY = "akcni-plan-sync-pending-action";
 const SYNC_TOMBSTONES_KEY = "akcni-plan-sync-deleted-task-tombstones";
 const DEFAULT_SYNC_URL = "https://vpjgpcnvpwarvcxfoteo.supabase.co";
 const DEFAULT_SYNC_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwamdwY252cHdhcnZjeGZvdGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDM0MDksImV4cCI6MjEwNDAxOTQwOX0.5bgXCFJZ-gfFfjb7Ua2dmpKU8KMGnyFFtNY3dTUAJPs";
+const SHARED_ACCOUNT_USERNAME = "tomas.pavelka";
+const SHARED_ACCOUNT_EMAIL = "tomas.pavelka@example.com";
+const SHARED_ACCOUNT_DISPLAY_NAME = "Tomáš Pavelka";
 const AUTO_PUSH_DEBOUNCE_MS = 700;
 const AUTO_PULL_THROTTLE_MS = 20000;
 const AUTO_PULL_INTERVAL_MS = 45000;
@@ -56,7 +59,7 @@ let editTaskId = null;
 let charts = [];
 let storageMode = "indexeddb";
 let syncConfig = { url: DEFAULT_SYNC_URL, anonKey: DEFAULT_SYNC_ANON_KEY };
-let authState = { accessToken: "", userId: "", email: "" };
+let authState = { accessToken: "", userId: "", email: "", displayName: "" };
 let deletedTaskTombstones = {};
 let autoSyncTimer = null;
 let autoSyncInFlight = false;
@@ -80,7 +83,7 @@ async function init() {
   deletedTaskTombstones = loadDeletedTaskTombstones();
 
   if (!isAuthenticated()) {
-    lockApp("Pro používání aplikace je nutné přihlášení přes GitHub.");
+    lockApp("Pro používání aplikace je nutné přihlášení ke sdílenému účtu.");
     updateSyncStatus("Přístup odepřen: nejste přihlášen.", true);
     return;
   }
@@ -103,17 +106,17 @@ async function init() {
   setupAutoSyncTriggers();
   await runSyncAction(pullFromCloud, "pull", {
     authMode: "prompt-login",
-    authPrompt: "Pro automatické načtení z cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
+    authPrompt: "Pro automatické načtení z cloudu je potřeba přihlášení ke sdílenému účtu. Přihlásit se teď?"
   });
 }
 
 function ensureDomContract() {
   const requiredIds = [
-    "auth-gate", "auth-gate-message", "gate-login", "app-shell",
+    "auth-gate", "auth-gate-message", "gate-login", "gate-password", "app-shell",
     "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
     "sync-form", "supabase-url", "supabase-key", "sync-status", "sync-quick-status",
     "nav-auth-status",
-    "auth-github", "auth-logout", "auth-status"
+    "auth-password", "auth-login", "auth-logout", "auth-status"
   ];
   requiredIds.forEach((id) => {
     if (!document.getElementById(id)) {
@@ -152,7 +155,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "15");
+    url.searchParams.set("v", "16");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -278,8 +281,10 @@ function setupSyncPanel() {
   const form = document.getElementById("sync-form");
   const urlInput = document.getElementById("supabase-url");
   const keyInput = document.getElementById("supabase-key");
+  const gatePasswordInput = document.getElementById("gate-password");
   const gateLoginButton = document.getElementById("gate-login");
-  const githubButton = document.getElementById("auth-github");
+  const passwordInput = document.getElementById("auth-password");
+  const loginButton = document.getElementById("auth-login");
   const logoutButton = document.getElementById("auth-logout");
 
   form.addEventListener("submit", (event) => {
@@ -291,15 +296,23 @@ function setupSyncPanel() {
   urlInput.readOnly = true;
   keyInput.readOnly = true;
 
-  githubButton.addEventListener("click", async () => {
+  loginButton.addEventListener("click", async () => {
     await runAuthAction(async () => {
-      startGithubOAuth();
+      await loginSharedAccount(String(passwordInput.value || "").trim());
+      passwordInput.value = "";
+      gatePasswordInput.value = "";
+      unlockApp();
+      refreshAuthStatus();
+      updateSyncStatus("Přihlášení úspěšné.");
     });
   });
 
   gateLoginButton.addEventListener("click", async () => {
     await runAuthAction(async () => {
-      startGithubOAuth();
+      await loginSharedAccount(String(gatePasswordInput.value || "").trim());
+      passwordInput.value = "";
+      gatePasswordInput.value = "";
+      window.location.reload();
     });
   });
 
@@ -308,7 +321,7 @@ function setupSyncPanel() {
       clearAuthState();
       refreshAuthStatus();
       updateSyncStatus("Odhlášeno.");
-      lockApp("Byli jste odhlášeni. Pro další práci se přihlaste přes GitHub.");
+      lockApp("Byli jste odhlášeni. Pro další práci se přihlaste ke sdílenému účtu.");
     });
   });
 
@@ -321,30 +334,8 @@ function setupSyncPanel() {
   resumePendingSyncAction();
 }
 
-function startGithubOAuth() {
-  const redirectTo = getOAuthRedirectUrl();
-  const authUrl = `${syncConfig.url}/auth/v1/authorize?provider=github&redirect_to=${encodeURIComponent(redirectTo)}`;
-  window.location.assign(authUrl);
-}
-
-function getOAuthRedirectUrl() {
-  return `${window.location.origin}${window.location.pathname}`;
-}
-
 function hydrateAuthFromUrlHash() {
-  if (!window.location.hash) {
-    return;
-  }
-
-  const hash = new URLSearchParams(window.location.hash.slice(1));
-  const accessToken = hash.get("access_token");
-  if (!accessToken) {
-    return;
-  }
-
-  saveAuthToken(accessToken);
-  const cleanUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
-  window.history.replaceState({}, document.title, cleanUrl);
+  return;
 }
 
 function loadSyncConfig() {
@@ -380,23 +371,24 @@ function loadAuthState() {
   try {
     const token = localStorage.getItem(SYNC_TOKEN_KEY) || "";
     if (!token) {
-      return { accessToken: "", userId: "", email: "" };
+      return { accessToken: "", userId: "", email: "", displayName: "" };
     }
 
     const payload = parseJwt(token);
     const expMs = (payload?.exp || 0) * 1000;
     if (!payload?.sub || !expMs || Date.now() >= expMs) {
       localStorage.removeItem(SYNC_TOKEN_KEY);
-      return { accessToken: "", userId: "", email: "" };
+      return { accessToken: "", userId: "", email: "", displayName: "" };
     }
 
     return {
       accessToken: token,
       userId: payload?.sub || "",
-      email: payload?.email || ""
+      email: payload?.email || SHARED_ACCOUNT_EMAIL,
+      displayName: SHARED_ACCOUNT_DISPLAY_NAME
     };
   } catch {
-    return { accessToken: "", userId: "", email: "" };
+    return { accessToken: "", userId: "", email: "", displayName: "" };
   }
 }
 
@@ -406,13 +398,39 @@ function saveAuthToken(token) {
   authState = {
     accessToken: token,
     userId: payload?.sub || "",
-    email: payload?.email || ""
+    email: payload?.email || SHARED_ACCOUNT_EMAIL,
+    displayName: SHARED_ACCOUNT_DISPLAY_NAME
   };
 }
 
 function clearAuthState() {
   localStorage.removeItem(SYNC_TOKEN_KEY);
-  authState = { accessToken: "", userId: "", email: "" };
+  authState = { accessToken: "", userId: "", email: "", displayName: "" };
+}
+
+async function loginSharedAccount(password) {
+  if (!password) {
+    throw new Error("Zadejte heslo ke sdílenému účtu.");
+  }
+
+  const response = await fetch(`${syncConfig.url}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: {
+      "apikey": syncConfig.anonKey,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      email: SHARED_ACCOUNT_EMAIL,
+      password
+    })
+  });
+
+  const body = await safeJson(response);
+  if (!response.ok || !body?.access_token) {
+    throw new Error(body?.msg || body?.error_description || "Přihlášení ke sdílenému účtu selhalo.");
+  }
+
+  saveAuthToken(body.access_token);
 }
 
 function loadDeletedTaskTombstones() {
@@ -493,11 +511,11 @@ function refreshAuthStatus() {
   }
 
   if (authState.userId) {
-    const userLabel = authState.email || authState.userId;
+    const userLabel = authState.displayName || SHARED_ACCOUNT_DISPLAY_NAME;
     host.textContent = `Připojeno: ANO (${userLabel})`;
     navHost.textContent = `Uživatel: ${userLabel}`;
   } else {
-    host.textContent = "Připojeno: NE (přihlásí se až při Načíst/Nahrát).";
+    host.textContent = `Připojeno: NE (${SHARED_ACCOUNT_USERNAME})`;
     navHost.textContent = "Připojeno: NE";
   }
 }
@@ -513,6 +531,7 @@ async function runAuthAction(action) {
   } catch (error) {
     console.error(error);
     updateSyncStatus(`Auth selhal: ${String(error.message || error)}`, true);
+    lockApp("Pro používání aplikace se přihlaste ke sdílenému účtu.");
   }
 }
 
@@ -528,7 +547,7 @@ function updateSyncStatus(text, isError = false) {
 async function runSyncAction(action, actionName = "", options = {}) {
   const {
     authMode = "force-login",
-    authPrompt = "Pro cloud sync je vyžadováno přihlášení přes GitHub. Přihlásit se teď?"
+    authPrompt = "Pro cloud sync je vyžadováno přihlášení ke sdílenému účtu. Přihlásit se teď?"
   } = options;
 
   if (!syncConfigReady()) {
@@ -538,7 +557,7 @@ async function runSyncAction(action, actionName = "", options = {}) {
 
   if (!authState.accessToken || !authState.userId) {
     if (authMode === "silent-skip") {
-      updateSyncStatus("Synchronizace čeká na přihlášení přes GitHub.", true);
+      updateSyncStatus("Synchronizace čeká na přihlášení ke sdílenému účtu.", true);
       return false;
     }
 
@@ -552,11 +571,8 @@ async function runSyncAction(action, actionName = "", options = {}) {
       return false;
     }
 
-    if (actionName) {
-      sessionStorage.setItem(SYNC_PENDING_ACTION_KEY, actionName);
-    }
-    updateSyncStatus("Přesměrovávám na GitHub přihlášení...");
-    startGithubOAuth();
+    lockApp("Pro pokračování zadejte heslo ke sdílenému účtu.");
+    updateSyncStatus("Synchronizace čeká na přihlášení ke sdílenému účtu.", true);
     return false;
   }
 
@@ -621,7 +637,7 @@ async function executeAutoPush(reason = "") {
   try {
     await runSyncAction(pushToCloud, "push", {
       authMode: "prompt-login",
-      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení přes GitHub. Přihlásit se teď?"
+      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení ke sdílenému účtu. Přihlásit se teď?"
     });
   } finally {
     autoSyncInFlight = false;
@@ -1536,7 +1552,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=15").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=16").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);

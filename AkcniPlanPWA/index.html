@@ -13,14 +13,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=15" />
+  <link rel="stylesheet" href="styles.css?v=16" />
 </head>
 <body>
   <section id="auth-gate" class="auth-gate hidden">
     <div class="auth-gate-card">
       <h1>Přístup omezen</h1>
-      <p id="auth-gate-message">Pro používání aplikace je nutné přihlášení přes GitHub.</p>
-      <button type="button" id="gate-login" class="btn btn-primary">Přihlásit přes GitHub</button>
+      <p id="auth-gate-message">Pro používání aplikace je nutné přihlášení ke sdílenému účtu.</p>
+      <div class="subtitle mb8">Účet: <strong>tomas.pavelka</strong> (Tomáš Pavelka)</div>
+      <label for="gate-password">Heslo</label>
+      <input id="gate-password" type="password" placeholder="Zadejte sdílené heslo" />
+      <div class="sync-actions mt8">
+        <button type="button" id="gate-login" class="btn btn-primary">Přihlásit</button>
+      </div>
     </div>
   </section>
 
@@ -119,12 +124,16 @@
         <h2 class="panel-subtitle">Cloud sync (Supabase)</h2>
         <div class="subtitle mb8">Synchronizace je automatická při spuštění a po každém uložení změn.</div>
         <div id="sync-quick-status" class="subtitle mt8">Čeká se na automatickou synchronizaci.</div>
-        <div class="subtitle mt8">Používá se jen GitHub přihlášení. E-mailové účty nejsou potřeba.</div>
+        <div class="subtitle mt8">Používá se jeden sdílený účet tomas.pavelka zobrazený jako Tomáš Pavelka.</div>
         <form id="sync-form" class="sync-grid">
           <input id="supabase-url" name="supabaseUrl" type="hidden" />
           <input id="supabase-key" name="supabaseKey" type="hidden" />
+          <div>
+            <label for="auth-password">Heslo ke sdílenému účtu</label>
+            <input id="auth-password" name="authPassword" type="password" placeholder="Zadejte sdílené heslo" />
+          </div>
           <div class="sync-actions">
-            <button type="button" id="auth-github" class="btn btn-primary">Přihlásit přes GitHub</button>
+            <button type="button" id="auth-login" class="btn btn-primary">Přihlásit</button>
             <button type="button" id="auth-logout" class="btn btn-outline">Odhlásit</button>
           </div>
         </form>
@@ -146,6 +155,6 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=15"></script>
+  <script type="module" src="app.js?v=16"></script>
 </body>
 </html>
