@@ -13,14 +13,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
   <section id="auth-gate" class="auth-gate hidden">
     <div class="auth-gate-card">
       <h1>Přístup omezen</h1>
-      <p id="auth-gate-message">Pro používání aplikace je nutné přihlášení ke sdílenému účtu.</p>
-      <div class="subtitle mb8">Účet: <strong>tomas.pavelka</strong> (Tomáš Pavelka)</div>
+      <p id="auth-gate-message">Pro používání aplikace je nutné přihlášení k jednomu z povolených účtů.</p>
+      <label for="gate-username">Účet</label>
+      <select id="gate-username">
+        <option value="tomas.pavelka">tomas.pavelka (Tomáš Pavelka)</option>
+        <option value="michal.sip">michal.sip (Michal Šíp)</option>
+      </select>
       <label for="gate-password">Heslo</label>
       <input id="gate-password" type="password" placeholder="Zadejte sdílené heslo" />
       <div class="sync-actions mt8">
@@ -124,13 +128,20 @@
         <h2 class="panel-subtitle">Cloud sync (Supabase)</h2>
         <div class="subtitle mb8">Synchronizace je automatická při spuštění a po každém uložení změn.</div>
         <div id="sync-quick-status" class="subtitle mt8">Čeká se na automatickou synchronizaci.</div>
-        <div class="subtitle mt8">Používá se jeden sdílený účet tomas.pavelka zobrazený jako Tomáš Pavelka.</div>
+        <div class="subtitle mt8">Povolené účty: tomas.pavelka a michal.sip. Oba vidí stejný plán, ale mazat mohou jen své úkoly.</div>
         <form id="sync-form" class="sync-grid">
           <input id="supabase-url" name="supabaseUrl" type="hidden" />
           <input id="supabase-key" name="supabaseKey" type="hidden" />
           <div>
-            <label for="auth-password">Heslo ke sdílenému účtu</label>
-            <input id="auth-password" name="authPassword" type="password" placeholder="Zadejte sdílené heslo" />
+            <label for="auth-username">Účet</label>
+            <select id="auth-username" name="authUsername">
+              <option value="tomas.pavelka">tomas.pavelka (Tomáš Pavelka)</option>
+              <option value="michal.sip">michal.sip (Michal Šíp)</option>
+            </select>
+          </div>
+          <div>
+            <label for="auth-password">Heslo k účtu</label>
+            <input id="auth-password" name="authPassword" type="password" placeholder="Zadejte heslo" />
           </div>
           <div class="sync-actions">
             <button type="button" id="auth-login" class="btn btn-primary">Přihlásit</button>
@@ -155,6 +166,6 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="app.js?v=16"></script>
+  <script type="module" src="app.js?v=17"></script>
 </body>
 </html>

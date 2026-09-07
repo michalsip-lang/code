@@ -10,9 +10,17 @@ const SYNC_PENDING_ACTION_KEY = "akcni-plan-sync-pending-action";
 const SYNC_TOMBSTONES_KEY = "akcni-plan-sync-deleted-task-tombstones";
 const DEFAULT_SYNC_URL = "https://vpjgpcnvpwarvcxfoteo.supabase.co";
 const DEFAULT_SYNC_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwamdwY252cHdhcnZjeGZvdGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDM0MDksImV4cCI6MjEwNDAxOTQwOX0.5bgXCFJZ-gfFfjb7Ua2dmpKU8KMGnyFFtNY3dTUAJPs";
-const SHARED_ACCOUNT_USERNAME = "tomas.pavelka";
-const SHARED_ACCOUNT_EMAIL = "tomas.pavelka@example.com";
-const SHARED_ACCOUNT_DISPLAY_NAME = "Tomáš Pavelka";
+const ACCOUNT_DEFINITIONS = {
+  "tomas.pavelka": {
+    email: "tomas.pavelka@example.com",
+    displayName: "Tomáš Pavelka"
+  },
+  "michal.sip": {
+    email: "michal.sip@example.com",
+    displayName: "Michal Šíp"
+  }
+};
+const DEFAULT_ACCOUNT_USERNAME = "tomas.pavelka";
 const AUTO_PUSH_DEBOUNCE_MS = 700;
 const AUTO_PULL_THROTTLE_MS = 20000;
 const AUTO_PULL_INTERVAL_MS = 45000;
@@ -59,7 +67,7 @@ let editTaskId = null;
 let charts = [];
 let storageMode = "indexeddb";
 let syncConfig = { url: DEFAULT_SYNC_URL, anonKey: DEFAULT_SYNC_ANON_KEY };
-let authState = { accessToken: "", userId: "", email: "", displayName: "" };
+let authState = { accessToken: "", userId: "", email: "", username: "", displayName: "" };
 let deletedTaskTombstones = {};
 let autoSyncTimer = null;
 let autoSyncInFlight = false;
@@ -83,7 +91,7 @@ async function init() {
   deletedTaskTombstones = loadDeletedTaskTombstones();
 
   if (!isAuthenticated()) {
-    lockApp("Pro používání aplikace je nutné přihlášení ke sdílenému účtu.");
+    lockApp("Pro používání aplikace je nutné přihlášení k jednomu z povolených účtů.");
     updateSyncStatus("Přístup odepřen: nejste přihlášen.", true);
     return;
   }
@@ -106,17 +114,17 @@ async function init() {
   setupAutoSyncTriggers();
   await runSyncAction(pullFromCloud, "pull", {
     authMode: "prompt-login",
-    authPrompt: "Pro automatické načtení z cloudu je potřeba přihlášení ke sdílenému účtu. Přihlásit se teď?"
+    authPrompt: "Pro automatické načtení z cloudu je potřeba přihlášení. Přihlásit se teď?"
   });
 }
 
 function ensureDomContract() {
   const requiredIds = [
-    "auth-gate", "auth-gate-message", "gate-login", "gate-password", "app-shell",
+    "auth-gate", "auth-gate-message", "gate-username", "gate-login", "gate-password", "app-shell",
     "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
     "sync-form", "supabase-url", "supabase-key", "sync-status", "sync-quick-status",
     "nav-auth-status",
-    "auth-password", "auth-login", "auth-logout", "auth-status"
+    "auth-username", "auth-password", "auth-login", "auth-logout", "auth-status"
   ];
   requiredIds.forEach((id) => {
     if (!document.getElementById(id)) {
@@ -155,7 +163,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "16");
+    url.searchParams.set("v", "17");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -281,8 +289,10 @@ function setupSyncPanel() {
   const form = document.getElementById("sync-form");
   const urlInput = document.getElementById("supabase-url");
   const keyInput = document.getElementById("supabase-key");
+  const gateUsernameInput = document.getElementById("gate-username");
   const gatePasswordInput = document.getElementById("gate-password");
   const gateLoginButton = document.getElementById("gate-login");
+  const usernameInput = document.getElementById("auth-username");
   const passwordInput = document.getElementById("auth-password");
   const loginButton = document.getElementById("auth-login");
   const logoutButton = document.getElementById("auth-logout");
@@ -295,12 +305,16 @@ function setupSyncPanel() {
   keyInput.value = syncConfig.anonKey;
   urlInput.readOnly = true;
   keyInput.readOnly = true;
+  usernameInput.value = authState.username || DEFAULT_ACCOUNT_USERNAME;
+  gateUsernameInput.value = authState.username || DEFAULT_ACCOUNT_USERNAME;
 
   loginButton.addEventListener("click", async () => {
     await runAuthAction(async () => {
-      await loginSharedAccount(String(passwordInput.value || "").trim());
+      const username = String(usernameInput.value || "").trim();
+      await loginNamedAccount(username, String(passwordInput.value || "").trim());
       passwordInput.value = "";
       gatePasswordInput.value = "";
+      gateUsernameInput.value = username;
       unlockApp();
       refreshAuthStatus();
       updateSyncStatus("Přihlášení úspěšné.");
@@ -309,7 +323,9 @@ function setupSyncPanel() {
 
   gateLoginButton.addEventListener("click", async () => {
     await runAuthAction(async () => {
-      await loginSharedAccount(String(gatePasswordInput.value || "").trim());
+      const username = String(gateUsernameInput.value || "").trim();
+      await loginNamedAccount(username, String(gatePasswordInput.value || "").trim());
+      usernameInput.value = username;
       passwordInput.value = "";
       gatePasswordInput.value = "";
       window.location.reload();
@@ -321,7 +337,9 @@ function setupSyncPanel() {
       clearAuthState();
       refreshAuthStatus();
       updateSyncStatus("Odhlášeno.");
-      lockApp("Byli jste odhlášeni. Pro další práci se přihlaste ke sdílenému účtu.");
+      usernameInput.value = DEFAULT_ACCOUNT_USERNAME;
+      gateUsernameInput.value = DEFAULT_ACCOUNT_USERNAME;
+      lockApp("Byli jste odhlášeni. Pro další práci se přihlaste k jednomu z povolených účtů.");
     });
   });
 
@@ -336,6 +354,15 @@ function setupSyncPanel() {
 
 function hydrateAuthFromUrlHash() {
   return;
+}
+
+function getAccountByUsername(username) {
+  return ACCOUNT_DEFINITIONS[String(username || "").trim().toLowerCase()] || null;
+}
+
+function getAccountByEmail(email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  return Object.entries(ACCOUNT_DEFINITIONS).find(([, account]) => account.email === normalizedEmail) || null;
 }
 
 function loadSyncConfig() {
@@ -371,46 +398,60 @@ function loadAuthState() {
   try {
     const token = localStorage.getItem(SYNC_TOKEN_KEY) || "";
     if (!token) {
-      return { accessToken: "", userId: "", email: "", displayName: "" };
+      return { accessToken: "", userId: "", email: "", username: "", displayName: "" };
     }
 
     const payload = parseJwt(token);
     const expMs = (payload?.exp || 0) * 1000;
     if (!payload?.sub || !expMs || Date.now() >= expMs) {
       localStorage.removeItem(SYNC_TOKEN_KEY);
-      return { accessToken: "", userId: "", email: "", displayName: "" };
+      return { accessToken: "", userId: "", email: "", username: "", displayName: "" };
     }
+
+    const email = payload?.email || "";
+    const accountEntry = getAccountByEmail(email);
+    const username = accountEntry?.[0] || "";
+    const displayName = accountEntry?.[1]?.displayName || email || "";
 
     return {
       accessToken: token,
       userId: payload?.sub || "",
-      email: payload?.email || SHARED_ACCOUNT_EMAIL,
-      displayName: SHARED_ACCOUNT_DISPLAY_NAME
+      email,
+      username,
+      displayName
     };
   } catch {
-    return { accessToken: "", userId: "", email: "", displayName: "" };
+    return { accessToken: "", userId: "", email: "", username: "", displayName: "" };
   }
 }
 
 function saveAuthToken(token) {
   localStorage.setItem(SYNC_TOKEN_KEY, token);
   const payload = parseJwt(token);
+  const email = payload?.email || "";
+  const accountEntry = getAccountByEmail(email);
   authState = {
     accessToken: token,
     userId: payload?.sub || "",
-    email: payload?.email || SHARED_ACCOUNT_EMAIL,
-    displayName: SHARED_ACCOUNT_DISPLAY_NAME
+    email,
+    username: accountEntry?.[0] || "",
+    displayName: accountEntry?.[1]?.displayName || email || ""
   };
 }
 
 function clearAuthState() {
   localStorage.removeItem(SYNC_TOKEN_KEY);
-  authState = { accessToken: "", userId: "", email: "", displayName: "" };
+  authState = { accessToken: "", userId: "", email: "", username: "", displayName: "" };
 }
 
-async function loginSharedAccount(password) {
+async function loginNamedAccount(username, password) {
+  const account = getAccountByUsername(username);
+  if (!account) {
+    throw new Error("Vyberte platný účet.");
+  }
+
   if (!password) {
-    throw new Error("Zadejte heslo ke sdílenému účtu.");
+    throw new Error("Zadejte heslo k účtu.");
   }
 
   const response = await fetch(`${syncConfig.url}/auth/v1/token?grant_type=password`, {
@@ -420,7 +461,7 @@ async function loginSharedAccount(password) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      email: SHARED_ACCOUNT_EMAIL,
+      email: account.email,
       password
     })
   });
@@ -511,11 +552,11 @@ function refreshAuthStatus() {
   }
 
   if (authState.userId) {
-    const userLabel = authState.displayName || SHARED_ACCOUNT_DISPLAY_NAME;
+    const userLabel = authState.displayName || authState.email || authState.userId;
     host.textContent = `Připojeno: ANO (${userLabel})`;
     navHost.textContent = `Uživatel: ${userLabel}`;
   } else {
-    host.textContent = `Připojeno: NE (${SHARED_ACCOUNT_USERNAME})`;
+    host.textContent = "Připojeno: NE";
     navHost.textContent = "Připojeno: NE";
   }
 }
@@ -531,7 +572,7 @@ async function runAuthAction(action) {
   } catch (error) {
     console.error(error);
     updateSyncStatus(`Auth selhal: ${String(error.message || error)}`, true);
-    lockApp("Pro používání aplikace se přihlaste ke sdílenému účtu.");
+    lockApp("Pro používání aplikace se přihlaste k jednomu z povolených účtů.");
   }
 }
 
@@ -547,7 +588,7 @@ function updateSyncStatus(text, isError = false) {
 async function runSyncAction(action, actionName = "", options = {}) {
   const {
     authMode = "force-login",
-    authPrompt = "Pro cloud sync je vyžadováno přihlášení ke sdílenému účtu. Přihlásit se teď?"
+    authPrompt = "Pro cloud sync je vyžadováno přihlášení. Přihlásit se teď?"
   } = options;
 
   if (!syncConfigReady()) {
@@ -557,7 +598,7 @@ async function runSyncAction(action, actionName = "", options = {}) {
 
   if (!authState.accessToken || !authState.userId) {
     if (authMode === "silent-skip") {
-      updateSyncStatus("Synchronizace čeká na přihlášení ke sdílenému účtu.", true);
+      updateSyncStatus("Synchronizace čeká na přihlášení.", true);
       return false;
     }
 
@@ -571,8 +612,11 @@ async function runSyncAction(action, actionName = "", options = {}) {
       return false;
     }
 
-    lockApp("Pro pokračování zadejte heslo ke sdílenému účtu.");
-    updateSyncStatus("Synchronizace čeká na přihlášení ke sdílenému účtu.", true);
+    if (actionName) {
+      sessionStorage.setItem(SYNC_PENDING_ACTION_KEY, actionName);
+    }
+    lockApp("Pro pokračování vyberte účet a zadejte heslo.");
+    updateSyncStatus("Synchronizace čeká na přihlášení.", true);
     return false;
   }
 
@@ -637,7 +681,7 @@ async function executeAutoPush(reason = "") {
   try {
     await runSyncAction(pushToCloud, "push", {
       authMode: "prompt-login",
-      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení ke sdílenému účtu. Přihlásit se teď?"
+      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení. Přihlásit se teď?"
     });
   } finally {
     autoSyncInFlight = false;
@@ -908,11 +952,17 @@ function normalizeTask(task) {
     status: STATUS_ORDER.includes(task.status) ? task.status : "Todo",
     tags: Array.isArray(task.tags) ? task.tags.map((t) => String(t).trim()).filter(Boolean) : [],
     dependencyIds: Array.isArray(task.dependencyIds) ? task.dependencyIds : [],
+    createdByUser: String(task.createdByUser || "").trim().toLowerCase(),
+    createdByName: String(task.createdByName || "").trim(),
     createdAt: task.createdAt || nowIso,
     updatedAt: task.updatedAt || task.createdAt || nowIso,
     completedAt: task.completedAt || null,
     priorityScore: 0
   };
+}
+
+function canDeleteTask(task) {
+  return Boolean(task?.createdByUser && authState.username && task.createdByUser === authState.username);
 }
 
 function setupNavigation() {
@@ -1006,6 +1056,8 @@ function setupAutoForm() {
         status: "Todo",
         tags: [],
         dependencyIds: [],
+        createdByUser: authState.username,
+        createdByName: authState.displayName,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
         completedAt: null
@@ -1049,6 +1101,8 @@ async function onCreateOrEditSubmit(event) {
     status,
     tags: parseCsv(String(data.get("tagsCsv") || "")),
     dependencyIds,
+    createdByUser: prev?.createdByUser || authState.username,
+    createdByName: prev?.createdByName || authState.displayName,
     createdAt: prev?.createdAt || now.toISOString(),
     updatedAt: now.toISOString(),
     completedAt: status === "Done" ? (prev?.completedAt || now.toISOString()) : null
@@ -1253,11 +1307,14 @@ function renderAreaPanels(grouped, showAllAreas = false) {
         .map((task) => {
           const tagText = task.tags.join(", ");
           const doneDisabled = task.status === "Done" ? "disabled" : "";
+          const deleteDisabled = canDeleteTask(task) ? "" : "disabled";
+          const ownerLabel = task.createdByName || task.createdByUser || "Neurčeno";
           return `
             <tr>
               <td>
                 <div><strong>${escapeHtml(task.title)}</strong> <span class="area-chip area-${task.area.toLowerCase()}">${AREA_LABEL[task.area]}</span></div>
                 <div class="subtitle">${escapeHtml(task.description || "")}</div>
+                <div class="subtitle">Zadal: ${escapeHtml(ownerLabel)}</div>
               </td>
               <td><span class="badge badge-blue">${task.priorityScore}</span></td>
               <td>${task.dueDate || "-"}</td>
@@ -1267,7 +1324,7 @@ function renderAreaPanels(grouped, showAllAreas = false) {
               <td>
                 <button class="btn btn-outline btn-sm" data-action="edit" data-id="${task.id}">Upravit</button>
                 <button class="btn btn-outline btn-sm" data-action="done" data-id="${task.id}" ${doneDisabled}>Hotovo</button>
-                <button class="btn btn-danger btn-sm" data-action="delete" data-id="${task.id}">Smazat</button>
+                <button class="btn btn-danger btn-sm" data-action="delete" data-id="${task.id}" ${deleteDisabled}>Smazat</button>
               </td>
             </tr>
           `;
@@ -1319,6 +1376,11 @@ async function handleTaskAction(action, id) {
   }
 
   if (action === "delete") {
+    if (!canDeleteTask(task)) {
+      alert("Mazat lze jen úkoly, které jste sami zadali.");
+      return;
+    }
+
     const allow = await askConfirm();
     if (!allow) {
       return;
@@ -1552,7 +1614,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=16").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=17").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
