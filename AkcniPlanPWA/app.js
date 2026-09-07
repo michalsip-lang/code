@@ -174,7 +174,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "22");
+    url.searchParams.set("v", "23");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -1086,11 +1086,8 @@ function setupCreateForm() {
 }
 
 function handleCancelEdit() {
-  const wasEdit = Boolean(editTaskId);
   resetCreateForm();
-  if (wasEdit) {
-    showView("tasks");
-  }
+  showView("tasks");
 }
 
 function setupAutoForm() {
@@ -1710,7 +1707,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=22").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=23").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
