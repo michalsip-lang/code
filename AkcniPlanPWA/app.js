@@ -66,6 +66,7 @@ let db;
 let tasks = [];
 let activeFilter = null;
 let editTaskId = null;
+let activeTaskDetailId = null;
 let charts = [];
 let storageMode = "indexeddb";
 let syncConfig = { url: DEFAULT_SYNC_URL, anonKey: DEFAULT_SYNC_ANON_KEY };
@@ -128,6 +129,7 @@ function ensureDomContract() {
   const requiredIds = [
     "auth-gate", "auth-gate-message", "auth-gate-status", "gate-username", "gate-login", "gate-password", "app-shell",
     "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "top-priority-body", "heatmap",
+    "task-detail-content",
     "sync-form", "supabase-url", "supabase-key", "sync-status", "sync-quick-status",
     "nav-auth-status",
     "auth-username", "auth-password", "auth-login", "auth-logout", "auth-status"
@@ -174,7 +176,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "23");
+    url.searchParams.set("v", "24");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -1045,7 +1047,8 @@ function showView(view) {
   document.querySelectorAll(".nav-link").forEach((button) => button.classList.remove("is-active"));
 
   document.getElementById(`view-${view}`)?.classList.add("is-active");
-  document.querySelector(`.nav-link[data-nav='${view}']`)?.classList.add("is-active");
+  const navView = view === "task-detail" ? "tasks" : view;
+  document.querySelector(`.nav-link[data-nav='${navView}']`)?.classList.add("is-active");
 }
 
 function setupCreateForm() {
@@ -1229,6 +1232,9 @@ function renderAll() {
 
   renderDashboard();
   renderTasks();
+  if (document.getElementById("view-task-detail")?.classList.contains("is-active")) {
+    renderTaskDetail(activeTaskDetailId);
+  }
   refreshDependencyOptions();
 }
 
@@ -1320,7 +1326,7 @@ function renderTaskList(list) {
         return `
           <tr>
             <td>
-              <div><strong>${escapeHtml(task.title)}</strong></div>
+              <button class="task-title-btn" data-action="view" data-id="${task.id}">${escapeHtml(task.title)}</button>
             </td>
             <td><span class="area-chip area-${task.area.toLowerCase()}">${AREA_LABEL[task.area]}</span></td>
             <td><span class="badge badge-blue">${task.priorityScore}</span></td>
@@ -1450,6 +1456,11 @@ async function handleTaskAction(action, id) {
     return;
   }
 
+  if (action === "view") {
+    openTaskDetail(task.id);
+    return;
+  }
+
   if (action === "edit") {
     editTask(task);
     return;
@@ -1488,6 +1499,7 @@ async function handleTaskAction(action, id) {
 
 function editTask(task) {
   editTaskId = task.id;
+  activeTaskDetailId = task.id;
   showView("create");
 
   const form = document.getElementById("task-form");
@@ -1507,6 +1519,80 @@ function editTask(task) {
   });
 
   form.querySelector("button[type='submit']").textContent = "Uložit změny";
+}
+
+function openTaskDetail(id) {
+  activeTaskDetailId = id;
+  renderTaskDetail(id);
+  showView("task-detail");
+}
+
+function renderTaskDetail(id) {
+  const host = document.getElementById("task-detail-content");
+  if (!host) {
+    return;
+  }
+
+  const task = tasks.find((row) => row.id === id);
+  if (!task) {
+    host.innerHTML = `
+      <article class="card">
+        <h2 class="panel-title">Úkol nebyl nalezen</h2>
+        <p class="subtitle">Úkol byl pravděpodobně smazán nebo ještě není načtený.</p>
+        <button class="btn btn-outline" type="button" data-detail-action="back">Zpět na seznam</button>
+      </article>
+    `;
+  } else {
+    const description = task.description ? escapeHtml(task.description) : "-";
+    const tags = task.tags.length ? escapeHtml(task.tags.join(", ")) : "-";
+    const canDelete = canDeleteTask(task);
+    host.innerHTML = `
+      <article class="card">
+        <div class="top-row">
+          <h2 class="panel-title">${escapeHtml(task.title)}</h2>
+          <span class="badge ${statusBadgeClass(task.status)}">${STATUS_LABEL[task.status]}</span>
+        </div>
+        <div class="detail-grid">
+          <div><strong>Oblast:</strong> ${AREA_LABEL[task.area]}</div>
+          <div><strong>Priorita:</strong> ${task.priorityScore}</div>
+          <div><strong>Termín:</strong> ${task.dueDate || "-"}</div>
+          <div><strong>Pracnost:</strong> ${task.actualHours} / ${task.estimatedHours} h</div>
+          <div><strong>Štítky:</strong> ${tags}</div>
+          <div><strong>Popis:</strong> ${description}</div>
+        </div>
+        <div class="sync-actions mt8">
+          <button class="btn btn-primary" type="button" data-detail-action="edit" data-id="${task.id}">Upravit úkol</button>
+          ${canDelete ? `<button class="btn btn-danger" type="button" data-detail-action="delete" data-id="${task.id}">Smazat</button>` : ""}
+          <button class="btn btn-outline" type="button" data-detail-action="back">Zpět na seznam</button>
+        </div>
+      </article>
+    `;
+  }
+
+  host.querySelectorAll("button[data-detail-action]").forEach((button) => {
+    const action = button.dataset.detailAction;
+    if (action === "back") {
+      button.addEventListener("click", () => showView("tasks"));
+      return;
+    }
+    if (action === "edit") {
+      button.addEventListener("click", () => {
+        const taskId = button.dataset.id;
+        const selected = tasks.find((row) => row.id === taskId);
+        if (selected) {
+          editTask(selected);
+        }
+      });
+      return;
+    }
+    if (action === "delete") {
+      button.addEventListener("click", () => {
+        const taskId = button.dataset.id;
+        handleTaskAction("delete", taskId);
+        showView("tasks");
+      });
+    }
+  });
 }
 
 function calculatePriority(task) {
@@ -1707,7 +1793,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=23").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=24").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);

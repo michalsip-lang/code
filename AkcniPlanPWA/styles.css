@@ -217,6 +217,23 @@ h1, h2, h3, h4, h5, .brand { font-family: "Barlow Condensed", "Segoe UI", sans-s
   letter-spacing: 0.04em;
 }
 
+.task-title-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--samohyl-blue);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.task-title-btn:hover {
+  color: #3a3abd;
+}
+
 .badge {
   display: inline-block;
   border-radius: 999px;
@@ -326,6 +343,13 @@ textarea:focus, input:focus, select:focus {
   font-weight: 600;
 }
 
+.detail-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
 .list { margin: 0; padding-left: 18px; }
 
 .form-grid {
@@ -385,4 +409,5 @@ textarea:focus, input:focus, select:focus {
   .col-6 { grid-column: span 6; }
   .col-4 { grid-column: span 6; }
   .col-3 { grid-column: span 3; }
+  .detail-grid { grid-template-columns: 1fr; }
 }
