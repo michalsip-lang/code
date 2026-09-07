@@ -493,6 +493,14 @@ async function loginNamedAccount(username, password) {
   saveAuthToken(body.access_token);
 }
 
+async function safeJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 function loadDeletedTaskTombstones() {
   try {
     const raw = localStorage.getItem(SYNC_TOMBSTONES_KEY);
@@ -1662,7 +1670,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=18").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=19").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
