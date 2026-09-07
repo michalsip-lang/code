@@ -174,7 +174,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "20");
+    url.searchParams.set("v", "21");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -1081,8 +1081,16 @@ function setupCreateForm() {
   `;
 
   form.addEventListener("submit", onCreateOrEditSubmit);
-  document.getElementById("cancel-edit").addEventListener("click", resetCreateForm);
+  document.getElementById("cancel-edit").addEventListener("click", handleCancelEdit);
   refreshDependencyOptions();
+}
+
+function handleCancelEdit() {
+  const wasEdit = Boolean(editTaskId);
+  resetCreateForm();
+  if (wasEdit) {
+    showView("tasks");
+  }
 }
 
 function setupAutoForm() {
@@ -1278,7 +1286,6 @@ function renderTopPriority() {
 
 function renderTasks() {
   const filtered = applyFilter(tasks, activeFilter);
-  const showAllAreas = Boolean(activeFilter);
 
   const filterBadge = document.getElementById("active-filter");
   if (activeFilter) {
@@ -1293,11 +1300,68 @@ function renderTasks() {
     filterBadge.textContent = "";
   }
 
-  const grouped = new Map(AREA_ORDER.map((area) => [area, []]));
-  filtered.forEach((task) => grouped.get(task.area).push(task));
+  const areaPicker = document.getElementById("area-picker");
+  areaPicker.classList.add("hidden");
+  areaPicker.innerHTML = "";
 
-  renderAreaPicker(grouped, showAllAreas);
-  renderAreaPanels(grouped, showAllAreas);
+  renderTaskList(filtered);
+}
+
+function renderTaskList(list) {
+  const host = document.getElementById("area-panels");
+  host.innerHTML = "";
+
+  const rows = list.length === 0
+    ? '<tr><td colspan="8">Zatím bez úkolů.</td></tr>'
+    : list
+      .slice()
+      .sort((a, b) => b.priorityScore - a.priorityScore)
+      .map((task) => {
+        const tagText = task.tags.join(", ");
+        const doneDisabled = task.status === "Done" ? "disabled" : "";
+        const deleteDisabled = canDeleteTask(task) ? "" : "disabled";
+        const ownerLabel = task.createdByName || task.createdByUser || "Neurčeno";
+        return `
+          <tr>
+            <td>
+              <div><strong>${escapeHtml(task.title)}</strong></div>
+              <div class="subtitle">Zadal: ${escapeHtml(ownerLabel)}</div>
+            </td>
+            <td><span class="area-chip area-${task.area.toLowerCase()}">${AREA_LABEL[task.area]}</span></td>
+            <td><span class="badge badge-blue">${task.priorityScore}</span></td>
+            <td>${task.dueDate || "-"}</td>
+            <td>${task.actualHours} / ${task.estimatedHours} h</td>
+            <td><span class="badge ${statusBadgeClass(task.status)}">${STATUS_LABEL[task.status]}</span></td>
+            <td>${escapeHtml(tagText)}</td>
+            <td>
+              <button class="btn btn-outline btn-sm" data-action="edit" data-id="${task.id}">Upravit</button>
+              <button class="btn btn-outline btn-sm" data-action="done" data-id="${task.id}" ${doneDisabled}>Hotovo</button>
+              <button class="btn btn-danger btn-sm" data-action="delete" data-id="${task.id}" ${deleteDisabled}>Smazat</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+  const panel = document.createElement("article");
+  panel.className = "card";
+  panel.innerHTML = `
+    <div class="top-row">
+      <h2 class="panel-title">Seznam úkolů</h2>
+      <span class="badge badge-grey">${list.length} úkolů</span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Úkol</th><th>Oblast</th><th>Priorita</th><th>Termín</th><th>Pracnost</th><th>Stav</th><th>Štítky</th><th>Akce</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+
+  panel.querySelectorAll("button[data-action]").forEach((button) => {
+    button.addEventListener("click", () => handleTaskAction(button.dataset.action, button.dataset.id));
+  });
+
+  host.appendChild(panel);
 }
 
 function renderAreaPicker(grouped, showAllAreas = false) {
@@ -1350,7 +1414,6 @@ function renderAreaPanels(grouped, showAllAreas = false) {
             <tr>
               <td>
                 <div><strong>${escapeHtml(task.title)}</strong> <span class="area-chip area-${task.area.toLowerCase()}">${AREA_LABEL[task.area]}</span></div>
-                <div class="subtitle">${escapeHtml(task.description || "")}</div>
                 <div class="subtitle">Zadal: ${escapeHtml(ownerLabel)}</div>
               </td>
               <td><span class="badge badge-blue">${task.priorityScore}</span></td>
@@ -1651,7 +1714,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=20").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=21").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
