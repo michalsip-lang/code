@@ -125,7 +125,7 @@ async function init() {
 
 function ensureDomContract() {
   const requiredIds = [
-    "auth-gate", "auth-gate-message", "gate-username", "gate-login", "gate-password", "app-shell",
+    "auth-gate", "auth-gate-message", "auth-gate-status", "gate-username", "gate-login", "gate-password", "app-shell",
     "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
     "sync-form", "supabase-url", "supabase-key", "sync-status", "sync-quick-status",
     "nav-auth-status",
@@ -168,7 +168,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "17");
+    url.searchParams.set("v", "18");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -312,6 +312,20 @@ function setupSyncPanel() {
   keyInput.readOnly = true;
   usernameInput.value = authState.username || DEFAULT_ACCOUNT_USERNAME;
   gateUsernameInput.value = authState.username || DEFAULT_ACCOUNT_USERNAME;
+
+  gatePasswordInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      gateLoginButton.click();
+    }
+  });
+
+  passwordInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      loginButton.click();
+    }
+  });
 
   loginButton.addEventListener("click", async () => {
     await runAuthAction(async () => {
@@ -584,10 +598,13 @@ async function runAuthAction(action) {
 function updateSyncStatus(text, isError = false) {
   const host = document.getElementById("sync-status");
   const quickHost = document.getElementById("sync-quick-status");
+  const gateHost = document.getElementById("auth-gate-status");
   host.textContent = text;
   host.style.color = isError ? "#a61f2c" : "";
   quickHost.textContent = text;
   quickHost.style.color = isError ? "#a61f2c" : "";
+  gateHost.textContent = text;
+  gateHost.style.color = isError ? "#a61f2c" : "";
 }
 
 async function runSyncAction(action, actionName = "", options = {}) {
@@ -1645,7 +1662,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=17").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=18").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
