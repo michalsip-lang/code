@@ -149,7 +149,12 @@ async function tryClientRecovery(error) {
       || message.includes("indexeddb")
       || message.includes("quota")
       || message.includes("invalidstateerror")
-      || message.includes("notfounderror");
+      || message.includes("notfounderror")
+      || message.includes("can't find variable")
+      || message.includes("is not an object")
+      || message.includes("undefined is not")
+      || message.includes("referenceerror")
+      || message.includes("typeerror");
 
     if (!shouldRecover) {
       return false;
@@ -168,7 +173,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "18");
+    url.searchParams.set("v", "20");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -1645,7 +1650,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=19").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=20").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
