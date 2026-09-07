@@ -7,6 +7,7 @@ const SYNC_URL_KEY = "akcni-plan-sync-url";
 const SYNC_ANON_KEY = "akcni-plan-sync-anon-key";
 const SYNC_TOKEN_KEY = "akcni-plan-sync-access-token";
 const SYNC_PENDING_ACTION_KEY = "akcni-plan-sync-pending-action";
+const SYNC_TOMBSTONES_KEY = "akcni-plan-sync-deleted-task-tombstones";
 const DEFAULT_SYNC_URL = "https://vpjgpcnvpwarvcxfoteo.supabase.co";
 const DEFAULT_SYNC_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwamdwY252cHdhcnZjeGZvdGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDM0MDksImV4cCI6MjEwNDAxOTQwOX0.5bgXCFJZ-gfFfjb7Ua2dmpKU8KMGnyFFtNY3dTUAJPs";
 const AUTO_PUSH_DEBOUNCE_MS = 700;
@@ -56,6 +57,7 @@ let charts = [];
 let storageMode = "indexeddb";
 let syncConfig = { url: DEFAULT_SYNC_URL, anonKey: DEFAULT_SYNC_ANON_KEY };
 let authState = { accessToken: "", userId: "", email: "" };
+let deletedTaskTombstones = {};
 let autoSyncTimer = null;
 let autoSyncInFlight = false;
 let autoSyncQueued = false;
@@ -75,6 +77,7 @@ async function init() {
   setupNavigation();
   setupSyncPanel();
   setupServiceWorker();
+  deletedTaskTombstones = loadDeletedTaskTombstones();
 
   if (!isAuthenticated()) {
     lockApp("Pro používání aplikace je nutné přihlášení přes GitHub.");
@@ -149,7 +152,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "14");
+    url.searchParams.set("v", "15");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -412,6 +415,42 @@ function clearAuthState() {
   authState = { accessToken: "", userId: "", email: "" };
 }
 
+function loadDeletedTaskTombstones() {
+  try {
+    const raw = localStorage.getItem(SYNC_TOMBSTONES_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDeletedTaskTombstones() {
+  try {
+    localStorage.setItem(SYNC_TOMBSTONES_KEY, JSON.stringify(deletedTaskTombstones));
+  } catch (error) {
+    console.warn("Nepodařilo se uložit mazací metadata do localStorage", error);
+  }
+}
+
+function markTaskDeleted(id, deletedAt = new Date().toISOString()) {
+  deletedTaskTombstones[id] = deletedAt;
+  saveDeletedTaskTombstones();
+}
+
+function clearTaskDeletedMark(id) {
+  if (!deletedTaskTombstones[id]) {
+    return;
+  }
+
+  delete deletedTaskTombstones[id];
+  saveDeletedTaskTombstones();
+}
+
 function isAuthenticated() {
   return Boolean(authState.accessToken && authState.userId);
 }
@@ -620,9 +659,11 @@ function syncHeaders() {
 
 async function pushToCloud() {
   const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
-  const remoteTasks = await fetchRemoteTasks();
-  const mergedTasks = mergeTaskLists(tasks, remoteTasks);
-  tasks = mergedTasks;
+  const remoteSnapshot = await fetchRemoteSnapshot();
+  const mergedSnapshot = mergeSyncSnapshot(tasks, remoteSnapshot.tasks, deletedTaskTombstones, remoteSnapshot.tombstones);
+  tasks = mergedSnapshot.tasks;
+  deletedTaskTombstones = mergedSnapshot.tombstones;
+  saveDeletedTaskTombstones();
   await persistAllTasksLocally(tasks);
   const profile = encodeURIComponent(authState.userId);
 
@@ -635,12 +676,21 @@ async function pushToCloud() {
     throw new Error(`Smazání cloud dat selhalo (${deleteResponse.status})`);
   }
 
-  const payload = mergedTasks.map((task) => ({
+  const payload = tasks.map((task) => ({
     profile_id: authState.userId,
     task_id: task.id,
     updated_at: task.updatedAt || new Date().toISOString(),
     task
-  }));
+  })).concat(Object.entries(deletedTaskTombstones).map(([id, deletedAt]) => ({
+    profile_id: authState.userId,
+    task_id: id,
+    updated_at: deletedAt,
+    task: {
+      id,
+      deleted: true,
+      deletedAt
+    }
+  })));
 
   if (payload.length > 0) {
     const insertResponse = await fetch(baseUrl, {
@@ -654,22 +704,24 @@ async function pushToCloud() {
     }
   }
 
-  updateSyncStatus(`Nahráno do cloudu: ${mergedTasks.length} úkolů.`);
+  updateSyncStatus(`Nahráno do cloudu: ${tasks.length} úkolů.`);
 }
 
 async function pullFromCloud() {
-  const remoteTasks = await fetchRemoteTasks();
-  const mergedTasks = mergeTaskLists(tasks, remoteTasks);
-  mergedTasks.forEach((task) => {
+  const remoteSnapshot = await fetchRemoteSnapshot();
+  const mergedSnapshot = mergeSyncSnapshot(tasks, remoteSnapshot.tasks, deletedTaskTombstones, remoteSnapshot.tombstones);
+  mergedSnapshot.tasks.forEach((task) => {
     task.priorityScore = calculatePriority(task);
   });
 
-  tasks = mergedTasks;
+  tasks = mergedSnapshot.tasks;
+  deletedTaskTombstones = mergedSnapshot.tombstones;
+  saveDeletedTaskTombstones();
   await persistAllTasksLocally(tasks);
   updateSyncStatus(`Načteno z cloudu: ${tasks.length} úkolů.`);
 }
 
-async function fetchRemoteTasks() {
+async function fetchRemoteSnapshot() {
   const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
   const profile = encodeURIComponent(authState.userId);
   const selectResponse = await fetch(`${baseUrl}?select=task,updated_at&profile_id=eq.${profile}&order=updated_at.desc`, {
@@ -682,7 +734,59 @@ async function fetchRemoteTasks() {
   }
 
   const rows = await selectResponse.json();
-  return Array.isArray(rows) ? rows.map((row) => normalizeTask(row.task || {})) : [];
+  const snapshot = {
+    tasks: [],
+    tombstones: {}
+  };
+
+  if (!Array.isArray(rows)) {
+    return snapshot;
+  }
+
+  rows.forEach((row) => {
+    const rawTask = row?.task || {};
+    const taskId = String(row?.task_id || rawTask.id || "").trim();
+    const updatedAt = row?.updated_at || rawTask.updatedAt || rawTask.deletedAt || new Date().toISOString();
+    if (!taskId) {
+      return;
+    }
+
+    if (rawTask.deleted) {
+      snapshot.tombstones[taskId] = pickNewerTimestamp(snapshot.tombstones[taskId], rawTask.deletedAt || updatedAt);
+      return;
+    }
+
+    snapshot.tasks.push(normalizeTask({ ...rawTask, id: taskId, updatedAt }));
+  });
+
+  return snapshot;
+}
+
+function mergeSyncSnapshot(localList, remoteList, localTombstones, remoteTombstones) {
+  const mergedTasks = mergeTaskLists(localList, remoteList);
+  const mergedTombstones = mergeTombstones(localTombstones, remoteTombstones);
+  const taskMap = new Map(mergedTasks.map((task) => [task.id, normalizeTask(task)]));
+
+  Object.entries(mergedTombstones).forEach(([id, deletedAt]) => {
+    const task = taskMap.get(id);
+    if (!task) {
+      return;
+    }
+
+    const taskTs = Date.parse(task.updatedAt || task.createdAt || "") || 0;
+    const tombstoneTs = Date.parse(deletedAt || "") || 0;
+    if (tombstoneTs >= taskTs) {
+      taskMap.delete(id);
+      return;
+    }
+
+    delete mergedTombstones[id];
+  });
+
+  return {
+    tasks: Array.from(taskMap.values()),
+    tombstones: mergedTombstones
+  };
 }
 
 function mergeTaskLists(localList, remoteList) {
@@ -704,6 +808,26 @@ function mergeTaskLists(localList, remoteList) {
   });
 
   return Array.from(map.values());
+}
+
+function mergeTombstones(localTombstones = {}, remoteTombstones = {}) {
+  const out = {};
+
+  Object.entries(remoteTombstones).forEach(([id, deletedAt]) => {
+    out[id] = deletedAt;
+  });
+
+  Object.entries(localTombstones).forEach(([id, deletedAt]) => {
+    out[id] = pickNewerTimestamp(out[id], deletedAt);
+  });
+
+  return out;
+}
+
+function pickNewerTimestamp(first, second) {
+  const firstTs = Date.parse(first || "") || 0;
+  const secondTs = Date.parse(second || "") || 0;
+  return secondTs >= firstTs ? second : first;
 }
 
 function pickNewerTask(first, second) {
@@ -1171,6 +1295,7 @@ async function handleTaskAction(action, id) {
     task.completedAt = new Date().toISOString();
     task.actualHours = Math.max(task.actualHours, task.estimatedHours);
     task.priorityScore = calculatePriority(task);
+    clearTaskDeletedMark(task.id);
     await persistTask(task);
     renderAll();
     scheduleAutoPush("mark-done");
@@ -1182,6 +1307,7 @@ async function handleTaskAction(action, id) {
     if (!allow) {
       return;
     }
+    markTaskDeleted(id);
     tasks = tasks.filter((row) => row.id !== id);
     await deleteTaskById(id);
     renderAll();
@@ -1410,7 +1536,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=14").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=15").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
@@ -1524,6 +1650,7 @@ function escapeHtml(value) {
 
 window.AkcniPlanPwa = {
   clearAll: async () => {
+    tasks.forEach((task) => markTaskDeleted(task.id));
     await clearStore();
     tasks = [];
     renderAll();
