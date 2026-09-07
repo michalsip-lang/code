@@ -126,7 +126,7 @@ async function init() {
 function ensureDomContract() {
   const requiredIds = [
     "auth-gate", "auth-gate-message", "auth-gate-status", "gate-username", "gate-login", "gate-password", "app-shell",
-    "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "recommendations", "top-priority-body", "heatmap",
+    "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "top-priority-body", "heatmap",
     "sync-form", "supabase-url", "supabase-key", "sync-status", "sync-quick-status",
     "nav-auth-status",
     "auth-username", "auth-password", "auth-login", "auth-logout", "auth-status"
@@ -1247,33 +1247,8 @@ function renderDashboard() {
     kpiGrid.appendChild(button);
   });
 
-  renderRecommendations();
   renderTopPriority();
   renderCharts();
-}
-
-function renderRecommendations() {
-  const host = document.getElementById("recommendations");
-  const open = tasks.filter((task) => task.status !== "Done");
-  const overdue = open.filter((task) => isOverdue(task)).length;
-  const blocked = open.filter((task) => task.status === "Blocked").length;
-  const next3Days = open.filter((task) => withinDays(task, 3)).reduce((sum, task) => sum + task.estimatedHours, 0);
-
-  const tips = [];
-  if (overdue > 0) {
-    tips.push(`Máš ${overdue} úkolů po termínu. Začni dnes jejich shortlistem.`);
-  }
-  if (blocked > 0) {
-    tips.push(`Máš ${blocked} blokovaných úkolů. Ověř závislosti a další krok.`);
-  }
-  if (next3Days > 12) {
-    tips.push("Kapacita dalších 3 dní je vysoká. Přesuň část úkolů nebo sniž scope.");
-  }
-  if (tips.length === 0) {
-    tips.push("Plán vypadá stabilně. Drž fokus na top 3 úkolech podle skóre.");
-  }
-
-  host.innerHTML = tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join("");
 }
 
 function renderTopPriority() {
