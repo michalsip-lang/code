@@ -174,7 +174,7 @@ async function tryClientRecovery(error) {
     }
 
     const url = new URL(window.location.href);
-    url.searchParams.set("v", "21");
+    url.searchParams.set("v", "22");
     url.searchParams.set("t", String(Date.now()));
     window.location.replace(url.toString());
     return true;
@@ -1319,13 +1319,11 @@ function renderTaskList(list) {
       .map((task) => {
         const tagText = task.tags.join(", ");
         const doneDisabled = task.status === "Done" ? "disabled" : "";
-        const deleteDisabled = canDeleteTask(task) ? "" : "disabled";
-        const ownerLabel = task.createdByName || task.createdByUser || "Neurčeno";
+        const canDelete = canDeleteTask(task);
         return `
           <tr>
             <td>
               <div><strong>${escapeHtml(task.title)}</strong></div>
-              <div class="subtitle">Zadal: ${escapeHtml(ownerLabel)}</div>
             </td>
             <td><span class="area-chip area-${task.area.toLowerCase()}">${AREA_LABEL[task.area]}</span></td>
             <td><span class="badge badge-blue">${task.priorityScore}</span></td>
@@ -1336,7 +1334,7 @@ function renderTaskList(list) {
             <td>
               <button class="btn btn-outline btn-sm" data-action="edit" data-id="${task.id}">Upravit</button>
               <button class="btn btn-outline btn-sm" data-action="done" data-id="${task.id}" ${doneDisabled}>Hotovo</button>
-              <button class="btn btn-danger btn-sm" data-action="delete" data-id="${task.id}" ${deleteDisabled}>Smazat</button>
+              ${canDelete ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${task.id}">Smazat</button>` : ""}
             </td>
           </tr>
         `;
@@ -1408,13 +1406,11 @@ function renderAreaPanels(grouped, showAllAreas = false) {
         .map((task) => {
           const tagText = task.tags.join(", ");
           const doneDisabled = task.status === "Done" ? "disabled" : "";
-          const deleteDisabled = canDeleteTask(task) ? "" : "disabled";
-          const ownerLabel = task.createdByName || task.createdByUser || "Neurčeno";
+          const canDelete = canDeleteTask(task);
           return `
             <tr>
               <td>
                 <div><strong>${escapeHtml(task.title)}</strong> <span class="area-chip area-${task.area.toLowerCase()}">${AREA_LABEL[task.area]}</span></div>
-                <div class="subtitle">Zadal: ${escapeHtml(ownerLabel)}</div>
               </td>
               <td><span class="badge badge-blue">${task.priorityScore}</span></td>
               <td>${task.dueDate || "-"}</td>
@@ -1424,7 +1420,7 @@ function renderAreaPanels(grouped, showAllAreas = false) {
               <td>
                 <button class="btn btn-outline btn-sm" data-action="edit" data-id="${task.id}">Upravit</button>
                 <button class="btn btn-outline btn-sm" data-action="done" data-id="${task.id}" ${doneDisabled}>Hotovo</button>
-                <button class="btn btn-danger btn-sm" data-action="delete" data-id="${task.id}" ${deleteDisabled}>Smazat</button>
+                ${canDelete ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${task.id}">Smazat</button>` : ""}
               </td>
             </tr>
           `;
@@ -1714,7 +1710,7 @@ function setupServiceWorker() {
   if (!("serviceWorker" in navigator)) {
     return;
   }
-  navigator.serviceWorker.register("./service-worker.js?v=21").then((registration) => {
+  navigator.serviceWorker.register("./service-worker.js?v=22").then((registration) => {
     registration.update();
   }).catch((error) => {
     console.error("Registrace service workeru selhala", error);
