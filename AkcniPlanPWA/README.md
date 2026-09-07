@@ -83,15 +83,22 @@ alter table public.tasks_sync enable row level security;
 
 drop policy if exists "tasks_sync_open" on public.tasks_sync;
 drop policy if exists "tasks_sync_owner" on public.tasks_sync;
-create policy "tasks_sync_owner"
+drop policy if exists "tasks_sync_shared_accounts" on public.tasks_sync;
+create policy "tasks_sync_shared_accounts"
 on public.tasks_sync
 for all
 to authenticated
-using (profile_id = auth.uid()::text)
-with check (profile_id = auth.uid()::text);
+using (
+	profile_id = 'akcni-plan-shared'
+	and auth.jwt()->>'email' in ('tomas.pavelka@example.com', 'michal.sip@example.com')
+)
+with check (
+	profile_id = 'akcni-plan-shared'
+	and auth.jwt()->>'email' in ('tomas.pavelka@example.com', 'michal.sip@example.com')
+);
 ```
 
-Poznamka: tato politika je bezpecnejsi. Data uvidi jen prihlaseny vlastnik.
+Poznamka: tato politika pusti do sdileneho planu jen dva povolene ucty.
 
 ### 3) Cloud konfigurace v aplikaci
 

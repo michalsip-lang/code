@@ -22,6 +22,7 @@ const ACCOUNT_DEFINITIONS = {
 };
 const DEFAULT_ACCOUNT_USERNAME = "tomas.pavelka";
 const LEGACY_TASK_OWNER_USERNAME = "michal.sip";
+const SHARED_PLAN_PROFILE_ID = "akcni-plan-shared";
 const AUTO_PUSH_DEBOUNCE_MS = 700;
 const AUTO_PULL_THROTTLE_MS = 20000;
 const AUTO_PULL_INTERVAL_MS = 45000;
@@ -760,7 +761,7 @@ async function pushToCloud() {
   deletedTaskTombstones = mergedSnapshot.tombstones;
   saveDeletedTaskTombstones();
   await persistAllTasksLocally(tasks);
-  const profile = encodeURIComponent(authState.userId);
+  const profile = encodeURIComponent(SHARED_PLAN_PROFILE_ID);
 
   const deleteResponse = await fetch(`${baseUrl}?profile_id=eq.${profile}`, {
     method: "DELETE",
@@ -772,12 +773,12 @@ async function pushToCloud() {
   }
 
   const payload = tasks.map((task) => ({
-    profile_id: authState.userId,
+    profile_id: SHARED_PLAN_PROFILE_ID,
     task_id: task.id,
     updated_at: task.updatedAt || new Date().toISOString(),
     task
   })).concat(Object.entries(deletedTaskTombstones).map(([id, deletedAt]) => ({
-    profile_id: authState.userId,
+    profile_id: SHARED_PLAN_PROFILE_ID,
     task_id: id,
     updated_at: deletedAt,
     task: {
@@ -822,7 +823,7 @@ async function pullFromCloud() {
 
 async function fetchRemoteSnapshot() {
   const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
-  const profile = encodeURIComponent(authState.userId);
+  const profile = encodeURIComponent(SHARED_PLAN_PROFILE_ID);
   const selectResponse = await fetch(`${baseUrl}?select=task,updated_at&profile_id=eq.${profile}&order=updated_at.desc`, {
     method: "GET",
     headers: syncHeaders()
