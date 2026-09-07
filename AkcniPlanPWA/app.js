@@ -21,6 +21,7 @@ const ACCOUNT_DEFINITIONS = {
   }
 };
 const DEFAULT_ACCOUNT_USERNAME = "tomas.pavelka";
+const LEGACY_TASK_OWNER_USERNAME = "michal.sip";
 const AUTO_PUSH_DEBOUNCE_MS = 700;
 const AUTO_PULL_THROTTLE_MS = 20000;
 const AUTO_PULL_INTERVAL_MS = 45000;
@@ -109,6 +110,10 @@ async function init() {
   }
 
   tasks = await loadTasks();
+  if (migrateLegacyTaskOwners(tasks) > 0) {
+    await persistAllTasksLocally(tasks);
+    scheduleAutoPush("migrate-legacy-owners");
+  }
 
   renderAll();
   setupAutoSyncTriggers();
@@ -770,6 +775,7 @@ async function pushToCloud() {
 async function pullFromCloud() {
   const remoteSnapshot = await fetchRemoteSnapshot();
   const mergedSnapshot = mergeSyncSnapshot(tasks, remoteSnapshot.tasks, deletedTaskTombstones, remoteSnapshot.tombstones);
+  const migratedCount = migrateLegacyTaskOwners(mergedSnapshot.tasks);
   mergedSnapshot.tasks.forEach((task) => {
     task.priorityScore = calculatePriority(task);
   });
@@ -778,6 +784,9 @@ async function pullFromCloud() {
   deletedTaskTombstones = mergedSnapshot.tombstones;
   saveDeletedTaskTombstones();
   await persistAllTasksLocally(tasks);
+  if (migratedCount > 0) {
+    scheduleAutoPush("migrate-legacy-owners");
+  }
   updateSyncStatus(`Načteno z cloudu: ${tasks.length} úkolů.`);
 }
 
@@ -959,6 +968,28 @@ function normalizeTask(task) {
     completedAt: task.completedAt || null,
     priorityScore: 0
   };
+}
+
+function migrateLegacyTaskOwners(list) {
+  const legacyOwner = ACCOUNT_DEFINITIONS[LEGACY_TASK_OWNER_USERNAME];
+  if (!legacyOwner) {
+    return 0;
+  }
+
+  const migratedAt = new Date().toISOString();
+  let changed = 0;
+  list.forEach((task) => {
+    if (task.createdByUser) {
+      return;
+    }
+
+    task.createdByUser = LEGACY_TASK_OWNER_USERNAME;
+    task.createdByName = legacyOwner.displayName;
+    task.updatedAt = migratedAt;
+    changed += 1;
+  });
+
+  return changed;
 }
 
 function canDeleteTask(task) {
