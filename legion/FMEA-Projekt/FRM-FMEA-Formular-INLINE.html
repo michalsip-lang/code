@@ -759,6 +759,7 @@ var fmeaApp = (function() {
             marker = path.indexOf('/Shared Documents/');
         }
         var sitePath = marker === -1 ? '' : path.substring(0, marker);
+        sitePath = sitePath.replace('/DavWWWRoot/_', '/');
         sitePath = sitePath.replace('/DavWWWRoot', '');
         return origin + sitePath;
     };
@@ -968,7 +969,7 @@ var fmeaApp = (function() {
         request(url, {
             method: 'GET',
             headers: {
-                'Accept': 'application/json',
+                'Accept': 'application/json;odata=verbose',
                 'X-RequestDigest': document.getElementById('__REQUESTDIGEST') ? 
                                    document.getElementById('__REQUESTDIGEST').value : ''
             }
