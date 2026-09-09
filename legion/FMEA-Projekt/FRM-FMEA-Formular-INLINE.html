@@ -753,11 +753,12 @@ var fmeaApp = (function() {
             return '';
         }
         var path = window.location.pathname;
+        var origin = window.location.protocol + '//' + window.location.host;
         var marker = path.indexOf('/SiteAssets/');
         if (marker === -1) {
             marker = path.indexOf('/Shared Documents/');
         }
-        return window.location.origin + (marker === -1 ? '' : path.substring(0, marker));
+        return origin + (marker === -1 ? '' : path.substring(0, marker));
     };
     
     // Konfiguraceace
@@ -769,7 +770,7 @@ var fmeaApp = (function() {
     };
     var config = {
         listName: 'FMEA_Analyza', // Název SharePoint listy
-        siteUrl: (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo && _spPageContextInfo.webAbsoluteUrl) ? _spPageContextInfo.webAbsoluteUrl : (getSharePointSiteUrl() || (window.location.protocol === 'https:' ? 'https://' : 'http://') + 'portal.samohyl.cz/sdp_svp'),
+        siteUrl: getSharePointSiteUrl() || ((typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo && _spPageContextInfo.webAbsoluteUrl) ? _spPageContextInfo.webAbsoluteUrl : (window.location.protocol === 'https:' ? 'https://' : 'http://') + 'portal.samohyl.cz/sdp_svp'),
         useLocalStorage: false,
         fields: {
             proces: 'Proces_FMEA',
@@ -809,7 +810,7 @@ var fmeaApp = (function() {
                 });
             };
             xhr.onerror = function() {
-                reject(new Error('Síťová chyba při komunikaci se SharePointem. Ověřte URL a přihlášení.'));
+                reject(new Error('Síťová chyba při komunikaci se SharePointem na URL ' + url + '. Ověřte, že stránka běží z portálu a používá stejný protokol (HTTP/HTTPS).'));
             };
             xhr.send(options.body || null);
         });
