@@ -41,7 +41,7 @@
 <div class="page">
     <header>
         <div><h1>Laboratorní hodnoty v čase</h1><p>Interaktivní přehled výsledků laboratorních vyšetření</p></div>
-        <div class="mark">FMEA<br>Protokol</div>
+        
     </header>
     <div class="layout">
         <aside class="panel controls">
@@ -126,10 +126,27 @@
         renderChecks();
         var svg=el('chart'), width=svg.clientWidth||900, height=svg.clientHeight||500; while(svg.firstChild) svg.removeChild(svg.firstChild);
         var mode=el('mode').value, left=65,right=25,top=25,bottom=48, plotW=width-left-right, plotH=height-top-bottom;
-        var yMin=mode==='normalized'?0:Infinity, yMax=mode==='normalized'?100:-Infinity;
-        selected.forEach(function(name){ data[name].values.forEach(function(value){ if(value!==null && mode==='actual'){yMin=Math.min(yMin,value);yMax=Math.max(yMax,value);} }); });
-        if(!isFinite(yMin)){yMin=0;yMax=100;} if(yMax===yMin){yMin-=1;yMax+=1;} var pad=(yMax-yMin)*.08; if(mode==='actual'){yMin-=pad;yMax+=pad;}
+        var yMin=Infinity, yMax=-Infinity;
+        selected.forEach(function(name){
+            var item=data[name];
+            item.values.forEach(function(value){
+                if(value!==null){
+                    var plotted=mode==='normalized'?normalized(item,value):value;
+                    yMin=Math.min(yMin,plotted); yMax=Math.max(yMax,plotted);
+                }
+            });
+        });
+        if(!isFinite(yMin)){yMin=0;yMax=100;}
+        if(mode==='normalized'){yMin=Math.min(yMin,0);yMax=Math.max(yMax,100);}
+        if(yMax===yMin){yMin-=1;yMax+=1;}
+        var pad=(yMax-yMin)*.08;
+        yMin-=pad; yMax+=pad;
         function x(index){return left+(dates.length===1?plotW/2:index*plotW/(dates.length-1));} function y(value){return top+(yMax-value)*(plotH/(yMax-yMin));}
+        if(mode==='normalized'){
+            svg.appendChild(svgNode('rect',{x:left,y:y(100),width:plotW,height:y(0)-y(100),fill:'#e8f5eb',opacity:'0.7'}));
+            svg.appendChild(svgNode('line',{x1:left,x2:width-right,y1:y(0),y2:y(0),stroke:'#238636','stroke-width':1.5,'stroke-dasharray':'5 4'}));
+            svg.appendChild(svgNode('line',{x1:left,x2:width-right,y1:y(100),y2:y(100),stroke:'#238636','stroke-width':1.5,'stroke-dasharray':'5 4'}));
+        }
         for(var grid=0;grid<=5;grid++){var value=yMin+(yMax-yMin)*grid/5, yy=y(value); svg.appendChild(svgNode('line',{x1:left,x2:width-right,y1:yy,y2:yy,stroke:'#dbe3e9','stroke-width':1})); svg.appendChild(svgNode('text',{x:left-10,y:yy+4,'text-anchor':'end',fill:'#66727d','font-size':11,'font-family':'Arial'},mode==='normalized'?Math.round(value)+'%':String(Number(value.toFixed(2))).replace('.',',')));}
         dates.forEach(function(date,index){svg.appendChild(svgNode('line',{x1:x(index),x2:x(index),y1:top,y2:height-bottom,stroke:'#eef2f5','stroke-width':1})); svg.appendChild(svgNode('text',{x:x(index),y:height-18,'text-anchor':'middle',fill:'#52606d','font-size':12,'font-family':'Arial'},date));});
         svg.appendChild(svgNode('line',{x1:left,x2:left,y1:top,y2:height-bottom,stroke:'#8b9aa5'})); svg.appendChild(svgNode('line',{x1:left,x2:width-right,y1:height-bottom,y2:height-bottom,stroke:'#8b9aa5'}));
