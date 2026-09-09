@@ -12,9 +12,8 @@ Aplikaci otevřete pomocí tohoto odkazu:
 
 http://portal.samohyl.cz/sdp_svp/SiteAssets/FMEA/FRM-FMEA-Formular-INLINE.html
 
-Aplikace musí být otevřena přes SharePoint v prohlížeči. Pokud se v adresním
-řádku objeví file://, DavWWWRoot nebo označení Soubor, stránka byla otevřena
-jako lokální soubor a nebude možné načítat ani ukládat data do SharePointu.
+Nebo kliknutím v levém sloupci na webu SDP a SVP na ŘÍZENÍ RIZIK
+
 
 Přidání záznamu
 ---------------
