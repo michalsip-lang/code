@@ -758,7 +758,9 @@ var fmeaApp = (function() {
         if (marker === -1) {
             marker = path.indexOf('/Shared Documents/');
         }
-        return origin + (marker === -1 ? '' : path.substring(0, marker));
+        var sitePath = marker === -1 ? '' : path.substring(0, marker);
+        sitePath = sitePath.replace('/DavWWWRoot', '');
+        return origin + sitePath;
     };
     
     // Konfiguraceace
