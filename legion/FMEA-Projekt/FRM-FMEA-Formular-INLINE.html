@@ -747,6 +747,18 @@
 
 var fmeaApp = (function() {
     'use strict';
+
+    var getSharePointSiteUrl = function() {
+        if (typeof window === 'undefined' || !window.location || window.location.protocol === 'file:') {
+            return '';
+        }
+        var path = window.location.pathname;
+        var marker = path.indexOf('/SiteAssets/');
+        if (marker === -1) {
+            marker = path.indexOf('/Shared Documents/');
+        }
+        return window.location.origin + (marker === -1 ? '' : path.substring(0, marker));
+    };
     
     // Konfiguraceace
     var ratingMin = 1;
@@ -757,8 +769,8 @@ var fmeaApp = (function() {
     };
     var config = {
         listName: 'FMEA_Analyza', // Název SharePoint listy
-        siteUrl: (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo) ? _spPageContextInfo.webAbsoluteUrl : '',
-        useLocalStorage: (typeof _spPageContextInfo === 'undefined'), // Pro vývojové testování
+        siteUrl: (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo && _spPageContextInfo.webAbsoluteUrl) ? _spPageContextInfo.webAbsoluteUrl : (getSharePointSiteUrl() || 'http://portal.samohyl.cz/sdp_svp'),
+        useLocalStorage: false,
         fields: {
             proces: 'Proces_FMEA',
             selhani: 'Selhani',
@@ -913,7 +925,8 @@ var fmeaApp = (function() {
             return response.json();
         })
         .then(function(result) {
-            data.records = result.value.map(function(item) {
+            var items = result.value || (result.d && result.d.results) || [];
+            data.records = items.map(function(item) {
                 return {
                     id: item.ID,
                     proces: item.Proces_FMEA || '',
@@ -941,8 +954,6 @@ var fmeaApp = (function() {
         .catch(function(error) {
             console.error('Chyba načítání:', error);
             showStatus('Chyba: ' + error.message, 'error');
-            // Fallback na localStorage
-            loadFromLocalStorage();
         });
     };
     
