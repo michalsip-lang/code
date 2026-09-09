@@ -875,6 +875,32 @@ var fmeaApp = (function() {
         });
     };
 
+    var currentUser = null;
+    var loadCurrentUser = function() {
+        if (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo && _spPageContextInfo.userDisplayName) {
+            currentUser = _spPageContextInfo.userDisplayName;
+            return Promise.resolve(currentUser);
+        }
+        return request(config.siteUrl + '/_api/web/currentuser?$select=Title,LoginName,Email', {
+            method: 'GET',
+            headers: { 'Accept': 'application/json;odata=verbose' }
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Nelze načíst přihlášeného uživatele: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function(result) {
+            var user = result.d || result;
+            currentUser = user.Title || user.LoginName || user.Email || null;
+            if (!currentUser) {
+                throw new Error('SharePoint nevrátil přihlášeného uživatele.');
+            }
+            return currentUser;
+        });
+    };
+
     var formFields = ['proces', 'selhani', 'nasledky', 'pricina', 'kontrolaPrevence', 'kontrolaDetekce', 'zavaznost', 'vyskytu', 'detekce', 'opatreni', 'vlastnikOpatreni', 'terminOpatreni', 'dukazUcinnosti', 'zavaznostPo', 'vyskytuPo', 'detekcePo'];
     var fieldLabels = {
         proces: 'Krok procesu',
@@ -915,7 +941,12 @@ var fmeaApp = (function() {
                 closeRecordDetail();
             }
         });
-        loadRecords();
+        loadCurrentUser()
+            .then(function() { loadRecords(); })
+            .catch(function(error) {
+                console.error('Chyba identity:', error);
+                showStatus('Nelze ověřit přihlášeného uživatele. Zápis je zablokován.', 'error');
+            });
     };
 
     var bindRecordDetailClicks = function() {
@@ -1042,6 +1073,10 @@ var fmeaApp = (function() {
     
     // Přidání nového záznamu
     var addRecord = function() {
+        if (!currentUser) {
+            showStatus('Nelze ověřit přihlášeného uživatele. Zápis je zablokován.', 'error');
+            return;
+        }
         var record = readFormRecord(editState.id || Date.now());
         if (!validateRecord(record)) return;
 
@@ -1376,10 +1411,7 @@ var fmeaApp = (function() {
     };
 
     var getCurrentUser = function() {
-        if (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo && _spPageContextInfo.userDisplayName) {
-            return _spPageContextInfo.userDisplayName;
-        }
-        return 'Lokální uživatel';
+        return currentUser || 'Neověřený uživatel';
     };
 
     var getTimestamp = function() {
