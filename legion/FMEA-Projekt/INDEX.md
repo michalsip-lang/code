@@ -9,7 +9,7 @@
 
 ### **Produkční Verze (SharePoint)**
 1. Vytvořte SharePoint seznam s poli:
-    - Proces, Selhani, Nasledky, Pricina, KontrolaPrevence, KontrolaDetekce, Zavaznost, Vyskytu, Detekce, Opatreni
+    - Proces_FMEA, Selhani, Nasledky, Pricina, KontrolaPrevence, KontrolaDetekce, Zavaznost, Vyskytu, Detekce, Opatreni
 2. Vložte obsah [FRM-FMEA-Formular.html](FRM-FMEA-Formular.html) do Script Editor webpartu
 3. Vložte [FRM-FMEA-Formular.js](FRM-FMEA-Formular.js) na SharePoint
 4. Upravte konfiguraci v [FRM-FMEA-Config.js](FRM-FMEA-Config.js)
@@ -162,7 +162,7 @@ Aplikace **automaticky** pracuje:
 
 | Pole | Typ | Rozsah | Příklad |
 |------|-----|--------|---------|
-| Proces | Text | - | "Výroba součástky" |
+| Proces_FMEA | Text | - | Interní název; zobrazovaný název může být „Proces“ |
 | Selhání | Text | - | "Prasklina na povrchu" |
 | Následky | Text | - | "Vrácení od zákazníka" |
 | Závažnost | Číslo | 1-5 | 5 (kritické) |

@@ -9,7 +9,7 @@ window.FMEA_CONFIG = {
     // ============= SHAREPOINT KONFIGURACE =============
     
     // Název SharePoint listy kde se budou data ukládat
-    // Vytvořte seznam se sloupci: Proces, Selhani, Nasledky, Pricina,
+    // Vytvořte seznam se sloupci: Proces_FMEA, Selhani, Nasledky, Pricina,
     // KontrolaPrevence, KontrolaDetekce, Zavaznost, Vyskytu, Detekce,
     // Opatreni, VlastnikOpatreni, TerminOpatreni, DukazUcinnosti,
     // ZavaznostPo, VyskytuPo, DetekcePo, Historie
@@ -61,7 +61,7 @@ window.FMEA_CONFIG = {
     // Mapujte názvům sloupců v SharePointu (jejich interní jména)
     fields: {
         id: 'ID',
-        proces: 'Proces',
+        proces: 'Proces_FMEA',
         selhani: 'Selhani',
         nasledky: 'Nasledky',
         pricina: 'Pricina',

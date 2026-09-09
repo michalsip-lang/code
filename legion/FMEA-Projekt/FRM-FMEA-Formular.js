@@ -16,7 +16,7 @@ var fmeaApp = (function() {
         siteUrl: (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo) ? _spPageContextInfo.webAbsoluteUrl : '',
         useLocalStorage: (typeof _spPageContextInfo === 'undefined'), // Pro vývojové testování
         fields: {
-            proces: 'Proces',
+            proces: 'Proces_FMEA',
             selhani: 'Selhani',
             nasledky: 'Nasledky',
             pricina: 'Pricina',
@@ -172,7 +172,7 @@ var fmeaApp = (function() {
             data.records = result.value.map(function(item) {
                 return {
                     id: item.ID,
-                    proces: item.Proces || '',
+                    proces: item.Proces_FMEA || '',
                     selhani: item.Selhani || '',
                     nasledky: item.Nasledky || '',
                     pricina: item.Pricina || '',
@@ -240,7 +240,7 @@ var fmeaApp = (function() {
         var url = config.siteUrl + "/_api/web/lists/getbytitle('" + config.listName + "')/items";
         
         var itemData = {
-            Proces: record.proces,
+            Proces_FMEA: record.proces,
             Selhani: record.selhani,
             Nasledky: record.nasledky,
             Pricina: record.pricina,
@@ -321,7 +321,7 @@ var fmeaApp = (function() {
         var url = config.siteUrl + "/_api/web/lists/getbytitle('" + config.listName + "')/items(" + record.id + ")";
         
         var itemData = {
-            Proces: record.proces,
+            Proces_FMEA: record.proces,
             Selhani: record.selhani,
             Nasledky: record.nasledky,
             Pricina: record.pricina,

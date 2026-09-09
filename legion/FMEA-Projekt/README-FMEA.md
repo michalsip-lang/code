@@ -24,7 +24,7 @@ Webová aplikace pro FMEA analýzu (Failure Mode and Effects Analysis) se automa
 
 | Pole | Typ | Rozsah | Popis |
 |------|-----|--------|-------|
-| Proces | Text | - | Identifikace procesu nebo funkce |
+| Proces_FMEA | Text | - | Interní název; zobrazovaný název může být „Proces“ |
 | FM | Text | - | Způsob neshody / co se může pokazit |
 | Účinek | Text | - | Dopad na produkt, pacienta nebo shodu |
 | Příčina | Text | - | Mechanismus nebo faktor vedoucí k neshodě |
@@ -52,7 +52,7 @@ V SharePointu si vytvořte nový seznam s těmito sloupci:
 ```
 Sloupec          | Typ      | Povinný
 -----------------+----------+--------
-Proces           | Text     | Ano
+Proces_FMEA      | Text     | Ano
 Selhani          | Text     | Ano
 Nasledky         | Text     | Ano
 Zavaznost        | Číslo    | Ano

@@ -92,7 +92,7 @@ Vytvořte vlastní seznam `FMEA_Analyza` s těmito sloupci. Interní názvy dopo
 | Interní název | Typ | Povinné | Poznámka |
 |---|---|---|---|
 | Title | Jednořádkový text | Ne | Lze plnit hodnotou procesu nebo nechat technicky |
-| Proces | Více řádků textu | Ano | Krok procesu / funkce |
+| Proces_FMEA | Více řádků textu | Ano | Krok procesu / funkce; zobrazovaný název může být „Proces“ |
 | Selhani | Více řádků textu | Ano | FM, co se může pokazit |
 | Nasledky | Více řádků textu | Ano | Účinek / dopad |
 | Pricina | Více řádků textu | Ano | Příčina selhání |
