@@ -30,6 +30,14 @@ FRM-FMEA-Config.js
 fmea-sw.js
 ```
 
+Pokud knihovna nepovoluje soubory s příponou `.js`, použijte připravenou
+variantu `FRM-FMEA-Formular-INLINE.html`. Ta obsahuje HTML, styly i aplikační
+JavaScript v jediném souboru. Pro tuto variantu nahrajte pouze:
+
+```text
+FRM-FMEA-Formular-INLINE.html
+```
+
 Testovací soubor `FRM-FMEA-Formular-TEST.html` do produkce nedávejte jako hlavní odkaz. Slouží jen pro lokální testování.
 
 Produkční odkaz pro uživatele bude například:
@@ -162,11 +170,7 @@ Pro produkci má aplikace běžet nad SharePointem. Lokální `localStorage` je 
 ## Doporučený postup nasazení
 
 1. Vytvořit knihovnu nebo složku `SiteAssets/FMEA`.
-2. Nahrát aplikační soubory:
-   - `FRM-FMEA-Formular.html`,
-   - `FRM-FMEA-Formular.js`,
-   - `FRM-FMEA-Config.js`,
-   - `fmea-sw.js`.
+2. Nahrát buď klasickou sadu aplikačních souborů, nebo pouze `FRM-FMEA-Formular-INLINE.html`.
 3. Vytvořit seznam `FMEA_Analyza` se sloupci uvedenými výše.
 4. Nastavit oprávnění na seznam a knihovnu.
 5. Otevřít `FRM-FMEA-Formular.html` přes URL v prohlížeči.

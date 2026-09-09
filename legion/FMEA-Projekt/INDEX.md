@@ -28,6 +28,7 @@ FMEA-Projekt/
 │
 ├── FRM-FMEA-Formular-TEST.html          ← 🟢 SPUSTIT - Testovací verze
 ├── FRM-FMEA-Formular.html               ← Pro SharePoint Script Editor
+├── FRM-FMEA-Formular-INLINE.html        ← Nasazení bez samostatného JS souboru
 ├── FRM-FMEA-Formular.js                 ← Hlavní aplikace
 ├── FRM-FMEA-Config.js                   ← Konfigurace
 └── fmea-sw.js                           ← Service Worker (offline)
