@@ -29,6 +29,16 @@
         .chart-wrap { position:relative; height:min(62vh,570px); min-height:360px; border:1px solid var(--line); background:#fbfcfd; border-radius:4px; overflow:hidden; }
         svg { display:block; width:100%; height:100%; }
         .chart-note { margin:12px 0 0; color:var(--muted); font:12px Arial,sans-serif; }
+        .category-summary { margin:0 0 14px; color:var(--ink); font:13px/1.5 Arial,sans-serif; }
+        .evaluations { margin-top:20px; border-top:1px solid var(--line); padding-top:16px; }
+        .evaluations h3 { margin:0 0 12px; color:#123f65; font-size:18px; }
+        .evaluation-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
+        .evaluation-card { border:1px solid var(--line); border-left:4px solid var(--blue); border-radius:4px; padding:12px; background:#fbfcfd; }
+        .evaluation-card h4 { margin:0 0 5px; color:#123f65; font-size:15px; }
+        .evaluation-summary { margin:0 0 9px; color:var(--muted); font:12px Arial,sans-serif; }
+        .evaluation-item { display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-top:1px solid #e6ebef; font:12px Arial,sans-serif; }
+        .evaluation-item strong { font-weight:bold; } .evaluation-item small { color:var(--muted); text-align:right; }
+        .value-ok { color:var(--green); } .value-low,.value-high { color:var(--orange); } .value-missing { color:var(--muted); }
         .tooltip { position:absolute; display:none; pointer-events:none; min-width:190px; padding:10px; background:#17212b; color:#fff; border-radius:4px; font:12px Arial,sans-serif; box-shadow:0 6px 18px #0003; z-index:2; }
         .table-wrap { overflow:auto; margin-top:20px; } table { width:100%; border-collapse:collapse; font:12px Arial,sans-serif; } th,td { padding:8px 9px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; } th:first-child,td:first-child { text-align:left; } th { color:#123f65; background:var(--blue-soft); position:sticky; top:0; }
         .status { margin-top:12px; min-height:18px; color:var(--muted); font:12px Arial,sans-serif; }
@@ -58,10 +68,12 @@
             <div id="status" class="status"></div>
         </aside>
         <section class="panel chart-panel">
-            <h2>Vývoj v čase</h2>
+            <h2 id="chartTitle">Vývoj v čase</h2>
+            <p id="categorySummary" class="category-summary"></p>
             <div class="chart-wrap"><svg id="chart" role="img" aria-label="Graf laboratorních hodnot"></svg><div id="tooltip" class="tooltip"></div></div>
             <div id="legend" class="legend"></div>
             <p class="chart-note">V režimu „Poměr k referenčnímu rozmezí“ znamená 100 % horní hranici referenčního rozmezí. Hodnoty jsou převzaty z dodaných laboratorních zpráv.</p>
+            <div class="evaluations"><h3>Vyhodnocení podle kategorií</h3><div id="evaluations" class="evaluation-grid"></div></div>
             <div class="table-wrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
         </section>
     </div>
@@ -120,6 +132,33 @@
     function esc(value) { return String(value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
     function display(value) { return value === null ? '—' : String(value).replace('.',','); }
     function normalized(item, value) { if (value === null) return null; var span = item.ref[1] - item.ref[0]; return span === 0 ? 100 : ((value - item.ref[0]) / span) * 100; }
+    function latestIndex(values) { for (var index=values.length-1; index>=0; index--) { if (values[index] !== null) return index; } return -1; }
+    function valueStatus(item, value) { if (value < item.ref[0]) return {label:'pod mezí', className:'value-low'}; if (value > item.ref[1]) return {label:'nad mezí', className:'value-high'}; return {label:'v mezích', className:'value-ok'}; }
+    function trendLabel(item, index) { var previous=index-1; while (previous>=0 && item.values[previous]===null) previous--; if (previous<0) return 'bez srovnání'; var current=item.values[index], before=item.values[previous], tolerance=Math.max(Math.abs(before)*0.02,(item.ref[1]-item.ref[0])*0.02); if (Math.abs(current-before)<=tolerance) return 'stabilní'; return current>before?'roste':'klesá'; }
+    function auditState(item) { var index=latestIndex(item.values); if (index===-1) return {label:'Neřešit – bez aktuální hodnoty', className:'value-missing'}; var state=valueStatus(item,item.values[index]); return state.label==='v mezích' ? {label:'Dobré – neřešit', className:'value-ok'} : {label:'Špatné – řešit', className:'value-high'}; }
+    function renderCategorySummary() {
+        var category=el('category').value;
+        if (category==='all') { el('chartTitle').textContent='Vývoj v čase'; el('categorySummary').textContent='Vyberte kategorii pro souhrnné vyhodnocení posledních dostupných výsledků.'; return; }
+        var items=names.filter(function(name){return data[name].category===category;}), measured=0, good=0, needs=0, rising=0, falling=0, stable=0;
+        items.forEach(function(name){var item=data[name], index=latestIndex(item.values); if(index===-1)return; measured++; if(valueStatus(item,item.values[index]).label==='v mezích')good++;else needs++; var trend=trendLabel(item,index); if(trend==='roste')rising++; if(trend==='klesá')falling++; if(trend==='stabilní')stable++;});
+        var condition=needs===0?'Všechny poslední dostupné hodnoty jsou v referenčních mezích, tedy stav je dobrý a není nutné nic řešit.':needs===items.length?'Všechny poslední dostupné hodnoty jsou mimo referenční meze, proto je vhodné je řešit.':needs+' z '+measured+' posledních hodnot je mimo referenční meze, proto je vhodné jim věnovat pozornost.';
+        var movement='Trend: '+rising+' hodnot roste, '+falling+' klesá a '+stable+' je stabilních.';
+        el('chartTitle').textContent=category; el('categorySummary').textContent=condition+' '+movement+' Jde o orientační porovnání s laboratorními mezemi, nikoli o lékařskou diagnózu.';
+    }
+    function renderEvaluations() {
+        var grouped = {};
+        names.forEach(function(name) { var category=data[name].category; if (!grouped[category]) grouped[category]=[]; grouped[category].push(name); });
+        el('evaluations').innerHTML = categories.map(function(category) {
+            var items=grouped[category]||[], measured=0, within=0, below=0, above=0;
+            var rows=items.map(function(name) {
+                var item=data[name], index=latestIndex(item.values); if (index===-1) return '<div class="evaluation-item"><strong>'+esc(name)+'</strong><small class="value-missing">bez hodnoty</small></div>';
+                measured++; var state=valueStatus(item,item.values[index]); if(state.label==='v mezích') within++; if(state.label==='pod mezí') below++; if(state.label==='nad mezí') above++;
+                return '<div class="evaluation-item"><strong>'+esc(name)+'</strong><small class="'+state.className+'">'+esc(display(item.values[index]))+' '+esc(item.unit)+' · '+esc(dates[index])+' · '+state.label+' · '+trendLabel(item,index)+'</small></div>';
+            }).join('');
+            var summary=measured+' měřených'; if(within) summary+=', '+within+' v mezích'; if(below) summary+=', '+below+' pod mezí'; if(above) summary+=', '+above+' nad mezí';
+            return '<article class="evaluation-card"><h4>'+esc(category)+'</h4><p class="evaluation-summary">Poslední dostupné měření: '+esc(dates[dates.length-1])+' · '+summary+'</p>'+rows+'</article>';
+        }).join('');
+    }
     var categories = names.map(function(name) { return data[name].category; }).filter(function(category, index, list) { return list.indexOf(category) === index; });
     function visibleNames() { var query = el('search').value.toLowerCase(); var category = el('category').value; return names.filter(function(name){ return name.toLowerCase().indexOf(query) !== -1 && (category === 'all' || data[name].category === category); }); }
     function renderCategories() { el('category').innerHTML = '<option value="all">Všechny kategorie</option>' + categories.map(function(category) { return '<option value="' + esc(category) + '">' + esc(category) + '</option>'; }).join(''); }
@@ -131,6 +170,7 @@
     function svgNode(name, attrs, text) { var node = document.createElementNS('http://www.w3.org/2000/svg',name); Object.keys(attrs||{}).forEach(function(key){node.setAttribute(key,attrs[key]);}); if(text!==undefined) node.textContent=text; return node; }
     function render() {
         renderChecks();
+        renderCategorySummary();
         var svg=el('chart'), width=svg.clientWidth||900, height=svg.clientHeight||500; while(svg.firstChild) svg.removeChild(svg.firstChild);
         var mode=el('mode').value, left=65,right=25,top=25,bottom=48, plotW=width-left-right, plotH=height-top-bottom;
         var yMin=Infinity, yMax=-Infinity;
@@ -189,10 +229,11 @@
                 });
             });
         el('legend').innerHTML=selected.map(function(name,index){return '<span><i class="dot" style="background:'+colors[index%colors.length]+'"></i>'+esc(name)+' ('+esc(data[name].unit)+')</span>';}).join('')||'<span>Není vybrán žádný parametr.</span>';
+        renderEvaluations();
         renderTable(mode);
         el('status').textContent=selected.length+' vybraných parametrů';
     }
-    function renderTable(mode){var header='<tr><th>Parametr</th>'+dates.map(function(date){return '<th>'+date+'</th>';}).join('')+'<th>Jednotka</th><th>Referenční mez</th></tr>'; el('thead').innerHTML=header; el('tbody').innerHTML=selected.map(function(name){var item=data[name]; return '<tr><td>'+esc(name)+'</td>'+item.values.map(function(value){return '<td>'+esc(display(value))+'</td>';}).join('')+'<td>'+esc(item.unit)+'</td><td>'+esc(display(item.ref[0]))+' – '+esc(display(item.ref[1]))+'</td></tr>';}).join('');}
+    function renderTable(mode){var header='<tr><th>Parametr</th>'+dates.map(function(date){return '<th>'+date+'</th>';}).join('')+'<th>Jednotka</th><th>Referenční mez</th><th>Stav</th></tr>'; el('thead').innerHTML=header; el('tbody').innerHTML=selected.map(function(name){var item=data[name]; return '<tr><td>'+esc(name)+'</td>'+item.values.map(function(value){return '<td>'+esc(display(value))+'</td>';}).join('')+'<td>'+esc(item.unit)+'</td><td>'+esc(display(item.ref[0]))+' – '+esc(display(item.ref[1]))+'</td><td class="'+auditState(item).className+'">'+esc(auditState(item).label)+'</td></tr>';}).join('');}
     el('mode').addEventListener('change',render); el('category').addEventListener('change',function(){selected=visibleNames();render();}); el('search').addEventListener('input',renderChecks); el('all').addEventListener('click',function(){selected=visibleNames();render();}); el('none').addEventListener('click',function(){selected=[];render();});
     window.addEventListener('resize',render); renderCategories(); render();
 }());
