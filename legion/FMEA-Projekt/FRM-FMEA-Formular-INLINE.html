@@ -809,6 +809,7 @@ var fmeaApp = (function() {
                 resolve({
                     ok: xhr.status >= 200 && xhr.status < 300,
                     status: xhr.status,
+                    responseText: xhr.responseText,
                     json: function() { return Promise.resolve(JSON.parse(xhr.responseText)); }
                 });
             };
@@ -845,6 +846,32 @@ var fmeaApp = (function() {
                 throw new Error('SharePoint nevrátil bezpečnostní token.');
             }
             return digest;
+        });
+    };
+
+    var listItemEntityType = null;
+    var getListItemEntityType = function() {
+        if (listItemEntityType) {
+            return Promise.resolve(listItemEntityType);
+        }
+        var url = config.siteUrl + "/_api/web/lists/getbytitle('" + config.listName + "')?$select=ListItemEntityTypeFullName";
+        return request(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json;odata=verbose' }
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Nelze načíst typ položky seznamu: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function(result) {
+            var list = result.d || result;
+            listItemEntityType = list.ListItemEntityTypeFullName;
+            if (!listItemEntityType) {
+                throw new Error('SharePoint nevrátil typ položky seznamu.');
+            }
+            return listItemEntityType;
         });
     };
 
@@ -1051,35 +1078,39 @@ var fmeaApp = (function() {
         var url = config.siteUrl + "/_api/web/lists/getbytitle('" + config.listName + "')/items";
         
         var itemData = {
+            Title: record.proces,
             Proces_FMEA: record.proces,
             Selhani: record.selhani,
             Nasledky: record.nasledky,
             Pricina: record.pricina,
             KontrolaPrevence: record.kontrolaPrevence,
             KontrolaDetekce: record.kontrolaDetekce,
-            Zavaznost: record.zavaznost.toString(),
-            Vyskytu: record.vyskytu.toString(),
-            Detekce: record.detekce.toString(),
+            Zavaznost: Number(record.zavaznost),
+            Vyskytu: Number(record.vyskytu),
+            Detekce: Number(record.detekce),
             Opatreni: record.opatreni,
             VlastnikOpatreni: record.vlastnikOpatreni,
-            TerminOpatreni: record.terminOpatreni,
+            TerminOpatreni: record.terminOpatreni || null,
             DukazUcinnosti: record.dukazUcinnosti,
-            ZavaznostPo: record.zavaznostPo ? record.zavaznostPo.toString() : '',
-            VyskytuPo: record.vyskytuPo ? record.vyskytuPo.toString() : '',
-            DetekcePo: record.detekcePo ? record.detekcePo.toString() : '',
+            ZavaznostPo: record.zavaznostPo === '' ? null : Number(record.zavaznostPo),
+            VyskytuPo: record.vyskytuPo === '' ? null : Number(record.vyskytuPo),
+            DetekcePo: record.detekcePo === '' ? null : Number(record.detekcePo),
             Historie: JSON.stringify(record.historie || [])
         };
         
         getRequestDigest()
         .then(function(requestDigest) {
+            return getListItemEntityType().then(function(entityType) {
+                itemData.__metadata = { type: entityType };
             return request(url, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json;odata=verbose',
                     'X-RequestDigest': requestDigest
                 },
                 body: JSON.stringify(itemData)
+            });
             });
         })
         .then(function(response) {
@@ -1134,37 +1165,41 @@ var fmeaApp = (function() {
         var url = config.siteUrl + "/_api/web/lists/getbytitle('" + config.listName + "')/items(" + record.id + ")";
         
         var itemData = {
+            Title: record.proces,
             Proces_FMEA: record.proces,
             Selhani: record.selhani,
             Nasledky: record.nasledky,
             Pricina: record.pricina,
             KontrolaPrevence: record.kontrolaPrevence,
             KontrolaDetekce: record.kontrolaDetekce,
-            Zavaznost: record.zavaznost.toString(),
-            Vyskytu: record.vyskytu.toString(),
-            Detekce: record.detekce.toString(),
+            Zavaznost: Number(record.zavaznost),
+            Vyskytu: Number(record.vyskytu),
+            Detekce: Number(record.detekce),
             Opatreni: record.opatreni,
             VlastnikOpatreni: record.vlastnikOpatreni,
-            TerminOpatreni: record.terminOpatreni,
+            TerminOpatreni: record.terminOpatreni || null,
             DukazUcinnosti: record.dukazUcinnosti,
-            ZavaznostPo: record.zavaznostPo ? record.zavaznostPo.toString() : '',
-            VyskytuPo: record.vyskytuPo ? record.vyskytuPo.toString() : '',
-            DetekcePo: record.detekcePo ? record.detekcePo.toString() : '',
+            ZavaznostPo: record.zavaznostPo === '' ? null : Number(record.zavaznostPo),
+            VyskytuPo: record.vyskytuPo === '' ? null : Number(record.vyskytuPo),
+            DetekcePo: record.detekcePo === '' ? null : Number(record.detekcePo),
             Historie: JSON.stringify(record.historie || [])
         };
         
         getRequestDigest()
         .then(function(requestDigest) {
+            return getListItemEntityType().then(function(entityType) {
+                itemData.__metadata = { type: entityType };
             return request(url, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json;odata=verbose',
                     'X-RequestDigest': requestDigest,
                     'X-HTTP-Method': 'MERGE',
                     'If-Match': '*'
                 },
                 body: JSON.stringify(itemData)
+            });
             });
         })
         .catch(function(error) {
