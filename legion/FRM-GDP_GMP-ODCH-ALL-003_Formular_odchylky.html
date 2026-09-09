@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FRM-GDP/GMP-ODCH-ALL-003 - Záznam o odchylce</title>
+  <style>
+    :root {
+      --primary:#1f4e79;
+      --primary-light:#d9eaf7;
+      --primary-soft:#eef4fa;
+      --border:#7a7a7a;
+      --text:#222;
+      --muted:#666;
+      --danger:#b00020;
+      --warning:#a65f00;
+      --success:#1b6e35;
+      --bg:#f4f7fb;
+      --paper:#fff;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:Calibri, Arial, sans-serif; font-size:14px; line-height:1.35; }
+    .page { max-width:1160px; margin:20px auto; padding:18px; background:var(--paper); box-shadow:0 2px 12px rgba(0,0,0,.08); border:1px solid #ddd; }
+    .top-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; border:1px solid var(--border); margin-bottom:14px; }
+    .top-cell { display:grid; grid-template-columns:112px 1fr; min-height:34px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+    .top-cell:nth-child(3n) { border-right:0; }
+    .top-label { background:#e7e6e6; font-weight:700; padding:7px 8px; border-right:1px solid var(--border); }
+    .top-value { padding:7px 8px; }
+    .title { text-align:center; margin:16px 0 6px; color:var(--primary); font-size:26px; font-weight:700; }
+    .subtitle { text-align:center; color:#404040; margin-bottom:18px; font-size:15px; }
+    .notice { background:var(--primary-soft); border:1px solid #b9d7ec; padding:10px 12px; margin:12px 0; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 18px; padding:10px; background:#f7f7f7; border:1px solid #ccc; }
+    button, .button { border:1px solid #8aa7bf; background:#fff; color:var(--primary); padding:7px 10px; cursor:pointer; font-weight:700; border-radius:3px; }
+    button:hover { background:#eaf3fb; }
+    button.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+    button.danger { color:var(--danger); border-color:#c9a0a8; }
+    .status-line { margin-left:auto; color:var(--muted); align-self:center; font-size:13px; }
+    fieldset.section { border:1px solid var(--border); margin:14px 0; padding:0; background:#fff; }
+    legend { width:100%; background:var(--primary); color:#fff; font-weight:700; padding:9px 12px; cursor:pointer; }
+    legend .toggle { float:right; font-weight:400; }
+    .section-body { padding:12px; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; }
+    .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px 14px; }
+    .field { margin-bottom:10px; }
+    label { display:block; font-weight:700; margin-bottom:4px; color:#111; }
+    .hint { display:block; font-weight:400; color:var(--muted); font-size:12px; margin-top:2px; }
+    input[type="text"], input[type="date"], input[type="datetime-local"], input[type="number"], select, textarea {
+      width:100%; border:1px solid #999; padding:7px 8px; font-family:Calibri, Arial, sans-serif; font-size:14px; background:#fff; border-radius:2px;
+    }
+    textarea { min-height:86px; resize:vertical; }
+    textarea.large { min-height:148px; }
+    .required label:after { content:" *"; color:var(--danger); }
+    .invalid input, .invalid select, .invalid textarea { border-color:var(--danger); background:#fff8f8; }
+    .error-text { color:var(--danger); font-size:12px; margin-top:3px; display:none; }
+    .invalid .error-text { display:block; }
+    .check-row { display:flex; flex-wrap:wrap; gap:10px 18px; padding:6px 0; }
+    .check-row label { font-weight:400; display:inline-flex; align-items:center; gap:5px; margin:0; }
+    table { border-collapse:collapse; width:100%; margin:8px 0 12px; }
+    th, td { border:1px solid var(--border); padding:7px 8px; vertical-align:middle; }
+    th { background:var(--primary); color:#fff; text-align:center; font-weight:700; }
+    td.label { background:var(--primary-light); font-weight:700; width:28%; }
+    .class-card { border:1px solid var(--border); padding:10px; background:#fff; min-height:120px; }
+    .class-card h4 { margin:0 0 6px; color:var(--primary); }
+    .class-card label { display:flex; gap:6px; align-items:flex-start; font-weight:700; }
+    .badge { display:inline-block; padding:3px 8px; border-radius:10px; font-weight:700; font-size:12px; }
+    .badge-low { background:#e9f6ee; color:var(--success); border:1px solid #b9dfc7; }
+    .badge-mid { background:#fff4df; color:var(--warning); border:1px solid #e6c071; }
+    .badge-high { background:#fde8e8; color:var(--danger); border:1px solid #e0a0a0; }
+    .rpn-box { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; align-items:end; }
+    .rpn-result { border:2px solid var(--primary); padding:9px; background:#f9fcff; text-align:center; min-height:58px; }
+    .rpn-result strong { font-size:20px; display:block; }
+    .mini { font-size:12px; color:var(--muted); }
+    .capa-table input, .capa-table select, .capa-table textarea { font-size:13px; padding:5px; }
+    .capa-table textarea { min-height:50px; }
+    .hidden { display:none !important; }
+    .approval td { height:44px; }
+    .footer-note { margin-top:18px; color:var(--muted); font-size:12px; border-top:1px solid #ddd; padding-top:10px; }
+    .print-only { display:none; }
+    .picker-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index:9999; }
+    .picker-dialog { width:min(980px, 95vw); max-height:85vh; background:#fff; border:1px solid #9aa9b8; box-shadow:0 8px 28px rgba(0,0,0,.2); display:flex; flex-direction:column; }
+    .picker-header { padding:10px 12px; background:var(--primary); color:#fff; font-weight:700; }
+    .picker-body { padding:10px 12px; overflow:auto; }
+    .picker-table { width:100%; border-collapse:collapse; }
+    .picker-table th, .picker-table td { border:1px solid #bcc8d3; padding:7px 8px; }
+    .picker-table th { background:#e9f1f8; color:#163d63; text-align:left; }
+    .picker-table tr.selectable { cursor:pointer; }
+    .picker-table tr.selectable:hover { background:#f4f9ff; }
+    .picker-table tr.selected { background:#d9eaf7; }
+    .picker-actions { display:flex; justify-content:flex-end; gap:8px; padding:10px 12px; border-top:1px solid #d9d9d9; }
+    @media (max-width:860px) { .grid-2,.grid-3,.rpn-box { grid-template-columns:1fr; } .top-grid { grid-template-columns:1fr; } .top-cell { border-right:0; } .status-line { margin-left:0; width:100%; } }
+    @media print {
+      body { background:#fff; font-size:11px; }
+      .page { max-width:none; margin:0; padding:0; box-shadow:none; border:0; }
+      .toolbar, button, .no-print { display:none !important; }
+      fieldset.section { break-inside:avoid; page-break-inside:avoid; }
+      legend { color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      th { color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      input, select, textarea { border:0; border-bottom:1px solid #777; padding:2px; }
+      textarea { min-height:54px; }
+      .print-only { display:block; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <form id="odchylkaForm" novalidate>
+      <div class="top-grid" aria-label="Identifikace dokumentu">
+        <div class="top-cell"><div class="top-label">Název:</div><div class="top-value">Záznam o odchylce</div></div>
+        <div class="top-cell"><div class="top-label">Verze:</div><div class="top-value">1.0</div></div>
+        <div class="top-cell"><div class="top-label">Vydáno:</div><div class="top-value">2026-08-19</div></div>
+        <div class="top-cell"><div class="top-label">Označení:</div><div class="top-value">FRM-GDP/GMP-ODCH-ALL-003</div></div>
+        <div class="top-cell"><div class="top-label">Typ:</div><div class="top-value">Formulář</div></div>
+        <div class="top-cell"><div class="top-label">Účinné od:</div><div class="top-value">2026-08-19</div></div>
+      </div>
+
+      <h1 class="title">Záznam o odchylce</h1>
+      <div class="subtitle">Formulář pro systém řízení odchylek v režimu SDP/SVP</div>
+
+      <table aria-label="Základní údaje dokumentu">
+        <tr><td class="label">Společnost:</td><td>Samohýl group a.s., Smetanova 1058, Lomnice nad Popelkou</td></tr>
+        <tr><td class="label">Kód dokumentu:</td><td>FRM-GDP/GMP-ODCH-ALL-003</td></tr>
+        <tr><td class="label">Navazující dokumenty:</td><td>RAD-GDP/GMP-ODCH-ALL-001 - Řád řízení odchylek<br>MET-GDP/GMP-ODCH-ALL-002 - Metodika vyšetřování odchylek a CAPA<br>RAD-GDP/GMP-FMEA-ALL-001 - Řád analýzy rizik<br>MET-GDP/GMP-FMEA-ALL-002 - Metodika použití FMEA</td></tr>
+        <tr><td class="label">Stav:</td><td>Zdrojový soubor</td></tr>
+      </table>
+
+      <div class="notice">
+        <strong>Použití formuláře:</strong> Formulář slouží k jednotnému zaznamenání, posouzení, vyšetření, uzavření a trendování odchylek. Po vyplnění se stává záznamem a musí být uložen v řízeném úložišti. Pole označená hvězdičkou jsou povinná.
+      </div>
+
+      <div class="toolbar no-print">
+        <button type="button" class="primary" id="btnValidate">Zkontrolovat formulář</button>
+        <button type="button" id="btnSaveDraft">Uložit</button>
+        <button type="button" id="btnSaveAsNew">Uložit jako nový soubor</button>
+        <button type="button" id="btnCloseDeviation">Dokončit a uzavřít odchylku</button>
+        <button type="button" id="btnLoadDraft">Načíst pracovní verzi</button>
+        <button type="button" id="btnPrint">Tisk / PDF</button>
+        <button type="button" class="danger" id="btnClear">Vymazat formulář</button>
+        <span class="status-line" id="statusLine">Stav: nový záznam</span>
+      </div>
+
+      <fieldset class="section" id="sec1">
+        <legend>1. Identifikace odchylky <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="field required"><label for="cisloOdchylky">Číslo odchylky</label><input type="text" id="cisloOdchylky" name="cisloOdchylky" required><span class="error-text">Vyplňte číslo odchylky.</span><span class="hint">Návrh: ODCH-RRRR-0001</span></div>
+            <div class="field required"><label for="datumZjisteni">Datum a čas zjištění</label><input type="datetime-local" id="datumZjisteni" name="datumZjisteni" required><span class="error-text">Vyplňte datum a čas zjištění.</span></div>
+            <div class="field"><label for="datumVzniku">Datum a čas vzniku, je-li znám</label><input type="datetime-local" id="datumVzniku" name="datumVzniku"></div>
+          </div>
+          <div class="grid-2">
+            <div class="field required"><label for="oznamovatel">Oznamovatel</label><input type="text" id="oznamovatel" name="oznamovatel" required placeholder="jméno, funkce, útvar"><span class="error-text">Vyplňte oznamovatele.</span></div>
+            <div class="field required"><label for="pracoviste">Dotčené pracoviště / systém</label><input type="text" id="pracoviste" name="pracoviste" required><span class="error-text">Vyplňte dotčené pracoviště nebo systém.</span></div>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label for="zjistenoPri">Zjištěno při</label><select id="zjistenoPri" name="zjistenoPri"><option value="">Vyberte...</option><option>Běžná činnost</option><option>Kontrola záznamu</option><option>Interní inspekce</option><option>Reklamace</option><option>Audit / inspekce</option><option>Monitoring</option><option>Jiné</option></select></div>
+            <div class="field required"><label for="proces">Proces / oblast</label><select id="proces" name="proces" required><option value="">Vyberte...</option><option>Výroba</option><option>Skladování</option><option>Distribuce</option><option>Kontrola jakosti</option><option>Kvalifikace / validace</option><option>Dokumentace</option><option>IT / data</option><option>Dodavatel</option><option>Jiné</option></select><span class="error-text">Vyberte proces nebo oblast.</span></div>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label for="dotcenyLp">Dotčený přípravek / šarže</label><input type="text" id="dotcenyLp" name="dotcenyLp" placeholder="název LP, kód, šarže, množství nebo netýká se"></div>
+            <div class="field"><label for="dotcenyDokument">Dotčený dokument / SOP</label><input type="text" id="dotcenyDokument" name="dotcenyDokument" placeholder="název, kód, verze nebo netýká se"></div>
+          </div>
+          <div class="field required"><label for="nazevOdchylky">Stručný název odchylky</label><input type="text" id="nazevOdchylky" name="nazevOdchylky" required><span class="error-text">Vyplňte stručný název odchylky.</span></div>
+          <div class="field required"><label for="popisOdchylky">Popis odchylky - co se stalo, kde, kdy, kdo zjistil, jak bylo zjištěno</label><textarea class="large" id="popisOdchylky" name="popisOdchylky" required></textarea><span class="error-text">Popis odchylky je povinný.</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec2">
+        <legend>2. Okamžitá opatření a zajištění stavu <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="field required"><label>Bylo nutné okamžité opatření?</label><div class="check-row"><label><input type="radio" name="okamziteNutne" value="ano" required> Ano</label><label><input type="radio" name="okamziteNutne" value="ne"> Ne</label></div><span class="error-text">Vyberte ano/ne.</span></div>
+            <div class="field"><label>Byla provedena karanténa / blokace?</label><div class="check-row"><label><input type="radio" name="karantena" value="ano"> Ano</label><label><input type="radio" name="karantena" value="ne"> Ne</label><label><input type="radio" name="karantena" value="netyka"> Netýká se</label></div></div>
+            <div class="field"><label>Byla informována kvalifikovaná osoba?</label><div class="check-row"><label><input type="radio" name="informovanaQp" value="ano"> Ano</label><label><input type="radio" name="informovanaQp" value="ne"> Ne</label></div></div>
+          </div>
+          <div class="field required"><label for="popisOkamzitychOpatreni">Popis okamžitých opatření včetně odpovědné osoby a času provedení</label><textarea id="popisOkamzitychOpatreni" name="popisOkamzitychOpatreni" required></textarea><span class="error-text">Popište okamžitá opatření nebo zdůvodněte, proč nebyla nutná.</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec3">
+        <legend>3. Prvotní klasifikace a priorita <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="class-card"><label><input type="radio" name="klasifikace" value="kriticka" required> Kritická</label><h4>Kritérium</h4><p>Přímý nebo pravděpodobný dopad na jakost LP, bezpečnost pacienta, integritu dat nebo zákonnou shodu.</p></div>
+            <div class="class-card"><label><input type="radio" name="klasifikace" value="zavazna"> Závažná</label><h4>Kritérium</h4><p>Potenciální dopad na jakost nebo opakovaná odchylka se systémovou příčinou.</p></div>
+            <div class="class-card"><label><input type="radio" name="klasifikace" value="mensi"> Menší</label><h4>Kritérium</h4><p>Bez prokázaného dopadu na jakost, pacienta, data nebo regulatorní soulad.</p></div>
+          </div>
+          <span class="error-text" id="klasifikaceError">Vyberte klasifikaci odchylky.</span>
+          <div class="grid-2" style="margin-top:10px">
+            <div class="field required"><label for="klasifikaciProvedl">Prvotní klasifikaci provedl</label><input type="text" id="klasifikaciProvedl" name="klasifikaciProvedl" required><span class="error-text">Vyplňte osobu, která provedla klasifikaci.</span></div>
+            <div class="field"><label for="pozadavekRca">Požadavek na plnou analýzu příčiny</label><select id="pozadavekRca" name="pozadavekRca"><option value="">Vyberte...</option><option>Ano</option><option>Ne, odůvodněno</option></select></div>
+          </div>
+          <div class="field required"><label for="oduvodneniKlasifikace">Odůvodnění klasifikace</label><textarea id="oduvodneniKlasifikace" name="oduvodneniKlasifikace" required></textarea><span class="error-text">Odůvodnění klasifikace je povinné.</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec4">
+        <legend>4. Posouzení dopadu <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <table>
+            <thead><tr><th>Oblast posouzení</th><th>Dopad</th><th>Odůvodnění / důkazy</th><th>Posoudil / datum</th></tr></thead>
+            <tbody id="dopadRows"></tbody>
+          </table>
+          <div class="field required"><label for="zaverDopadu">Závěr posouzení dopadu včetně rozhodnutí o použitelnosti / uvolnění / blokaci</label><textarea class="large" id="zaverDopadu" name="zaverDopadu" required></textarea><span class="error-text">Závěr posouzení dopadu je povinný.</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec5">
+        <legend>5. Vyšetřování a analýza příčiny <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <div class="grid-2">
+            <div class="field"><label for="metodaVysetrovani">Metoda vyšetřování</label><select id="metodaVysetrovani" name="metodaVysetrovani"><option value="">Vyberte...</option><option>5 Why</option><option>Ishikawa</option><option>Přezkum záznamů</option><option>Rozhovor</option><option>Audit trail</option><option>Technické šetření</option><option>Jiná</option></select></div>
+            <div class="field required"><label for="vysetrovaciTym">Vyšetřovací tým</label><input type="text" id="vysetrovaciTym" name="vysetrovaciTym" required><span class="error-text">Vyplňte vyšetřovací tým.</span></div>
+          </div>
+          <div class="field"><label for="podklady">Podklady použité při šetření</label><textarea id="podklady" name="podklady" placeholder="SOP, záznamy, šaržová dokumentace, teplotní záznamy, kalibrace, školení, audit trail, smlouva/dodavatel..."></textarea></div>
+          <div class="field required"><label for="chronologie">Chronologie události</label><textarea id="chronologie" name="chronologie" required></textarea><span class="error-text">Vyplňte chronologii události.</span></div>
+          <div class="field required"><label for="analyzaPriciny">Analýza příčiny - zjištění, důkazy a vyloučené hypotézy</label><textarea class="large" id="analyzaPriciny" name="analyzaPriciny" required></textarea><span class="error-text">Analýza příčiny je povinná.</span></div>
+          <div class="field required"><label for="korenovaPricina">Kořenová / systémová příčina</label><textarea id="korenovaPricina" name="korenovaPricina" required></textarea><span class="error-text">Vyplňte kořenovou nebo systémovou příčinu. Samotná formulace „lidská chyba“ není dostatečná.</span></div>
+          <div class="field"><label for="prispivajiciFaktory">Přispívající faktory</label><textarea id="prispivajiciFaktory" name="prispivajiciFaktory"></textarea></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec6">
+        <legend>6. Rizikové hodnocení odchylky a výpočet RPN <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <div class="notice"><strong>Výpočet:</strong> RPN = Závažnost S × Výskyt O × Odhalitelnost D. Pásma: 1-12 mírné, 13-27 střední, 28-125 vysoké. Závažnost 5 nebo kritická odchylka automaticky vyžaduje CAPA nebo písemné zdůvodnění.</div>
+          <h3>Před opatřením</h3>
+          <div class="rpn-box">
+            <div class="field required"><label for="sPred">Závažnost S</label><select id="sPred" name="sPred" required data-rpn="pred"><option value="">Vyberte</option><option value="1">1 - bez dopadu</option><option value="2">2 - nízký dopad</option><option value="3">3 - střední dopad</option><option value="4">4 - vysoký dopad</option><option value="5">5 - kritický dopad</option></select></div>
+            <div class="field required"><label for="oPred">Výskyt O</label><select id="oPred" name="oPred" required data-rpn="pred"><option value="">Vyberte</option><option value="1">1 - velmi vzácné</option><option value="2">2 - zřídka</option><option value="3">3 - občasné</option><option value="4">4 - časté</option><option value="5">5 - velmi časté</option></select></div>
+            <div class="field required"><label for="dPred">Odhalitelnost D</label><select id="dPred" name="dPred" required data-rpn="pred"><option value="">Vyberte</option><option value="1">1 - téměř jisté odhalení</option><option value="2">2 - vysoká šance</option><option value="3">3 - střední šance</option><option value="4">4 - malá šance</option><option value="5">5 - prakticky neodhalitelné</option></select></div>
+            <div class="rpn-result" id="rpnPredBox"><span>RPN před</span><strong id="rpnPred">-</strong><span class="badge" id="rpnPredBadge">nevyhodnoceno</span></div>
+          </div>
+          <div class="field required"><label for="oduvodneniRizika">Odůvodnění rizikového hodnocení</label><textarea id="oduvodneniRizika" name="oduvodneniRizika" required></textarea><span class="error-text">Odůvodnění rizikového hodnocení je povinné.</span></div>
+
+          <h3>Po CAPA / po opatření</h3>
+          <div class="rpn-box">
+            <div class="field"><label for="sPo">Závažnost S'</label><select id="sPo" name="sPo" data-rpn="po"><option value="">Vyberte</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+            <div class="field"><label for="oPo">Výskyt O'</label><select id="oPo" name="oPo" data-rpn="po"><option value="">Vyberte</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+            <div class="field"><label for="dPo">Odhalitelnost D'</label><select id="dPo" name="dPo" data-rpn="po"><option value="">Vyberte</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>
+            <div class="rpn-result" id="rpnPoBox"><span>RPN po</span><strong id="rpnPo">-</strong><span class="badge" id="rpnPoBadge">nevyhodnoceno</span></div>
+          </div>
+          <div class="field"><label for="rezidualniRiziko">Reziduální riziko a jeho přijetí</label><textarea id="rezidualniRiziko" name="rezidualniRiziko"></textarea></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec7">
+        <legend>7. CAPA - nápravná a preventivní opatření <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <div class="notice" id="capaNotice"><strong>Pravidlo:</strong> CAPA je vyžadována při kritické odchylce, závažnosti 5 nebo RPN 28 a více. Pokud CAPA není stanovena, musí být uvedeno odborné odůvodnění.</div>
+          <table class="capa-table">
+            <thead><tr><th>Č.</th><th>Typ</th><th>Popis opatření</th><th>Odpovědná osoba</th><th>Termín</th><th>Důkaz splnění</th><th>Stav</th><th>Účinné?</th></tr></thead>
+            <tbody id="capaBody"></tbody>
+          </table>
+          <button type="button" id="btnAddCapa" class="no-print">Přidat opatření</button>
+          <div class="field" id="capaOduvodneniBox"><label for="capaOduvodneni">Odůvodnění, pokud CAPA není stanovena</label><textarea id="capaOduvodneni" name="capaOduvodneni"></textarea></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec8">
+        <legend>8. Ověření účinnosti <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <div class="grid-2">
+            <div class="field"><label for="overeniPozadovano">Ověření účinnosti požadováno</label><select id="overeniPozadovano" name="overeniPozadovano"><option value="">Vyberte...</option><option>Ano</option><option>Ne, odůvodněno</option></select></div>
+            <div class="field"><label for="metodaOvereni">Metoda ověření</label><select id="metodaOvereni" name="metodaOvereni"><option value="">Vyberte...</option><option>Přezkum záznamů</option><option>Kontrola na pracovišti</option><option>Interní inspekce</option><option>Trendování</option><option>Opakované školení / test</option><option>Technická kontrola</option><option>Jiné</option></select></div>
+          </div>
+          <div class="grid-3">
+            <div class="field"><label for="terminOvereni">Termín ověření</label><input type="date" id="terminOvereni" name="terminOvereni"></div>
+            <div class="field"><label for="odpovednyOvereni">Odpovědná osoba</label><input type="text" id="odpovednyOvereni" name="odpovednyOvereni"></div>
+            <div class="field"><label for="capaUcinnost">CAPA byla účinná</label><select id="capaUcinnost" name="capaUcinnost"><option value="">Vyberte...</option><option>Ano</option><option>Ne</option><option>Netýká se</option></select></div>
+          </div>
+          <div class="field"><label for="kriteriumUcinnosti">Kritérium účinnosti</label><textarea id="kriteriumUcinnosti" name="kriteriumUcinnosti"></textarea></div>
+          <div class="field"><label for="vysledekOvereni">Výsledek ověření účinnosti</label><textarea id="vysledekOvereni" name="vysledekOvereni"></textarea></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec9">
+        <legend>9. Závěr a uzavření odchylky <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <div class="field required"><label for="zaverecneStanovisko">Závěrečné stanovisko vyšetřování</label><textarea class="large" id="zaverecneStanovisko" name="zaverecneStanovisko" required></textarea><span class="error-text">Závěrečné stanovisko je povinné.</span></div>
+          <div class="grid-2">
+            <div class="field required"><label for="konecnaKlasifikace">Konečná klasifikace</label><select id="konecnaKlasifikace" name="konecnaKlasifikace" required><option value="">Vyberte...</option><option>Kritická</option><option>Závažná</option><option>Menší</option></select><span class="error-text">Vyberte konečnou klasifikaci.</span></div>
+            <div class="field"><label for="rozhodnutiSarz">Rozhodnutí o dotčeném materiálu / šarži</label><select id="rozhodnutiSarz" name="rozhodnutiSarz"><option value="">Vyberte...</option><option>Uvolnit</option><option>Ponechat v karanténě</option><option>Zamítnout / likvidovat</option><option>Předat k dalšímu posouzení</option><option>Netýká se</option></select></div>
+          </div>
+          <div class="grid-2">
+            <div class="field"><label for="regulatorniHlaseni">Regulatorní hlášení / komunikace</label><textarea id="regulatorniHlaseni" name="regulatorniHlaseni" placeholder="není požadováno / komu, kdy, jakým způsobem"></textarea></div>
+            <div class="field required"><label for="datumUzavreni">Odchylka uzavřena dne</label><input type="date" id="datumUzavreni" name="datumUzavreni" required><span class="error-text">Vyplňte datum uzavření.</span></div>
+          </div>
+          <table class="approval">
+            <thead><tr><th>Funkce</th><th>Jméno a příjmení</th><th>Datum</th><th>Podpis / elektronické schválení</th></tr></thead>
+            <tbody>
+              <tr><td>Zpracoval / koordinoval</td><td><input type="text" name="podpisZpracoval"></td><td><input type="date" name="datumZpracoval"></td><td></td></tr>
+              <tr><td>Vedoucí procesu</td><td><input type="text" name="podpisVedouci"></td><td><input type="date" name="datumVedouci"></td><td></td></tr>
+              <tr><td>Kvalifikovaná osoba</td><td><input type="text" name="podpisQp"></td><td><input type="date" name="datumQp"></td><td></td></tr>
+              <tr><td>Statutární zástupce / vedení, je-li požadováno</td><td><input type="text" name="podpisVedení"></td><td><input type="date" name="datumVedení"></td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec10">
+        <legend>10. Přílohy a návazné záznamy <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <table>
+            <thead><tr><th>Č.</th><th>Název přílohy / záznamu</th><th>Kód / odkaz</th><th>Poznámka</th></tr></thead>
+            <tbody id="prilohyBody"></tbody>
+          </table>
+          <button type="button" id="btnAddPriloha" class="no-print">Přidat přílohu</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="section" id="sec11">
+        <legend>11. Historie úprav <span class="toggle">skrýt / zobrazit</span></legend>
+        <div class="section-body">
+          <table aria-label="Historie úprav formuláře">
+            <thead><tr><th>Datum a čas</th><th>Uživatel</th><th>Typ akce</th><th>Pole / oblast</th><th>Detail</th><th>Výsledek</th></tr></thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+      </fieldset>
+
+      <div class="footer-note"></div>
+    </form>
+  </main>
+
+<script>
+(function(){
+  'use strict';
+
+  var FORM_KEY = 'FRM_GDP_GMP_ODCH_ALL_003_DRAFT';
+  var UNSAVED_EXIT_KEY = 'FRM_GDP_GMP_ODCH_ALL_003_UNSAVED_EXIT';
+  var form = document.getElementById('odchylkaForm');
+  var statusLine = document.getElementById('statusLine');
+  var historyBody = document.getElementById('historyBody');
+  var historyEntries = [];
+  var suppressHistory = false;
+  var currentUserDisplayName = 'Neznámý uživatel';
+  var isFormLocked = false;
+  var hasUnsavedChanges = false;
+  var lastSavedFingerprint = '';
+
+  function pad(n, width){ n = String(n); while(n.length < width) n = '0' + n; return n; }
+  function formatDateTime(value){
+    var d = new Date(value);
+    if(isNaN(d.getTime())) return String(value || '');
+    return d.toLocaleString('cs-CZ');
+  }
+  function shorten(value, maxLen){
+    var text = String(value || '').replace(/\s+/g, ' ').trim();
+    if(text.length <= maxLen) return text;
+    return text.slice(0, maxLen - 1) + '…';
+  }
+  function escapeHtml(value){
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  function renderHistory(){
+    historyBody.textContent = '';
+    historyEntries.forEach(function(item){
+      var tr = document.createElement('tr');
+      var cells = [
+        formatDateTime(item.at),
+        item.user || 'Neznámý uživatel',
+        item.type || '',
+        item.field || '',
+        item.detail || '',
+        item.result || ''
+      ];
+      cells.forEach(function(cellText){
+        var td = document.createElement('td');
+        td.textContent = cellText;
+        tr.appendChild(td);
+      });
+      historyBody.appendChild(tr);
+    });
+  }
+  function pushHistory(type, field, detail, result, user){
+    if(suppressHistory) return;
+    historyEntries.push({
+      at: new Date().toISOString(),
+      user: user || currentUserDisplayName,
+      type: type,
+      field: field,
+      detail: detail,
+      result: result
+    });
+    if(historyEntries.length > 500) historyEntries.shift();
+    renderHistory();
+  }
+  function getFieldLabel(el){
+    if(!el) return '';
+    var id = el.id;
+    if(id){
+      var lbl = form.querySelector('label[for="' + id + '"]');
+      if(lbl) return shorten(lbl.textContent, 80);
+    }
+    return el.name || id || 'pole';
+  }
+  function getTrackValue(el){
+    if(el.type === 'checkbox') return el.checked ? 'Ano' : 'Ne';
+    if(el.type === 'radio') return el.checked ? el.value : '';
+    return String(el.value || '');
+  }
+  function primeTrackedValues(){
+    Array.prototype.forEach.call(form.querySelectorAll('input,select,textarea'), function(el){
+      if(!el.name) return;
+      el.dataset.prevTrackValue = getTrackValue(el);
+    });
+  }
+  function persistDraftSilently(){
+    try {
+      localStorage.setItem(FORM_KEY, JSON.stringify(serialize()));
+    } catch (e) {
+      // intentionally ignored
+    }
+  }
+  function trackFieldChange(el){
+    if(suppressHistory || !el || !el.name) return;
+    if(el.type === 'radio'){
+      if(!el.checked) return;
+      hasUnsavedChanges = true;
+      return;
+    }
+    var prev = el.dataset.prevTrackValue;
+    var current = getTrackValue(el);
+    if(prev === current) return;
+    el.dataset.prevTrackValue = current;
+    hasUnsavedChanges = true;
+  }
+  function trackFieldInput(el){
+    if(suppressHistory || !el || !el.name || isFormLocked) return;
+    if(el.type === 'radio' || el.type === 'checkbox') return;
+    var prev = el.dataset.prevTrackValue;
+    var current = getTrackValue(el);
+    if(prev !== current) hasUnsavedChanges = true;
+  }
+  function currentCisloOdchylky(){
+    var el = document.getElementById('cisloOdchylky');
+    return el ? String(el.value || '') : '';
+  }
+  function logCreationIfNeeded(){
+    if(historyEntries.length > 0) return;
+    var cislo = currentCisloOdchylky();
+    pushHistory('Vytvoření', 'Dokument', cislo ? ('Vytvořen dokument ' + cislo) : 'Vytvořen dokument', 'OK');
+  }
+  function rememberUnsavedExit(){
+    try {
+      var payload = {
+        at: new Date().toISOString(),
+        user: currentUserDisplayName,
+        cisloOdchylky: currentCisloOdchylky()
+      };
+      localStorage.setItem(UNSAVED_EXIT_KEY, JSON.stringify(payload));
+    } catch (e) {
+      // intentionally ignored
+    }
+  }
+  function parseJsonSafe(text){
+    try { return JSON.parse(text); } catch (e) { return null; }
+  }
+  function consumeUnsavedExitRecord(){
+    try {
+      var raw = localStorage.getItem(UNSAVED_EXIT_KEY);
+      if(!raw) return;
+      localStorage.removeItem(UNSAVED_EXIT_KEY);
+      var data = parseJsonSafe(raw);
+      var cislo = data && data.cisloOdchylky ? data.cisloOdchylky : '';
+      var detail = cislo ? ('Formulář ' + cislo + ' ukončen bez uložení') : 'Formulář ukončen bez uložení';
+      var who = data && data.user ? data.user : currentUserDisplayName;
+      pushHistory('Ukončení bez uložení', 'Dokument', detail, 'INFO', who);
+    } catch (e) {
+      // intentionally ignored
+    }
+  }
+  function setFormLocked(locked){
+    isFormLocked = !!locked;
+    form.setAttribute('data-locked', isFormLocked ? 'true' : 'false');
+    Array.prototype.forEach.call(form.querySelectorAll('input,select,textarea,button'), function(el){
+      if(el.id === 'btnPrint') return;
+      if(isFormLocked) el.setAttribute('disabled', 'disabled');
+      else el.removeAttribute('disabled');
+    });
+  }
+  function setStatus(text, color){ statusLine.textContent = text; statusLine.style.color = color; }
+  function computeFormFingerprint(){
+    var data = [];
+    Array.prototype.forEach.call(form.elements, function(el){
+      if(!el.name) return;
+      if(el.type === 'radio'){
+        if(el.checked) data.push(el.name + '=' + el.value);
+        return;
+      }
+      if(el.type === 'checkbox'){
+        data.push(el.name + '=' + (el.checked ? '1' : '0'));
+        return;
+      }
+      data.push(el.name + '=' + String(el.value || ''));
+    });
+    data.push('_capaRows=' + document.getElementById('capaBody').children.length);
+    data.push('_prilohaRows=' + document.getElementById('prilohyBody').children.length);
+    data.push('_isLocked=' + (isFormLocked ? '1' : '0'));
+    return data.join('|');
+  }
+  function markSavedState(){
+    hasUnsavedChanges = false;
+    lastSavedFingerprint = computeFormFingerprint();
+  }
+  function hasRealUnsavedChanges(){
+    if(!lastSavedFingerprint) return hasUnsavedChanges;
+    return hasUnsavedChanges || computeFormFingerprint() !== lastSavedFingerprint;
+  }
+  function getSeqKey(year){ return 'FRM_GDP_GMP_ODCH_ALL_003_SEQ_' + year; }
+  function nextNumber(){
+    var year = new Date().getFullYear();
+    var seqKey = getSeqKey(year);
+    var seq = parseInt(localStorage.getItem(seqKey) || '0', 10) + 1;
+    localStorage.setItem(seqKey, String(seq));
+    return 'ODCH-' + year + '-' + pad(seq, 4);
+  }
+  function todayDate(){ return new Date().toISOString().slice(0, 10); }
+  function nowLocal(){
+    var d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  }
+
+  function initDefaults(){
+    document.getElementById('cisloOdchylky').value = document.getElementById('cisloOdchylky').value || nextNumber();
+  }
+
+  function createDopadRows(){
+    var areas = ['Jakost léčivého přípravku','Bezpečnost pacienta / zvířete','Integrita dat','Regulatorní soulad','Validovaný / kvalifikovaný stav','Dodavatel / externí proces','Dopad na jiné šarže nebo procesy'];
+    var tbody = document.getElementById('dopadRows');
+    areas.forEach(function(area, i){
+      var tr = document.createElement('tr');
+      var tdArea = document.createElement('td');
+      tdArea.textContent = area;
+      var tdImpact = document.createElement('td');
+      var selectImpact = document.createElement('select');
+      selectImpact.name = 'dopad_' + i;
+      selectImpact.innerHTML = '<option value="">Vyberte</option><option>Žádný</option><option>Potenciální</option><option>Skutečný</option>';
+      tdImpact.appendChild(selectImpact);
+      var tdEvidence = document.createElement('td');
+      var txtEvidence = document.createElement('textarea');
+      txtEvidence.name = 'dopadDukazy_' + i;
+      txtEvidence.placeholder = 'fakta, záznamy, odkazy na přílohy';
+      tdEvidence.appendChild(txtEvidence);
+      var tdOwner = document.createElement('td');
+      var inputOwner = document.createElement('input');
+      inputOwner.type = 'text';
+      inputOwner.name = 'dopadPosoudil_' + i;
+      inputOwner.placeholder = 'jméno / datum';
+      tdOwner.appendChild(inputOwner);
+      tr.appendChild(tdArea);
+      tr.appendChild(tdImpact);
+      tr.appendChild(tdEvidence);
+      tr.appendChild(tdOwner);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function addCapaRow(values){
+    var tbody = document.getElementById('capaBody');
+    var index = tbody.children.length + 1;
+    var tr = document.createElement('tr');
+
+    var cells = [
+      { type: 'text', style: 'text-align:center', value: String(index) },
+      { type: 'select', name: 'capaTyp_' + index, options: ['','Nápravné','Preventivní'] },
+      { type: 'textarea', name: 'capaPopis_' + index, placeholder: 'konkrétní a měřitelné opatření' },
+      { type: 'input', name: 'capaOdpovedny_' + index },
+      { type: 'date', name: 'capaTermin_' + index },
+      { type: 'textarea', name: 'capaDukaz_' + index, placeholder: 'příloha / odkaz' },
+      { type: 'select', name: 'capaStav_' + index, options: ['Otevřeno','Splněno','Zrušeno'] },
+      { type: 'select', name: 'capaEfektivni_' + index, options: ['','Ano','Ne'] }
+    ];
+
+    cells.forEach(function(cellData){
+      var td = document.createElement('td');
+      if(cellData.type === 'text') {
+        td.style.textAlign = 'center';
+        td.textContent = cellData.value;
+      } else if(cellData.type === 'select') {
+        var select = document.createElement('select');
+        select.name = cellData.name;
+        cellData.options.forEach(function(optionValue){
+          var option = document.createElement('option');
+          option.value = optionValue === '' ? '' : optionValue;
+          option.textContent = optionValue === '' ? 'Vyberte' : optionValue;
+          select.appendChild(option);
+        });
+        td.appendChild(select);
+      } else if(cellData.type === 'textarea') {
+        var textarea = document.createElement('textarea');
+        textarea.name = cellData.name;
+        textarea.placeholder = cellData.placeholder || '';
+        td.appendChild(textarea);
+      } else if(cellData.type === 'date') {
+        var input = document.createElement('input');
+        input.type = 'date';
+        input.name = cellData.name;
+        td.appendChild(input);
+      } else {
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.name = cellData.name;
+        td.appendChild(input);
+      }
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+    if(values){
+      Array.prototype.forEach.call(tr.querySelectorAll('input,select,textarea'), function(el){
+        if(values[el.name] !== undefined) el.value = values[el.name];
+      });
+    }
+  }
+
+  function addPrilohaRow(values){
+    var tbody = document.getElementById('prilohyBody');
+    var index = tbody.children.length + 1;
+    var tr = document.createElement('tr');
+    var names = ['prilohaNazev_', 'prilohaKod_', 'prilohaPoznamka_'];
+    names.forEach(function(namePrefix){
+      var td = document.createElement('td');
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.name = namePrefix + index;
+      td.appendChild(input);
+      tr.appendChild(td);
+    });
+    var tdIndex = document.createElement('td');
+    tdIndex.style.textAlign = 'center';
+    tdIndex.textContent = String(index);
+    tr.insertBefore(tdIndex, tr.firstChild);
+    tbody.appendChild(tr);
+    if(values){
+      Array.prototype.forEach.call(tr.querySelectorAll('input'), function(el){
+        if(values[el.name] !== undefined) el.value = values[el.name];
+      });
+    }
+  }
+
+  function classifyRpn(value){
+    if(!value) return {text:'nevyhodnoceno', cls:'', msg:''};
+    if(value <= 12) return {text:'mírné riziko', cls:'badge-low'};
+    if(value <= 27) return {text:'střední riziko', cls:'badge-mid'};
+    return {text:'vysoké riziko', cls:'badge-high'};
+  }
+
+  function calcOne(prefix){
+    var s = parseInt(document.getElementById('s' + prefix).value || '0', 10);
+    var o = parseInt(document.getElementById('o' + prefix).value || '0', 10);
+    var d = parseInt(document.getElementById('d' + prefix).value || '0', 10);
+    var result = s && o && d ? s * o * d : 0;
+    var out = document.getElementById('rpn' + prefix);
+    var badge = document.getElementById('rpn' + prefix + 'Badge');
+    out.textContent = result || '-';
+    var c = classifyRpn(result);
+    badge.textContent = c.text;
+    badge.className = 'badge ' + c.cls;
+    updateCapaRequirement();
+  }
+
+  function selectedRadio(name){ var el = form.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : ''; }
+  function updateCapaRequirement(){
+    var rpn = parseInt(document.getElementById('rpnPred').textContent || '0', 10) || 0;
+    var s = parseInt(document.getElementById('sPred').value || '0', 10) || 0;
+    var klas = selectedRadio('klasifikace');
+    var required = (rpn >= 28 || s === 5 || klas === 'kriticka');
+    var notice = document.getElementById('capaNotice');
+    if(required){
+      notice.innerHTML = '<strong>CAPA vyžadována:</strong> Důvod: ' + (klas === 'kriticka' ? 'kritická odchylka; ' : '') + (s === 5 ? 'závažnost 5; ' : '') + (rpn >= 28 ? 'RPN ' + rpn + '; ' : '') + 'Vyplňte alespoň jedno opatření nebo uveďte odborné odůvodnění nestanovení CAPA.';
+      notice.style.borderColor = '#e0a0a0'; notice.style.background = '#fde8e8';
+      document.getElementById('capaOduvodneniBox').classList.add('required');
+    } else {
+      notice.innerHTML = '<strong>CAPA podle výpočtu není automaticky vyžadována:</strong> Přesto ji lze stanovit podle odborného posouzení.';
+      notice.style.borderColor = '#b9d7ec'; notice.style.background = '#eef4fa';
+      document.getElementById('capaOduvodneniBox').classList.remove('required');
+    }
+  }
+
+  function serialize(){
+    var data = {};
+    Array.prototype.forEach.call(form.elements, function(el){
+      if(!el.name) return;
+      if(el.type === 'radio') { if(el.checked) data[el.name] = el.value; }
+      else if(el.type === 'checkbox') { data[el.name] = el.checked; }
+      else data[el.name] = el.value;
+    });
+    data._capaRows = document.getElementById('capaBody').children.length;
+    data._prilohaRows = document.getElementById('prilohyBody').children.length;
+    data._rpnPred = document.getElementById('rpnPred').textContent;
+    data._rpnPo = document.getElementById('rpnPo').textContent;
+    data._historyEntries = historyEntries;
+    data._isLocked = isFormLocked;
+    data._exportedAt = new Date().toISOString();
+    return data;
+  }
+
+  function deserialize(data){
+    if(!data) return;
+    suppressHistory = true;
+    document.getElementById('capaBody').innerHTML = '';
+    document.getElementById('prilohyBody').innerHTML = '';
+    var capaRows = data._capaRows || 3;
+    for(var i = 0; i < capaRows; i++) addCapaRow(data);
+    var prilohaRows = data._prilohaRows || 3;
+    for(var j = 0; j < prilohaRows; j++) addPrilohaRow(data);
+    Array.prototype.forEach.call(form.elements, function(el){
+      if(!el.name || data[el.name] === undefined) return;
+      if(el.type === 'radio') el.checked = (el.value === data[el.name]);
+      else if(el.type === 'checkbox') el.checked = !!data[el.name];
+      else el.value = data[el.name];
+    });
+    historyEntries = Array.isArray(data._historyEntries) ? data._historyEntries : [];
+    if(historyEntries.length > 500) historyEntries = historyEntries.slice(historyEntries.length - 500);
+    renderHistory();
+    calcOne('Pred'); calcOne('Po'); updateCapaRequirement();
+    setFormLocked(!!data._isLocked);
+    primeTrackedValues();
+    suppressHistory = false;
+    markSavedState();
+  }
+
+  function markFieldValidity(el){
+    var wrapper = el.closest ? el.closest('.field') : null;
+    if(!wrapper) return true;
+    var ok = true;
+    if(el.hasAttribute('required')) ok = !!el.value;
+    if(ok) wrapper.classList.remove('invalid'); else wrapper.classList.add('invalid');
+    return ok;
+  }
+
+  function validateForm(){
+    var ok = true;
+    Array.prototype.forEach.call(form.querySelectorAll('[required]'), function(el){
+      if(el.type === 'radio') return;
+      if(!markFieldValidity(el)) ok = false;
+    });
+    if(!selectedRadio('klasifikace')) { ok = false; document.getElementById('klasifikaceError').style.display = 'block'; }
+    else document.getElementById('klasifikaceError').style.display = 'none';
+    var okamziteField = form.querySelector('input[name="okamziteNutne"]');
+    if(okamziteField){
+      var okamziteWrapper = okamziteField.closest('.field');
+      if(!selectedRadio('okamziteNutne')) {
+        ok = false;
+        if(okamziteWrapper) okamziteWrapper.classList.add('invalid');
+      } else if(okamziteWrapper){
+        okamziteWrapper.classList.remove('invalid');
+      }
+    }
+    var koren = document.getElementById('korenovaPricina');
+    if(koren && (koren.value.trim().toLowerCase() === 'lidská chyba' || koren.value.trim().toLowerCase() === 'lidska chyba')) {
+      ok = false;
+      koren.closest('.field').classList.add('invalid');
+    }
+    var rpn = parseInt(document.getElementById('rpnPred').textContent || '0', 10) || 0;
+    var s = parseInt(document.getElementById('sPred').value || '0', 10) || 0;
+    var klas = selectedRadio('klasifikace');
+    var capaRequired = (rpn >= 28 || s === 5 || klas === 'kriticka');
+    if(capaRequired){
+      var hasCapa = false;
+      Array.prototype.forEach.call(document.querySelectorAll('textarea[name^="capaPopis_"]'), function(el){ if(el.value.trim()) hasCapa = true; });
+      var hasJustification = document.getElementById('capaOduvodneni').value.trim().length > 0;
+      if(!hasCapa && !hasJustification){ ok = false; document.getElementById('capaOduvodneniBox').classList.add('invalid'); }
+      else document.getElementById('capaOduvodneniBox').classList.remove('invalid');
+    }
+    statusLine.textContent = ok ? 'Stav: kontrola bez chyb' : 'Stav: formulář obsahuje nevyplněná nebo chybná pole';
+    statusLine.style.color = ok ? 'var(--success)' : 'var(--danger)';
+    if(!ok){
+      var invalid = form.querySelector('.invalid');
+      if(invalid && invalid.scrollIntoView) invalid.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+    return ok;
+  }
+
+  function saveDraft(saveAsNewFile){
+    if(isFormLocked){
+      setStatus('Stav: formulář je uzavřený a needitovatelný', 'var(--warning)');
+      return;
+    }
+
+    var draftKey = FORM_KEY;
+    if(saveAsNewFile){
+      draftKey = FORM_KEY + '_' + Date.now();
+    }
+
+    try {
+      var data = serialize();
+      localStorage.setItem(draftKey, JSON.stringify(data));
+      persistDraftSilently();
+      markSavedState();
+      localStorage.removeItem(UNSAVED_EXIT_KEY);
+      pushHistory('Uložení', 'Dokument', 'Pracovní verze uložena lokálně' + (saveAsNewFile ? ' jako nový záznam' : ''), 'OK');
+      setStatus('Stav: pracovní verze uložena v prohlížeči', 'var(--success)');
+    } catch (err){
+      setStatus('Stav: uložení se nezdařilo (úložiště prohlížeče není dostupné)', 'var(--danger)');
+    }
+  }
+
+  function loadDraft(){
+    if(isFormLocked){
+      setStatus('Stav: formulář je uzavřený a needitovatelný', 'var(--warning)');
+      return;
+    }
+    try {
+      var raw = localStorage.getItem(FORM_KEY);
+      if(!raw){
+        setStatus('Stav: žádná pracovní verze nebyla nalezena', 'var(--warning)');
+        return;
+      }
+      var data = parseJsonSafe(raw);
+      if(!data){
+        setStatus('Stav: pracovní verze je poškozená a nebylo ji možné načíst', 'var(--danger)');
+        return;
+      }
+      deserialize(data);
+      setStatus('Stav: pracovní verze načtena z prohlížeče', 'var(--success)');
+    } catch (err){
+      setStatus('Stav: načtení pracovní verze selhalo', 'var(--danger)');
+    }
+  }
+
+  function closeDeviation(){
+    if(isFormLocked){
+      setStatus('Stav: odchylka je již uzavřená', 'var(--warning)');
+      return;
+    }
+    if(!validateForm()){
+      setStatus('Stav: před uzavřením opravte validační chyby', 'var(--danger)');
+      return;
+    }
+    if(!confirm('Po uzavření bude formulář needitovatelný. Pokračovat?')) return;
+    setFormLocked(true);
+    persistDraftSilently();
+    markSavedState();
+    localStorage.removeItem(UNSAVED_EXIT_KEY);
+    pushHistory('Uzavření', 'Dokument', 'Odchylka uzavřena a formulář je needitovatelný', 'OK');
+    setStatus('Stav: odchylka uzavřena, formulář je needitovatelný', 'var(--success)');
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('legend'), function(legend){
+    legend.addEventListener('click', function(){
+      var body = legend.parentNode.querySelector('.section-body');
+      body.classList.toggle('hidden');
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-rpn]'), function(el){
+    el.addEventListener('change', function(){ calcOne(el.id.indexOf('Po') > -1 ? 'Po' : 'Pred'); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="klasifikace"]'), function(el){
+    el.addEventListener('change', updateCapaRequirement);
+  });
+  Array.prototype.forEach.call(form.querySelectorAll('input,select,textarea'), function(el){
+    el.addEventListener('blur', function(){ markFieldValidity(el); });
+  });
+  Array.prototype.forEach.call(form.querySelectorAll('input,select,textarea'), function(el){
+    el.addEventListener('change', function(){ trackFieldChange(el); });
+  });
+  Array.prototype.forEach.call(form.querySelectorAll('input,textarea'), function(el){
+    el.addEventListener('input', function(){ trackFieldInput(el); });
+  });
+  document.getElementById('btnAddCapa').addEventListener('click', function(){ addCapaRow(); hasUnsavedChanges = true; });
+  document.getElementById('btnAddPriloha').addEventListener('click', function(){ addPrilohaRow(); hasUnsavedChanges = true; });
+  document.getElementById('btnValidate').addEventListener('click', validateForm);
+  document.getElementById('btnSaveDraft').addEventListener('click', function(){ saveDraft(false); });
+  document.getElementById('btnSaveAsNew').addEventListener('click', function(){ saveDraft(true); });
+  document.getElementById('btnCloseDeviation').addEventListener('click', closeDeviation);
+  var btnLoadDraft = document.getElementById('btnLoadDraft');
+  if(btnLoadDraft) btnLoadDraft.addEventListener('click', loadDraft);
+  document.getElementById('btnPrint').addEventListener('click', function(){ window.print(); });
+  document.getElementById('btnClear').addEventListener('click', function(){
+    if(confirm('Opravdu vymazat formulář?')) {
+      localStorage.removeItem(FORM_KEY);
+      localStorage.removeItem(UNSAVED_EXIT_KEY);
+      form.reset();
+      document.getElementById('capaBody').innerHTML = '';
+      document.getElementById('prilohyBody').innerHTML = '';
+      for(var i = 0; i < 3; i++) addCapaRow();
+      for(var j = 0; j < 3; j++) addPrilohaRow();
+      historyEntries = [];
+      renderHistory();
+      setFormLocked(false);
+      initDefaults();
+      calcOne('Pred'); calcOne('Po');
+      primeTrackedValues();
+      markSavedState();
+      logCreationIfNeeded();
+      statusLine.textContent = 'Stav: formulář vymazán';
+    }
+  });
+
+  window.addEventListener('beforeunload', function(event){
+    if(!hasRealUnsavedChanges()) return;
+    rememberUnsavedExit();
+    var message = 'Formulář obsahuje neuložené změny. Opravdu chcete stránku zavřít?';
+    event.preventDefault();
+    event.returnValue = message;
+    return message;
+  });
+
+  window.onbeforeunload = function(event){
+    if(!hasRealUnsavedChanges()) return;
+    rememberUnsavedExit();
+    var message = 'Formulář obsahuje neuložené změny. Opravdu chcete stránku zavřít?';
+    if(event) event.returnValue = message;
+    return message;
+  };
+
+  createDopadRows();
+  for(var i = 0; i < 3; i++) addCapaRow();
+  for(var j = 0; j < 3; j++) addPrilohaRow();
+  initDefaults();
+  calcOne('Pred'); calcOne('Po');
+  setFormLocked(false);
+  markSavedState();
+  currentUserDisplayName = localStorage.getItem('FORM_INTERNAL_USER') || 'Neznámý uživatel';
+  consumeUnsavedExitRecord();
+  primeTrackedValues();
+  logCreationIfNeeded();
+  renderHistory();
+})();
+</script>
+</body>
+</html>

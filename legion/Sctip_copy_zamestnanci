@@ -1,0 +1,174 @@
+param(
+	[Parameter(Mandatory = $true)]
+	[string]$SiteUrl,
+
+	[Parameter(Mandatory = $true)]
+	[string]$SourceList,
+
+	[Parameter(Mandatory = $true)]
+	[string]$TargetList,
+
+	[int]$SourceItemId,
+
+	[hashtable]$FieldMap = @{},
+
+	[switch]$WhatIfOnly
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+function Ensure-PnPModule {
+	if (-not (Get-Module -ListAvailable -Name PnP.PowerShell)) {
+		throw "Modul PnP.PowerShell není nainstalovaný. Spusť: Install-Module PnP.PowerShell -Scope CurrentUser"
+	}
+}
+
+function Get-DefaultFieldMap {
+	param(
+		[string]$SrcList,
+		[string]$DstList
+	)
+
+	$skipFields = @(
+		"ID", "GUID", "Attachments", "Created", "Modified", "Author", "Editor",
+		"_UIVersionString", "ContentType", "ContentTypeId", "FileRef", "FileLeafRef"
+	)
+
+	$src = Get-PnPField -List $SrcList | Where-Object {
+		-not $_.ReadOnlyField -and -not $_.Hidden -and ($skipFields -notcontains $_.InternalName)
+	}
+	$dst = Get-PnPField -List $DstList | Where-Object {
+		-not $_.ReadOnlyField -and -not $_.Hidden -and ($skipFields -notcontains $_.InternalName)
+	}
+
+	$dstByName = @{}
+	foreach ($f in $dst) {
+		$dstByName[$f.InternalName] = $true
+	}
+
+	$map = @{}
+	foreach ($f in $src) {
+		if ($dstByName.ContainsKey($f.InternalName)) {
+			$map[$f.InternalName] = $f.InternalName
+		}
+	}
+
+	return $map
+}
+
+function Convert-FieldValue {
+	param(
+		[Parameter(Mandatory = $false)]$Value
+	)
+
+	if ($null -eq $Value) {
+		return $null
+	}
+
+	if ($Value -is [Microsoft.SharePoint.Client.FieldLookupValue]) {
+		return $Value.LookupId
+	}
+
+	if ($Value -is [Microsoft.SharePoint.Client.FieldUserValue]) {
+		return $Value.LookupId
+	}
+
+	if ($Value -is [Microsoft.SharePoint.Client.FieldUrlValue]) {
+		return $Value.Url
+	}
+
+	if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
+		$result = @()
+		foreach ($v in $Value) {
+			if ($v -is [Microsoft.SharePoint.Client.FieldLookupValue]) {
+				$result += $v.LookupId
+			}
+			elseif ($v -is [Microsoft.SharePoint.Client.FieldUserValue]) {
+				$result += $v.LookupId
+			}
+			else {
+				$result += $v
+			}
+		}
+		return $result
+	}
+
+	return $Value
+}
+
+Ensure-PnPModule
+Connect-PnPOnline -Url $SiteUrl -Interactive
+
+if ($FieldMap.Count -eq 0) {
+	$FieldMap = Get-DefaultFieldMap -SrcList $SourceList -DstList $TargetList
+	Write-Host "Automatická mapa polí: $($FieldMap.Count) položek" -ForegroundColor Cyan
+}
+
+if ($FieldMap.Count -eq 0) {
+	throw "Nebyla nalezena žádná společná pole mezi seznamy '$SourceList' a '$TargetList'."
+}
+
+$items = @()
+if ($PSBoundParameters.ContainsKey("SourceItemId")) {
+	$items = @(Get-PnPListItem -List $SourceList -Id $SourceItemId)
+}
+else {
+	$items = @(Get-PnPListItem -List $SourceList -PageSize 500)
+}
+
+if ($items.Count -eq 0) {
+	Write-Host "Ve zdrojovém seznamu nejsou žádné položky k přenosu." -ForegroundColor Yellow
+	return
+}
+
+$counter = 0
+foreach ($item in $items) {
+	$values = @{}
+
+	foreach ($srcField in $FieldMap.Keys) {
+		$dstField = $FieldMap[$srcField]
+
+		if (-not $item.FieldValues.ContainsKey($srcField)) {
+			continue
+		}
+
+		$converted = Convert-FieldValue -Value $item.FieldValues[$srcField]
+		if ($null -ne $converted -and $converted -ne "") {
+			$values[$dstField] = $converted
+		}
+	}
+
+	if ($values.Count -eq 0) {
+		Write-Host "Položka ID $($item.Id): žádná data k přenosu." -ForegroundColor DarkYellow
+		continue
+	}
+
+	if ($WhatIfOnly) {
+		Write-Host "[WHATIF] Vytvoření položky v '$TargetList' z ID $($item.Id): $($values.Keys -join ', ')" -ForegroundColor Gray
+	}
+	else {
+		Add-PnPListItem -List $TargetList -Values $values | Out-Null
+		$counter++
+		Write-Host "Přenesená položka ID $($item.Id) -> '$TargetList'" -ForegroundColor Green
+	}
+}
+
+Write-Host "Hotovo. Počet nově vytvořených položek: $counter" -ForegroundColor Cyan
+
+<#
+PŘÍKLADY:
+
+1) Přenos všech položek se stejnými názvy polí:
+./Sctip_copy_zamestnanci -SiteUrl "https://contoso.sharepoint.com/sites/HR" -SourceList "Zamestnanci" -TargetList "Zamestnanci_Archiv"
+
+2) Přenos jedné položky:
+./Sctip_copy_zamestnanci -SiteUrl "https://contoso.sharepoint.com/sites/HR" -SourceList "Zamestnanci" -TargetList "Zamestnanci_Archiv" -SourceItemId 15
+
+3) Vlastní mapování polí (zdroj -> cíl):
+$map = @{ "Title" = "Title"; "Oddeleni" = "Department"; "Nastup" = "StartDate" }
+./Sctip_copy_zamestnanci -SiteUrl "https://contoso.sharepoint.com/sites/HR" -SourceList "Zamestnanci" -TargetList "Zamestnanci_Archiv" -FieldMap $map
+
+4) Ověření bez zápisu:
+./Sctip_copy_zamestnanci -SiteUrl "https://contoso.sharepoint.com/sites/HR" -SourceList "Zamestnanci" -TargetList "Zamestnanci_Archiv" -WhatIfOnly
+#>
