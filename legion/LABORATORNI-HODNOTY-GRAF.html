@@ -130,9 +130,13 @@
     function renderCategorySummary() {
         var category=el('category').value;
         if (category==='all') { el('chartTitle').textContent='Vývoj v čase'; el('categorySummary').textContent='Vyberte kategorii pro souhrnné vyhodnocení posledních dostupných výsledků.'; return; }
-        var items=names.filter(function(name){return data[name].category===category;}), measured=0, good=0, needs=0, rising=0, falling=0, stable=0;
-        items.forEach(function(name){var item=data[name], index=latestIndex(item.values); if(index===-1)return; measured++; if(valueStatus(item,item.values[index]).label==='v mezích')good++;else needs++; var trend=trendLabel(item,index); if(trend==='roste')rising++; if(trend==='klesá')falling++; if(trend==='stabilní')stable++;});
-        var condition=needs===0?'Všechny poslední dostupné hodnoty jsou v referenčních mezích, tedy stav je dobrý a není nutné nic řešit.':needs===items.length?'Všechny poslední dostupné hodnoty jsou mimo referenční meze, proto je vhodné je řešit.':needs+' z '+measured+' posledních hodnot je mimo referenční meze, proto je vhodné jim věnovat pozornost.';
+        var items=names.filter(function(name){return data[name].category===category;}), measured=0, good=0, needs=0, rising=0, falling=0, stable=0, needsNames=[];
+        items.forEach(function(name){var item=data[name], index=latestIndex(item.values); if(index===-1)return; measured++; if(valueStatus(item,item.values[index]).label==='v mezích')good++;else { needs++; needsNames.push(name); } var trend=trendLabel(item,index); if(trend==='roste')rising++; if(trend==='klesá')falling++; if(trend==='stabilní')stable++;});
+        var condition;
+        if(measured===0) condition='Celkové hodnocení: není k dispozici žádná aktuální hodnota.';
+        else if(needs===0) condition='Celkové hodnocení: dobrý stav. Všech '+good+' posledních dostupných hodnot je v referenčních mezích a není nutné nic řešit.';
+        else if(good>=needs) condition='Celkové hodnocení: převážně dobrý stav. '+good+' z '+measured+' hodnot je v mezích; k řešení je: '+needsNames.join(', ')+'.';
+        else condition='Celkové hodnocení: stav vyžaduje pozornost. Mimo referenční meze jsou: '+needsNames.join(', ')+'.';
         var movement='Trend: '+rising+' hodnot roste, '+falling+' klesá a '+stable+' je stabilních.';
         el('chartTitle').textContent=category; el('categorySummary').textContent=condition+' '+movement+' Jde o orientační porovnání s laboratorními mezemi, nikoli o lékařskou diagnózu.';
     }
