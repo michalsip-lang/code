@@ -1,0 +1,94 @@
+Předmět: FMEA Protokol – informace k používání aplikace
+
+Dobrý den,
+
+pro evidenci a vyhodnocování FMEA analýz je k dispozici aplikace FMEA Protokol.
+Aplikace slouží k zapisování možných selhání procesu, jejich příčin a následků,
+vyhodnocení rizika a evidenci přijatých opatření.
+
+Otevření aplikace
+-----------------
+Aplikaci otevřete pomocí tohoto odkazu:
+
+http://portal.samohyl.cz/sdp_svp/SiteAssets/FMEA/FRM-FMEA-Formular-INLINE.html
+
+Aplikace musí být otevřena přes SharePoint v prohlížeči. Pokud se v adresním
+řádku objeví file://, DavWWWRoot nebo označení Soubor, stránka byla otevřena
+jako lokální soubor a nebude možné načítat ani ukládat data do SharePointu.
+
+Přidání záznamu
+---------------
+1. Vyplňte údaje v části Přidání nového záznamu:
+   - Proces / Funkce
+   - Potenciální selhání
+   - Následky selhání
+   - Příčina
+   - Kontrola prevence
+   - Kontrola detekce
+2. Zadejte hodnoty:
+   - Závažnost (S): 1 až 5
+   - Výskyt (O): 1 až 5
+   - Odhalitelnost (D): 1 až 5
+3. V případě vysokého rizika doplňte opatření, vlastníka a termín.
+4. Klikněte na Přidat záznam.
+
+Výpočet rizika
+---------------
+Aplikace automaticky vypočítá hodnotu RPN:
+
+RPN = Závažnost x Výskyt x Odhalitelnost
+
+Barevné označení rizika:
+- zelená: mírné riziko, RPN 1 až 12
+- žlutá: střední riziko, RPN 13 až 27
+- červená: vysoké riziko, RPN 28 až 125
+
+Při RPN 28 až 125 nebo při závažnosti 5 je nutné vyplnit opatření,
+vlastníka opatření a termín realizace.
+
+Úprava záznamu
+--------------
+U záznamu klikněte na Detail a následně na Změnit záznam. Po provedení úprav
+záznam uložte. Každá změna se zapíše do historie záznamu.
+
+Historie a audit
+----------------
+Historie obsahuje:
+- datum a čas změny,
+- jméno přihlášeného uživatele,
+- jeho interní SharePoint login,
+- popis změněných údajů.
+
+Příklad auditního záznamu:
+Michal Šíp (i:0#.w|sam\michal.sip)
+
+Do historie se zapisuje účet uživatele přihlášeného v SharePointu. Z tohoto
+důvodu aplikaci vždy používejte pod vlastním účtem a nesdílejte přihlášení.
+
+Tisk protokolu
+--------------
+Kliknutím na Tisk FMEA Protokolu se vytiskne pouze FMEA tabulka bez formuláře
+a ovládacích tlačítek.
+
+Tiskový výstup obsahuje:
+- název FMEA Protokol,
+- datum tisku,
+- jméno uživatele, který protokol vytvořil,
+- pole Schválil pro podpis,
+- verzi protokolu,
+- tabulku FMEA bez sloupce Akce.
+
+Pro uložení do PDF vyberte v tiskovém dialogu jako cíl možnost Uložit do PDF.
+
+Důležité
+--------
+- Data se ukládají do SharePoint seznamu FMEA_Analyza.
+- Při práci nemažte ani neupravujte sloupce seznamu ručně.
+- Záznam ukládejte až po vyplnění všech povinných polí.
+- Při problému proveďte Ctrl + F5 a aplikaci otevřete znovu přes SharePoint odkaz.
+- Pokud chyba přetrvá, pošlete správci přesné znění chybové hlášky.
+
+S pozdravem
+
+[Vaše jméno]
+[Oddělení / kontakt]
