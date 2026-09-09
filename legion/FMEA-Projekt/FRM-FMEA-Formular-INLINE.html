@@ -512,6 +512,19 @@
                 padding-bottom: 12px;
                 margin-bottom: 16px;
             }
+            body.print-mode .print-meta {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(150px, 1fr));
+                gap: 5px 22px;
+                margin-top: 12px;
+                font-size: 11px;
+            }
+            body.print-mode .print-meta span {
+                display: inline-block;
+                min-width: 90px;
+                border-bottom: 1px solid #999;
+                min-height: 14px;
+            }
             body.print-mode .print-header .samohyl-logo .logo-main,
             body.print-mode .print-header .samohyl-logo .logo-group {
                 color: var(--samohyl-blue);
@@ -701,8 +714,14 @@
         <div class="table-container">
             <div class="print-header">
                 <div>
-                    <h1>FMEA Tabulka</h1>
+                    <h1>FMEA Protokol</h1>
                     <p>RAD-GDP/GMP-FMEA-ALL-001 / MET-GDP/GMP-FMEA-ALL-002</p>
+                    <div class="print-meta">
+                        <div>Schválil: <span id="printApprovedBy"></span></div>
+                        <div>Datum tisku: <span id="printDate"></span></div>
+                        <div>Vytvořil: <span id="printCreatedBy"></span></div>
+                        <div>Verze protokolu: <span>1.0</span></div>
+                    </div>
                 </div>
                 <div class="samohyl-logo" aria-label="samohýl group">
                     <span class="logo-main">samohýl</span>
@@ -710,10 +729,9 @@
                 </div>
             </div>
             <div class="output-actions">
-                <button class="btn-secondary" onclick="fmeaApp.printReport()">Tisk FMEA tabulky</button>
-                <button class="btn-primary" onclick="fmeaApp.saveAsPDF()">PDF</button>
+                <button class="btn-secondary" onclick="fmeaApp.printReport()">Tisk FMEA Protokolu</button>
             </div>
-            <h2>FMEA Tabulka (<span id="recordCount">0</span> záznamů)</h2>
+            <h2>FMEA Protokol (<span id="recordCount">0</span> záznamů)</h2>
             <div id="tableContent">
                 <div class="loading">
                     <div class="spinner"></div> Načítání...
@@ -1788,6 +1806,12 @@ var fmeaApp = (function() {
     };
 
     var printReport = function() {
+        var printDate = document.getElementById('printDate');
+        var printCreatedBy = document.getElementById('printCreatedBy');
+        var printApprovedBy = document.getElementById('printApprovedBy');
+        if (printDate) printDate.textContent = new Date().toLocaleDateString('cs-CZ');
+        if (printCreatedBy) printCreatedBy.textContent = getCurrentUser();
+        if (printApprovedBy) printApprovedBy.textContent = '________________';
         document.body.className = document.body.className.replace(/\bprint-mode\b/g, '').trim();
         document.body.className += (document.body.className ? ' ' : '') + 'print-mode';
         window.print();

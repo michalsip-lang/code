@@ -150,9 +150,9 @@ fmeaApp.loadRecords();
 
 ### Tisk a PDF
 
-Aplikace podporuje tisk FMEA tabulky a uložení do PDF přes tiskový dialog prohlížeče. Výstup obsahuje hlavičku samohýl group a samotnou FMEA tabulku.
+Aplikace podporuje tisk FMEA Protokolu a uložení do PDF přes tiskový dialog prohlížeče. Výstup obsahuje hlavičku samohýl group a samotný FMEA Protokol.
 ```html
-<button class="btn-secondary" onclick="fmeaApp.printReport()">Tisk FMEA tabulky</button>
+<button class="btn-secondary" onclick="fmeaApp.printReport()">Tisk FMEA Protokolu</button>
 <button class="btn-primary" onclick="fmeaApp.saveAsPDF()">PDF</button>
 ```
 

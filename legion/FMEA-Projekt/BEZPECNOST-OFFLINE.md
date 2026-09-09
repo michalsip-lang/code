@@ -195,9 +195,9 @@ Výsledek: ⏳ Zatím není implementováno
 
 ## 💾 Výstupy a Obnova
 
-### Tisk / PDF FMEA tabulky
+### Tisk / PDF FMEA Protokolu
 ```
-1. Klikni "Tisk FMEA tabulky" nebo "PDF"
+1. Klikni "Tisk FMEA Protokolu" nebo "PDF"
 2. Otevře se tiskový dialog prohlížeče
 3. Pro PDF vyber "Uložit jako PDF"
 ```

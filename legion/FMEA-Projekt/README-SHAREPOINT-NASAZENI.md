@@ -177,7 +177,7 @@ Pro produkci má aplikace běžet nad SharePointem. Lokální `localStorage` je 
 6. Vytvořit testovací FMEA záznam.
 7. Ověřit tlačítko `Detail`.
 8. Ověřit `Změnit záznam` a zápis historie.
-9. Ověřit tisk FMEA tabulky a uložení do PDF.
+9. Ověřit tisk FMEA Protokolu a uložení do PDF.
 10. Ověřit přístup běžným uživatelem bez správcovských práv.
 
 ## Kontrola po nasazení
