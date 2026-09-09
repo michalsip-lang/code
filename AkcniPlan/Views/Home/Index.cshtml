@@ -1,0 +1,93 @@
+@model AkcniPlan.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+
+    string StatusLabel(AkcniPlan.Models.TaskItemStatus status) => status switch
+    {
+        AkcniPlan.Models.TaskItemStatus.Todo => "K vyřízení",
+        AkcniPlan.Models.TaskItemStatus.InProgress => "Rozpracováno",
+        AkcniPlan.Models.TaskItemStatus.Done => "Hotovo",
+        AkcniPlan.Models.TaskItemStatus.Blocked => "Blokováno",
+        _ => status.ToString()
+    };
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0 samohyl-page-title">Dashboard</h1>
+        <div class="samohyl-subtitle">Osobní řízení úkolů v barvách Samohýl.</div>
+    </div>
+    <a class="btn btn-primary" asp-controller="Tasks" asp-action="Create">Přidat úkol</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-2"><a class="samohyl-kpi-link" asp-controller="Tasks" asp-action="Index" asp-route-filter="overdue"><div class="card samohyl-kpi samohyl-kpi-red"><div class="card-body"><div class="small">Po termínu</div><div class="fs-4">@Model.OverdueCount</div></div></div></a></div>
+    <div class="col-md-2"><a class="samohyl-kpi-link" asp-controller="Tasks" asp-action="Index" asp-route-filter="today"><div class="card samohyl-kpi samohyl-kpi-grey"><div class="card-body"><div class="small">Na dnešek</div><div class="fs-4">@Model.TodayCount</div></div></div></a></div>
+    <div class="col-md-2"><a class="samohyl-kpi-link" asp-controller="Tasks" asp-action="Index" asp-route-filter="week"><div class="card samohyl-kpi samohyl-kpi-blue"><div class="card-body"><div class="small">Tento týden</div><div class="fs-4">@Model.ThisWeekCount</div></div></div></a></div>
+    <div class="col-md-2"><a class="samohyl-kpi-link" asp-controller="Tasks" asp-action="Index" asp-route-filter="completed"><div class="card samohyl-kpi samohyl-kpi-blue"><div class="card-body"><div class="small">Dokončené</div><div class="fs-4">@Model.CompletedCount</div></div></div></a></div>
+    <div class="col-md-2"><a class="samohyl-kpi-link" asp-controller="Tasks" asp-action="Index" asp-route-filter="inprogress"><div class="card samohyl-kpi samohyl-kpi-grey"><div class="card-body"><div class="small">Rozpracované</div><div class="fs-4">@Model.InProgressCount</div></div></div></a></div>
+    <div class="col-md-2"><a class="samohyl-kpi-link" asp-controller="Tasks" asp-action="Index"><div class="card samohyl-kpi samohyl-kpi-light"><div class="card-body"><div class="small">KPI plnění</div><div class="fs-4">@Model.CompletionRate.ToString("0.0")%</div></div></div></a></div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h5 samohyl-panel-title">Doporučení</h2>
+                <ul class="mb-0">
+                    @foreach (var rec in Model.Recommendations)
+                    {
+                        <li>@rec</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h5 samohyl-panel-title">Top priority</h2>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr><th>Úkol</th><th>Termín</th><th>Skóre</th><th>Stav</th></tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var t in Model.TopPriorityTasks)
+                        {
+                            <tr>
+                                <td>@t.Title</td>
+                                <td>@(t.DueDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                <td><span class="badge text-bg-primary">@t.PriorityScore</span></td>
+                                <td>@StatusLabel(t.Status)</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card"><div class="card-body"><h2 class="h6 samohyl-panel-title">Trend dokončení (den)</h2><canvas id="dailyChart"></canvas></div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card"><div class="card-body"><h2 class="h6 samohyl-panel-title">Porovnání týdnů</h2><canvas id="weeklyChart"></canvas></div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card"><div class="card-body"><h2 class="h6 samohyl-panel-title">Měsíční trend</h2><canvas id="monthlyChart"></canvas></div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card"><div class="card-body"><h2 class="h6 samohyl-panel-title">Rozložení stavů</h2><canvas id="statusChart"></canvas></div></div>
+    </div>
+    <div class="col-12">
+        <div class="card"><div class="card-body"><h2 class="h6 samohyl-panel-title">Heatmapa produktivity (120 dní)</h2><div id="heatmap" class="heatmap-grid"></div></div></div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/dashboard.js" asp-append-version="true"></script>
+}

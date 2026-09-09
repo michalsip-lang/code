@@ -1,0 +1,256 @@
+:root {
+    --samohyl-blue: #292982;
+    --samohyl-grey: #808184;
+    --samohyl-red: #e01b37;
+    --samohyl-ink: #14162f;
+    --samohyl-surface: #ffffff;
+    --samohyl-bg: #f3f4f8;
+    --samohyl-line: rgba(41, 41, 130, 0.12);
+}
+
+body {
+    background:
+        radial-gradient(circle at top left, rgba(224, 27, 55, 0.08), transparent 30%),
+        radial-gradient(circle at top right, rgba(41, 41, 130, 0.10), transparent 28%),
+        linear-gradient(180deg, #fbfbfd 0%, var(--samohyl-bg) 100%);
+    color: var(--samohyl-ink);
+    font-family: "Source Sans 3", "Segoe UI", sans-serif;
+}
+
+h1, h2, h3, h4, h5, .navbar-brand {
+    font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+    letter-spacing: 0.02em;
+}
+
+.navbar.samohyl-navbar {
+    background: linear-gradient(90deg, var(--samohyl-blue) 0%, #34349a 62%, var(--samohyl-grey) 100%);
+    box-shadow: 0 12px 30px rgba(41, 41, 130, 0.22);
+}
+
+.navbar.samohyl-navbar .navbar-brand,
+.navbar.samohyl-navbar .nav-link {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.navbar.samohyl-navbar .nav-link:hover,
+.navbar.samohyl-navbar .nav-link:focus {
+    color: #ffffff;
+}
+
+.samohyl-shell {
+    padding-bottom: 2rem;
+}
+
+.samohyl-page-title {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--samohyl-blue);
+}
+
+.samohyl-subtitle {
+    color: var(--samohyl-grey);
+}
+
+.card {
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 8px 26px rgba(20, 22, 47, 0.06);
+}
+
+.btn-primary {
+    background-color: var(--samohyl-blue);
+    border-color: var(--samohyl-blue);
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+    background-color: #1f1f63;
+    border-color: #1f1f63;
+}
+
+.btn-outline-primary {
+    color: var(--samohyl-blue);
+    border-color: var(--samohyl-blue);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active {
+    color: #fff;
+    background-color: var(--samohyl-blue);
+    border-color: var(--samohyl-blue);
+}
+
+.badge.text-bg-primary {
+    background-color: var(--samohyl-blue) !important;
+}
+
+.badge.text-bg-secondary {
+    background-color: var(--samohyl-grey) !important;
+}
+
+.alert-info {
+    background-color: rgba(41, 41, 130, 0.08);
+    border-color: rgba(41, 41, 130, 0.18);
+    color: var(--samohyl-blue);
+}
+
+.samohyl-kpi {
+    overflow: hidden;
+    position: relative;
+    color: #fff;
+}
+
+.samohyl-kpi-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.samohyl-kpi-link:hover .samohyl-kpi,
+.samohyl-kpi-link:focus .samohyl-kpi {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(20, 22, 47, 0.18);
+}
+
+.samohyl-kpi::after {
+    content: "";
+    position: absolute;
+    inset: auto -15% -35% auto;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.10);
+}
+
+.samohyl-kpi-blue {
+    background: linear-gradient(135deg, var(--samohyl-blue), #3737aa);
+}
+
+.samohyl-kpi-red {
+    background: linear-gradient(135deg, var(--samohyl-red), #ef3b58);
+}
+
+.samohyl-kpi-grey {
+    background: linear-gradient(135deg, var(--samohyl-grey), #9a9ba0);
+}
+
+.samohyl-kpi-light {
+    background: linear-gradient(135deg, #d9d9e7, #b7b9c8);
+    color: var(--samohyl-ink);
+}
+
+.samohyl-panel-title {
+    color: var(--samohyl-blue);
+    font-weight: 700;
+}
+
+.table thead th {
+    color: var(--samohyl-grey);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(41, 41, 130, 0.04);
+}
+
+.samohyl-area-title {
+    color: var(--samohyl-blue);
+    font-weight: 700;
+}
+
+.samohyl-area-card {
+    border-top: 4px solid var(--samohyl-blue);
+}
+
+.samohyl-area-picker {
+    border: 1px solid var(--samohyl-line);
+    border-top: 4px solid var(--samohyl-blue);
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 0.75rem 0.9rem;
+    text-align: left;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.samohyl-area-picker:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(20, 22, 47, 0.08);
+}
+
+.samohyl-area-picker.is-active {
+    box-shadow: 0 10px 24px rgba(20, 22, 47, 0.12);
+    border-color: rgba(41, 41, 130, 0.24);
+}
+
+.samohyl-area-picker-title {
+    display: block;
+    font-family: "Barlow Condensed", "Segoe UI", sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--samohyl-blue);
+}
+
+.samohyl-area-picker-count {
+    display: block;
+    margin-top: 0.15rem;
+    color: var(--samohyl-grey);
+    font-size: 0.86rem;
+}
+
+.samohyl-area-picker.area-svp { border-top-color: var(--samohyl-blue); }
+.samohyl-area-picker.area-sdp { border-top-color: var(--samohyl-grey); }
+.samohyl-area-picker.area-bozp { border-top-color: #005f73; }
+.samohyl-area-picker.area-po { border-top-color: var(--samohyl-red); }
+.samohyl-area-picker.area-jine { border-top-color: #6c757d; }
+
+.samohyl-area-card.area-svp { border-top-color: var(--samohyl-blue); }
+.samohyl-area-card.area-sdp { border-top-color: var(--samohyl-grey); }
+.samohyl-area-card.area-bozp { border-top-color: #005f73; }
+.samohyl-area-card.area-po { border-top-color: var(--samohyl-red); }
+.samohyl-area-card.area-jine { border-top-color: #6c757d; }
+
+.samohyl-area-badge {
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.35rem 0.55rem;
+}
+
+.samohyl-area-badge.area-svp { background: var(--samohyl-blue); }
+.samohyl-area-badge.area-sdp { background: var(--samohyl-grey); }
+.samohyl-area-badge.area-bozp { background: #005f73; }
+.samohyl-area-badge.area-po { background: var(--samohyl-red); }
+.samohyl-area-badge.area-jine { background: #6c757d; }
+
+.samohyl-input:focus,
+.form-control:focus,
+.form-select:focus {
+    border-color: rgba(41, 41, 130, 0.35);
+    box-shadow: 0 0 0 0.25rem rgba(41, 41, 130, 0.12);
+}
+
+.heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(30, 1fr);
+    gap: 4px;
+}
+
+.heat-cell {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.heat-0 { background: #ececf2; }
+.heat-1 { background: #c8c9dd; }
+.heat-2 { background: #9698bf; }
+.heat-3 { background: #5a5dac; }
+.heat-4 { background: var(--samohyl-blue); }

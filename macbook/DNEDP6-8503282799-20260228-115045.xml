@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Pisemnost nazevSW="EPO MF ČR" verzeSW="47.6.1">
+<DNEDP6 verzePis="01.02">
+<VetaD k_uladis="DNE" dokument="DP6" poc_ldapoz="2" poc_ldasta="2" poc_prilkl="0" poc_prilost="0" sahoro="N" dapdne_typ="B" rok="2026" kc_pcelpoa="142" kc_scelpoa="809" kc_celpoa="951" c_ufo_cil="457" prihl_email="N" />
+<VetaP rod_c="8503282799" typ_ds="F" prijmeni="Šíp" rodnepr="Šíp" jmeno="Michal" naz_obce="HEJNICE" c_obce="564044" ulice="FERDINANDOV" c_pop="462" psc="46362" stat="ČESKÁ REPUBLIKA" k_stat="CZ" c_telef="703188144" email="michalsip@hotmail.cz" sest_jmeno="Michal" sest_prijmeni="Šíp" sest_telef="703188144" sest_email="michalsip@hotmail.cz" c_pracufo="2601" id_dats="4h9kbbc" />
+<VetaO c_listu="1" poc_pril="0" k_pozemku="E" c_obce="564044" c_katuz="638196" vym_celkem="459.00" zast_celkem="165.00" osv_celkem="0.00" vym_drpozpo="294.00" za_da53po="294" pr_sazd62po="0.35" kc_dapozpo="103" vym_nospo="0.00" kc_danosvpo="103" kc_dpov28po="103" k_mist12_2po="1.0" kc_dpovk12_2po="103" cena_zjistena="N" k_infl_2po="1.0" kc_dpovinfl_2po="103" />
+<VetaO c_listu="2" poc_pril="0" k_pozemku="Q" c_obce="564044" c_katuz="638196" vym_celkem="110.00" zast_celkem="0.00" osv_celkem="0.00" vym_drpozpo="110.00" za_da53po="110" pr_sazd62po="0.35" kc_dapozpo="39" vym_nospo="0.00" kc_danosvpo="39" kc_dpov28po="39" k_mist12_2po="1.0" kc_dpovk12_2po="39" cena_zjistena="N" k_infl_2po="1.0" kc_dpovinfl_2po="39" />
+<VetaA c_listu="1" c_kmpar="311" c_podlpar="3" vym_par="307.00" pravvz="V" zas_plo="92.00" />
+<VetaA c_listu="1" c_kmpar="581" vym_par="152.00" pravvz="V" zas_plo="73.00" />
+<VetaA c_listu="2" c_kmpar="3685" vym_par="110.00" pravvz="V" />
+<VetaS c_listu="1" poc_pril="0" k_stavby="H" c_obce="564044" c_katuz="638196" vym_celkem="73.00" vym_zapl10po="73" kc_sazd111po="3.50" poc_podlazpo="0" k_k1134po="1.4" kc_vysazdpo="4.90" kc_dastapo="358" pom_vym92po="0.00" kc_nos9po="0.00" kc_dpov53po="358" k_mist12_3po="1.0" kc_dpovk12_3po="358" kc_danosv3po="358" k_infl_3po="1.0" kc_dpovinfl_3po="358" />
+<VetaS c_listu="2" poc_pril="0" k_stavby="I" c_obce="564044" c_katuz="638196" vym_celkem="92.00" vym_zapl10po="92" kc_sazd111po="3.50" poc_podlazpo="0" k_k1134po="1.4" kc_vysazdpo="4.90" kc_dastapo="451" pom_vym92po="0.00" kc_nos9po="0.00" kc_dpov53po="451" k_mist12_3po="1.0" kc_dpovk12_3po="451" kc_danosv3po="451" k_infl_3po="1.0" kc_dpovinfl_3po="451" />
+<VetaC c_listu="1" c_popev="462" c_kmpar="581" pravvz="V" zas_plo="73.00" typ_parcely="S" />
+<VetaC c_listu="2" c_kmpar="311" c_podlpar="3" pravvz="V" zas_plo="92.00" typ_parcely="S" />
+</DNEDP6>
+<Kontrola><Veta__P nazev="P:typ_ds" priznak="21" poradi="1" />
+<Veta__P nazev="P:dic" priznak="21" poradi="1" />
+<Veta__P nazev="P:ulice" priznak="21" poradi="1" />
+<Veta__H nazev="P:typ_ds" puv_data="F" poradi="1" />
+<Veta__H nazev="P:ulice" puv_data="FERDINANDOV" poradi="1" />
+<Soubor Delka="2506" KC="167b309bbbaedda96fe83e16297e8f75" Nazev="DNEDP6-8503282799-20260228-115045" c_ufo="457" /></Kontrola></Pisemnost>

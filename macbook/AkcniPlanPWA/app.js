@@ -1,0 +1,1916 @@
+const DB_NAME = "akcni-plan-local";
+const DB_VERSION = 2;
+const STORE = "tasks";
+const LS_KEY = "akcni-plan-local-tasks";
+const RECOVERY_KEY = "akcni-plan-recovery-attempted";
+const SYNC_URL_KEY = "akcni-plan-sync-url";
+const SYNC_ANON_KEY = "akcni-plan-sync-anon-key";
+const SYNC_TOKEN_KEY = "akcni-plan-sync-access-token";
+const SYNC_PENDING_ACTION_KEY = "akcni-plan-sync-pending-action";
+const SYNC_TOMBSTONES_KEY = "akcni-plan-sync-deleted-task-tombstones";
+const DEFAULT_SYNC_URL = "https://vpjgpcnvpwarvcxfoteo.supabase.co";
+const DEFAULT_SYNC_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwamdwY252cHdhcnZjeGZvdGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0NDM0MDksImV4cCI6MjEwNDAxOTQwOX0.5bgXCFJZ-gfFfjb7Ua2dmpKU8KMGnyFFtNY3dTUAJPs";
+const ACCOUNT_DEFINITIONS = {
+  "tomas.pavelka": {
+    email: "tomas.pavelka@example.com",
+    displayName: "Tomáš Pavelka"
+  },
+  "michal.sip": {
+    email: "michal.sip@example.com",
+    displayName: "Michal Šíp"
+  }
+};
+const DEFAULT_ACCOUNT_USERNAME = "tomas.pavelka";
+const LEGACY_TASK_OWNER_USERNAME = "michal.sip";
+const SHARED_PLAN_PROFILE_ID = "akcni-plan-shared";
+const AUTO_PUSH_DEBOUNCE_MS = 700;
+const AUTO_PULL_THROTTLE_MS = 20000;
+const AUTO_PULL_INTERVAL_MS = 45000;
+
+const AREA_ORDER = ["Svp", "Sdp", "Bozp", "Po", "Jine"];
+const STATUS_ORDER = ["Todo", "InProgress", "Done", "Blocked"];
+
+const AREA_LABEL = {
+  Svp: "SVP",
+  Sdp: "SDP",
+  Bozp: "BOZP",
+  Po: "PO",
+  Jine: "Jine"
+};
+
+const STATUS_LABEL = {
+  Todo: "K vyřízení",
+  InProgress: "Rozpracováno",
+  Done: "Hotovo",
+  Blocked: "Blokováno"
+};
+
+const FILTER_LABEL = {
+  todo: "K vyřízení",
+  blocked: "Blokované",
+  completed: "Dokončené",
+  inprogress: "Rozpracované",
+  open: "Otevřené"
+};
+
+const brand = {
+  blue: "#292982",
+  grey: "#808184",
+  red: "#e01b37",
+  blueSoft: "rgba(41, 41, 130, 0.16)",
+  greySoft: "rgba(128, 129, 132, 0.20)",
+  redSoft: "rgba(224, 27, 55, 0.18)"
+};
+
+let db;
+let tasks = [];
+let activeFilter = null;
+let editTaskId = null;
+let activeTaskDetailId = null;
+let charts = [];
+let storageMode = "indexeddb";
+let syncConfig = { url: DEFAULT_SYNC_URL, anonKey: DEFAULT_SYNC_ANON_KEY };
+let authState = { accessToken: "", userId: "", email: "", username: "", displayName: "" };
+let deletedTaskTombstones = {};
+let autoSyncTimer = null;
+let autoSyncInFlight = false;
+let autoSyncQueued = false;
+let lastAutoPullAt = 0;
+let autoPullIntervalId = null;
+
+init().catch(async (error) => {
+  console.error(error);
+  const recovered = await tryClientRecovery(error);
+  if (!recovered) {
+    alert("Aplikaci se nepodařilo inicializovat. Na iPadu zkuste vypnout soukromé prohlížení nebo povolit data webu pro Safari.");
+  }
+});
+
+async function init() {
+  ensureDomContract();
+  setupNavigation();
+  setupSyncPanel();
+  setupServiceWorker();
+  deletedTaskTombstones = loadDeletedTaskTombstones();
+
+  if (!isAuthenticated()) {
+    lockApp("Pro používání aplikace je nutné přihlášení k jednomu z povolených účtů.");
+    updateSyncStatus("Přístup odepřen: nejste přihlášen.", true);
+    return;
+  }
+
+  unlockApp();
+  setupCreateForm();
+  setupAutoForm();
+
+  try {
+    db = await openDb();
+    storageMode = "indexeddb";
+  } catch (error) {
+    console.warn("IndexedDB není dostupná, přepínám na localStorage", error);
+    storageMode = "localstorage";
+  }
+
+  tasks = await loadTasks();
+  if (migrateLegacyTaskOwners(tasks) > 0) {
+    await persistAllTasksLocally(tasks);
+    scheduleAutoPush("migrate-legacy-owners");
+  }
+
+  renderAll();
+  setupAutoSyncTriggers();
+  await runSyncAction(pullFromCloud, "pull", {
+    authMode: "prompt-login",
+    authPrompt: "Pro automatické načtení z cloudu je potřeba přihlášení. Přihlásit se teď?"
+  });
+}
+
+function ensureDomContract() {
+  const requiredIds = [
+    "auth-gate", "auth-gate-message", "auth-gate-status", "gate-username", "gate-login", "gate-password", "app-shell",
+    "task-form", "auto-form", "kpi-grid", "area-picker", "area-panels", "top-priority-body", "heatmap",
+    "task-detail-content",
+    "sync-form", "supabase-url", "supabase-key", "sync-status", "sync-quick-status",
+    "nav-auth-status",
+    "auth-username", "auth-password", "auth-login", "auth-logout", "auth-status"
+  ];
+  requiredIds.forEach((id) => {
+    if (!document.getElementById(id)) {
+      throw new Error(`Missing required element: ${id}`);
+    }
+  });
+}
+
+async function tryClientRecovery(error) {
+  try {
+    if (sessionStorage.getItem(RECOVERY_KEY) === "1") {
+      return false;
+    }
+
+    const message = String(error?.message || error || "").toLowerCase();
+    const shouldRecover = message.includes("missing required element")
+      || message.includes("indexeddb")
+      || message.includes("quota")
+      || message.includes("invalidstateerror")
+      || message.includes("notfounderror")
+      || message.includes("can't find variable")
+      || message.includes("is not an object")
+      || message.includes("undefined is not")
+      || message.includes("referenceerror")
+      || message.includes("typeerror");
+
+    if (!shouldRecover) {
+      return false;
+    }
+
+    sessionStorage.setItem(RECOVERY_KEY, "1");
+
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("v", "24");
+    url.searchParams.set("t", String(Date.now()));
+    window.location.replace(url.toString());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const nextDb = request.result;
+      let store;
+      if (!nextDb.objectStoreNames.contains(STORE)) {
+        store = nextDb.createObjectStore(STORE, { keyPath: "id" });
+      } else {
+        store = request.transaction.objectStore(STORE);
+      }
+
+      if (!store.indexNames.contains("status")) {
+        store.createIndex("status", "status", { unique: false });
+      }
+      if (!store.indexNames.contains("createdAt")) {
+        store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function tx(mode = "readonly") {
+  return db.transaction(STORE, mode).objectStore(STORE);
+}
+
+function loadTasks() {
+  if (storageMode === "localstorage") {
+    return Promise.resolve(loadTasksFromLocalStorage());
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = tx().getAll();
+    request.onsuccess = () => {
+      const rows = (request.result || []).map(normalizeTask);
+      rows.forEach((task) => {
+        task.priorityScore = calculatePriority(task);
+      });
+      resolve(rows);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function persistTask(task) {
+  if (storageMode === "localstorage") {
+    saveTasksToLocalStorage(tasks);
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = tx("readwrite").put(task);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function deleteTaskById(id) {
+  if (storageMode === "localstorage") {
+    tasks = tasks.filter((row) => row.id !== id);
+    saveTasksToLocalStorage(tasks);
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = tx("readwrite").delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function clearStore() {
+  if (storageMode === "localstorage") {
+    try {
+      localStorage.removeItem(LS_KEY);
+    } catch {
+    }
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = tx("readwrite").clear();
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function loadTasksFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.map(normalizeTask);
+  } catch {
+    return [];
+  }
+}
+
+function setupSyncPanel() {
+  syncConfig = loadSyncConfig();
+  authState = loadAuthState();
+  hydrateAuthFromUrlHash();
+
+  const form = document.getElementById("sync-form");
+  const urlInput = document.getElementById("supabase-url");
+  const keyInput = document.getElementById("supabase-key");
+  const gateUsernameInput = document.getElementById("gate-username");
+  const gatePasswordInput = document.getElementById("gate-password");
+  const gateLoginButton = document.getElementById("gate-login");
+  const usernameInput = document.getElementById("auth-username");
+  const passwordInput = document.getElementById("auth-password");
+  const loginButton = document.getElementById("auth-login");
+  const logoutButton = document.getElementById("auth-logout");
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+  });
+
+  urlInput.value = syncConfig.url;
+  keyInput.value = syncConfig.anonKey;
+  urlInput.readOnly = true;
+  keyInput.readOnly = true;
+  usernameInput.value = authState.username || DEFAULT_ACCOUNT_USERNAME;
+  gateUsernameInput.value = authState.username || DEFAULT_ACCOUNT_USERNAME;
+
+  gatePasswordInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      gateLoginButton.click();
+    }
+  });
+
+  passwordInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      loginButton.click();
+    }
+  });
+
+  loginButton.addEventListener("click", async () => {
+    await runAuthAction(async () => {
+      const username = String(usernameInput.value || "").trim();
+      await loginNamedAccount(username, String(passwordInput.value || "").trim());
+      passwordInput.value = "";
+      gatePasswordInput.value = "";
+      gateUsernameInput.value = username;
+      unlockApp();
+      refreshAuthStatus();
+      updateSyncStatus("Přihlášení úspěšné.");
+    });
+  });
+
+  gateLoginButton.addEventListener("click", async () => {
+    await runAuthAction(async () => {
+      const username = String(gateUsernameInput.value || "").trim();
+      await loginNamedAccount(username, String(gatePasswordInput.value || "").trim());
+      usernameInput.value = username;
+      passwordInput.value = "";
+      gatePasswordInput.value = "";
+      window.location.reload();
+    });
+  });
+
+  logoutButton.addEventListener("click", async () => {
+    await runAuthAction(async () => {
+      clearAuthState();
+      refreshAuthStatus();
+      updateSyncStatus("Odhlášeno.");
+      usernameInput.value = DEFAULT_ACCOUNT_USERNAME;
+      gateUsernameInput.value = DEFAULT_ACCOUNT_USERNAME;
+      lockApp("Byli jste odhlášeni. Pro další práci se přihlaste k jednomu z povolených účtů.");
+    });
+  });
+
+  if (isAuthenticated()) {
+    unlockApp();
+  }
+
+  refreshAuthStatus();
+  updateSyncStatus(syncConfigReady() ? "Cloud sync je připraven (automatický režim)." : "Cloud sync není nastaven.");
+  resumePendingSyncAction();
+}
+
+function hydrateAuthFromUrlHash() {
+  return;
+}
+
+function getAccountByUsername(username) {
+  return ACCOUNT_DEFINITIONS[String(username || "").trim().toLowerCase()] || null;
+}
+
+function getAccountByEmail(email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  return Object.entries(ACCOUNT_DEFINITIONS).find(([, account]) => account.email === normalizedEmail) || null;
+}
+
+function loadSyncConfig() {
+  try {
+    const url = localStorage.getItem(SYNC_URL_KEY) || DEFAULT_SYNC_URL;
+    const anonKey = localStorage.getItem(SYNC_ANON_KEY) || DEFAULT_SYNC_ANON_KEY;
+    if (!localStorage.getItem(SYNC_URL_KEY) || !localStorage.getItem(SYNC_ANON_KEY)) {
+      saveSyncConfig({ url, anonKey });
+    }
+    return {
+      url,
+      anonKey
+    };
+  } catch {
+    return { url: DEFAULT_SYNC_URL, anonKey: DEFAULT_SYNC_ANON_KEY };
+  }
+}
+
+function saveSyncConfig(config) {
+  try {
+    localStorage.setItem(SYNC_URL_KEY, config.url || "");
+    localStorage.setItem(SYNC_ANON_KEY, config.anonKey || "");
+  } catch (error) {
+    console.warn("Nepodařilo se uložit sync konfiguraci", error);
+  }
+}
+
+function syncConfigReady() {
+  return Boolean(syncConfig.url && syncConfig.anonKey);
+}
+
+function loadAuthState() {
+  try {
+    const token = localStorage.getItem(SYNC_TOKEN_KEY) || "";
+    if (!token) {
+      return { accessToken: "", userId: "", email: "", username: "", displayName: "" };
+    }
+
+    const payload = parseJwt(token);
+    const expMs = (payload?.exp || 0) * 1000;
+    if (!payload?.sub || !expMs || Date.now() >= expMs) {
+      localStorage.removeItem(SYNC_TOKEN_KEY);
+      return { accessToken: "", userId: "", email: "", username: "", displayName: "" };
+    }
+
+    const email = payload?.email || "";
+    const accountEntry = getAccountByEmail(email);
+    const username = accountEntry?.[0] || "";
+    const displayName = accountEntry?.[1]?.displayName || email || "";
+
+    return {
+      accessToken: token,
+      userId: payload?.sub || "",
+      email,
+      username,
+      displayName
+    };
+  } catch {
+    return { accessToken: "", userId: "", email: "", username: "", displayName: "" };
+  }
+}
+
+function saveAuthToken(token) {
+  localStorage.setItem(SYNC_TOKEN_KEY, token);
+  const payload = parseJwt(token);
+  const email = payload?.email || "";
+  const accountEntry = getAccountByEmail(email);
+  authState = {
+    accessToken: token,
+    userId: payload?.sub || "",
+    email,
+    username: accountEntry?.[0] || "",
+    displayName: accountEntry?.[1]?.displayName || email || ""
+  };
+}
+
+function clearAuthState() {
+  localStorage.removeItem(SYNC_TOKEN_KEY);
+  authState = { accessToken: "", userId: "", email: "", username: "", displayName: "" };
+}
+
+async function loginNamedAccount(username, password) {
+  const account = getAccountByUsername(username);
+  if (!account) {
+    throw new Error("Vyberte platný účet.");
+  }
+
+  if (!password) {
+    throw new Error("Zadejte heslo k účtu.");
+  }
+
+  const response = await fetch(`${syncConfig.url}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: {
+      "apikey": syncConfig.anonKey,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      email: account.email,
+      password
+    })
+  });
+
+  const body = await safeJson(response);
+  if (!response.ok || !body?.access_token) {
+    throw new Error(body?.msg || body?.error_description || "Přihlášení ke sdílenému účtu selhalo.");
+  }
+
+  saveAuthToken(body.access_token);
+}
+
+async function safeJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function loadDeletedTaskTombstones() {
+  try {
+    const raw = localStorage.getItem(SYNC_TOMBSTONES_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDeletedTaskTombstones() {
+  try {
+    localStorage.setItem(SYNC_TOMBSTONES_KEY, JSON.stringify(deletedTaskTombstones));
+  } catch (error) {
+    console.warn("Nepodařilo se uložit mazací metadata do localStorage", error);
+  }
+}
+
+function markTaskDeleted(id, deletedAt = new Date().toISOString()) {
+  deletedTaskTombstones[id] = deletedAt;
+  saveDeletedTaskTombstones();
+}
+
+function clearTaskDeletedMark(id) {
+  if (!deletedTaskTombstones[id]) {
+    return;
+  }
+
+  delete deletedTaskTombstones[id];
+  saveDeletedTaskTombstones();
+}
+
+function isAuthenticated() {
+  return Boolean(authState.accessToken && authState.userId);
+}
+
+function lockApp(message) {
+  const gate = document.getElementById("auth-gate");
+  const gateMessage = document.getElementById("auth-gate-message");
+  gateMessage.textContent = message;
+  gate.classList.remove("hidden");
+  document.body.classList.add("auth-locked");
+}
+
+function unlockApp() {
+  const gate = document.getElementById("auth-gate");
+  gate.classList.add("hidden");
+  document.body.classList.remove("auth-locked");
+}
+
+function parseJwt(token) {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) {
+      return null;
+    }
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function refreshAuthStatus() {
+  const host = document.getElementById("auth-status");
+  const navHost = document.getElementById("nav-auth-status");
+  if (!syncConfigReady()) {
+    host.textContent = "Cloud není nastaven.";
+    navHost.textContent = "Připojeno: NE";
+    return;
+  }
+
+  if (authState.userId) {
+    const userLabel = authState.displayName || authState.email || authState.userId;
+    host.textContent = `Připojeno: ANO (${userLabel})`;
+    navHost.textContent = `Uživatel: ${userLabel}`;
+  } else {
+    host.textContent = "Připojeno: NE";
+    navHost.textContent = "Připojeno: NE";
+  }
+}
+
+async function runAuthAction(action) {
+  if (!syncConfigReady()) {
+    updateSyncStatus("Cloud není nastaven.", true);
+    return;
+  }
+
+  try {
+    await action();
+  } catch (error) {
+    console.error(error);
+    updateSyncStatus(`Auth selhal: ${String(error.message || error)}`, true);
+    lockApp("Pro používání aplikace se přihlaste k jednomu z povolených účtů.");
+  }
+}
+
+function updateSyncStatus(text, isError = false) {
+  const host = document.getElementById("sync-status");
+  const quickHost = document.getElementById("sync-quick-status");
+  const gateHost = document.getElementById("auth-gate-status");
+  host.textContent = text;
+  host.style.color = isError ? "#a61f2c" : "";
+  quickHost.textContent = text;
+  quickHost.style.color = isError ? "#a61f2c" : "";
+  gateHost.textContent = text;
+  gateHost.style.color = isError ? "#a61f2c" : "";
+}
+
+async function runSyncAction(action, actionName = "", options = {}) {
+  const {
+    authMode = "force-login",
+    authPrompt = "Pro cloud sync je vyžadováno přihlášení. Přihlásit se teď?"
+  } = options;
+
+  if (!syncConfigReady()) {
+    updateSyncStatus("Cloud není nastaven.", true);
+    return;
+  }
+
+  if (!authState.accessToken || !authState.userId) {
+    if (authMode === "silent-skip") {
+      updateSyncStatus("Synchronizace čeká na přihlášení.", true);
+      return false;
+    }
+
+    let shouldLogin = true;
+    if (authMode === "prompt-login") {
+      shouldLogin = window.confirm(authPrompt);
+    }
+
+    if (!shouldLogin) {
+      updateSyncStatus("Synchronizace nebyla provedena: uživatel není přihlášen.", true);
+      return false;
+    }
+
+    if (actionName) {
+      sessionStorage.setItem(SYNC_PENDING_ACTION_KEY, actionName);
+    }
+    lockApp("Pro pokračování vyberte účet a zadejte heslo.");
+    updateSyncStatus("Synchronizace čeká na přihlášení.", true);
+    return false;
+  }
+
+  try {
+    updateSyncStatus("Probíhá synchronizace...");
+    await action();
+    renderAll();
+    return true;
+  } catch (error) {
+    console.error(error);
+    updateSyncStatus(`Sync selhal: ${String(error.message || error)}`, true);
+    return false;
+  }
+}
+
+function setupAutoSyncTriggers() {
+  const tryAutoPull = () => {
+    const now = Date.now();
+    if (now - lastAutoPullAt < AUTO_PULL_THROTTLE_MS) {
+      return;
+    }
+    lastAutoPullAt = now;
+    runSyncAction(pullFromCloud, "pull", { authMode: "silent-skip" });
+  };
+
+  window.addEventListener("focus", tryAutoPull);
+  window.addEventListener("online", tryAutoPull);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      tryAutoPull();
+    }
+  });
+
+  if (!autoPullIntervalId) {
+    autoPullIntervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      tryAutoPull();
+    }, AUTO_PULL_INTERVAL_MS);
+  }
+}
+
+function scheduleAutoPush(reason = "") {
+  if (autoSyncTimer) {
+    window.clearTimeout(autoSyncTimer);
+  }
+
+  autoSyncTimer = window.setTimeout(() => {
+    autoSyncTimer = null;
+    void executeAutoPush(reason);
+  }, AUTO_PUSH_DEBOUNCE_MS);
+}
+
+async function executeAutoPush(reason = "") {
+  if (autoSyncInFlight) {
+    autoSyncQueued = true;
+    return;
+  }
+
+  autoSyncInFlight = true;
+  try {
+    await runSyncAction(pushToCloud, "push", {
+      authMode: "prompt-login",
+      authPrompt: "Pro automatické nahrání změn do cloudu je potřeba přihlášení. Přihlásit se teď?"
+    });
+  } finally {
+    autoSyncInFlight = false;
+    if (autoSyncQueued) {
+      autoSyncQueued = false;
+      scheduleAutoPush(reason || "queued");
+    }
+  }
+}
+
+function resumePendingSyncAction() {
+  const pending = sessionStorage.getItem(SYNC_PENDING_ACTION_KEY);
+  if (!pending || !authState.accessToken || !authState.userId) {
+    return;
+  }
+
+  sessionStorage.removeItem(SYNC_PENDING_ACTION_KEY);
+  if (pending === "push") {
+    runSyncAction(pushToCloud, "push");
+    return;
+  }
+  if (pending === "pull") {
+    runSyncAction(pullFromCloud, "pull");
+  }
+}
+
+function syncHeaders() {
+  return {
+    "apikey": syncConfig.anonKey,
+    "Authorization": `Bearer ${authState.accessToken}`,
+    "Content-Type": "application/json",
+    "Prefer": "return=minimal"
+  };
+}
+
+async function pushToCloud() {
+  const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
+  const remoteSnapshot = await fetchRemoteSnapshot();
+  const mergedSnapshot = mergeSyncSnapshot(tasks, remoteSnapshot.tasks, deletedTaskTombstones, remoteSnapshot.tombstones);
+  tasks = mergedSnapshot.tasks;
+  deletedTaskTombstones = mergedSnapshot.tombstones;
+  saveDeletedTaskTombstones();
+  await persistAllTasksLocally(tasks);
+  const profile = encodeURIComponent(SHARED_PLAN_PROFILE_ID);
+
+  const deleteResponse = await fetch(`${baseUrl}?profile_id=eq.${profile}`, {
+    method: "DELETE",
+    headers: syncHeaders()
+  });
+
+  if (!deleteResponse.ok) {
+    throw new Error(`Smazání cloud dat selhalo (${deleteResponse.status})`);
+  }
+
+  const payload = tasks.map((task) => ({
+    profile_id: SHARED_PLAN_PROFILE_ID,
+    task_id: task.id,
+    updated_at: task.updatedAt || new Date().toISOString(),
+    task
+  })).concat(Object.entries(deletedTaskTombstones).map(([id, deletedAt]) => ({
+    profile_id: SHARED_PLAN_PROFILE_ID,
+    task_id: id,
+    updated_at: deletedAt,
+    task: {
+      id,
+      deleted: true,
+      deletedAt
+    }
+  })));
+
+  if (payload.length > 0) {
+    const insertResponse = await fetch(baseUrl, {
+      method: "POST",
+      headers: syncHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (!insertResponse.ok) {
+      throw new Error(`Nahrání cloud dat selhalo (${insertResponse.status})`);
+    }
+  }
+
+  updateSyncStatus(`Nahráno do cloudu: ${tasks.length} úkolů.`);
+}
+
+async function pullFromCloud() {
+  const remoteSnapshot = await fetchRemoteSnapshot();
+  const mergedSnapshot = mergeSyncSnapshot(tasks, remoteSnapshot.tasks, deletedTaskTombstones, remoteSnapshot.tombstones);
+  const migratedCount = migrateLegacyTaskOwners(mergedSnapshot.tasks);
+  mergedSnapshot.tasks.forEach((task) => {
+    task.priorityScore = calculatePriority(task);
+  });
+
+  tasks = mergedSnapshot.tasks;
+  deletedTaskTombstones = mergedSnapshot.tombstones;
+  saveDeletedTaskTombstones();
+  await persistAllTasksLocally(tasks);
+  if (migratedCount > 0) {
+    scheduleAutoPush("migrate-legacy-owners");
+  }
+  updateSyncStatus(`Načteno z cloudu: ${tasks.length} úkolů.`);
+}
+
+async function fetchRemoteSnapshot() {
+  const baseUrl = `${syncConfig.url}/rest/v1/tasks_sync`;
+  const profile = encodeURIComponent(SHARED_PLAN_PROFILE_ID);
+  const selectResponse = await fetch(`${baseUrl}?select=task,updated_at&profile_id=eq.${profile}&order=updated_at.desc`, {
+    method: "GET",
+    headers: syncHeaders()
+  });
+
+  if (!selectResponse.ok) {
+    throw new Error(`Načtení cloud dat selhalo (${selectResponse.status})`);
+  }
+
+  const rows = await selectResponse.json();
+  const snapshot = {
+    tasks: [],
+    tombstones: {}
+  };
+
+  if (!Array.isArray(rows)) {
+    return snapshot;
+  }
+
+  rows.forEach((row) => {
+    const rawTask = row?.task || {};
+    const taskId = String(row?.task_id || rawTask.id || "").trim();
+    const updatedAt = row?.updated_at || rawTask.updatedAt || rawTask.deletedAt || new Date().toISOString();
+    if (!taskId) {
+      return;
+    }
+
+    if (rawTask.deleted) {
+      snapshot.tombstones[taskId] = pickNewerTimestamp(snapshot.tombstones[taskId], rawTask.deletedAt || updatedAt);
+      return;
+    }
+
+    snapshot.tasks.push(normalizeTask({ ...rawTask, id: taskId, updatedAt }));
+  });
+
+  return snapshot;
+}
+
+function mergeSyncSnapshot(localList, remoteList, localTombstones, remoteTombstones) {
+  const mergedTasks = mergeTaskLists(localList, remoteList);
+  const mergedTombstones = mergeTombstones(localTombstones, remoteTombstones);
+  const taskMap = new Map(mergedTasks.map((task) => [task.id, normalizeTask(task)]));
+
+  Object.entries(mergedTombstones).forEach(([id, deletedAt]) => {
+    const task = taskMap.get(id);
+    if (!task) {
+      return;
+    }
+
+    const taskTs = Date.parse(task.updatedAt || task.createdAt || "") || 0;
+    const tombstoneTs = Date.parse(deletedAt || "") || 0;
+    if (tombstoneTs >= taskTs) {
+      taskMap.delete(id);
+      return;
+    }
+
+    delete mergedTombstones[id];
+  });
+
+  return {
+    tasks: Array.from(taskMap.values()),
+    tombstones: mergedTombstones
+  };
+}
+
+function mergeTaskLists(localList, remoteList) {
+  const map = new Map();
+
+  remoteList.forEach((task) => {
+    map.set(task.id, normalizeTask(task));
+  });
+
+  localList.forEach((task) => {
+    const localTask = normalizeTask(task);
+    const remoteTask = map.get(localTask.id);
+    if (!remoteTask) {
+      map.set(localTask.id, localTask);
+      return;
+    }
+
+    map.set(localTask.id, pickNewerTask(localTask, remoteTask));
+  });
+
+  return Array.from(map.values());
+}
+
+function mergeTombstones(localTombstones = {}, remoteTombstones = {}) {
+  const out = {};
+
+  Object.entries(remoteTombstones).forEach(([id, deletedAt]) => {
+    out[id] = deletedAt;
+  });
+
+  Object.entries(localTombstones).forEach(([id, deletedAt]) => {
+    out[id] = pickNewerTimestamp(out[id], deletedAt);
+  });
+
+  return out;
+}
+
+function pickNewerTimestamp(first, second) {
+  const firstTs = Date.parse(first || "") || 0;
+  const secondTs = Date.parse(second || "") || 0;
+  return secondTs >= firstTs ? second : first;
+}
+
+function pickNewerTask(first, second) {
+  const firstTs = Date.parse(first.updatedAt || first.createdAt || "") || 0;
+  const secondTs = Date.parse(second.updatedAt || second.createdAt || "") || 0;
+
+  if (firstTs > secondTs) {
+    return first;
+  }
+  if (secondTs > firstTs) {
+    return second;
+  }
+
+  if (first.status === "Done" && second.status !== "Done") {
+    return first;
+  }
+  if (second.status === "Done" && first.status !== "Done") {
+    return second;
+  }
+
+  return second;
+}
+
+async function persistAllTasksLocally(list) {
+  if (storageMode === "localstorage") {
+    saveTasksToLocalStorage(list);
+    return;
+  }
+
+  await clearStore();
+  for (const task of list) {
+    await persistTask(task);
+  }
+}
+
+function saveTasksToLocalStorage(list) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(list));
+  } catch (error) {
+    console.warn("Nepodařilo se uložit data do localStorage", error);
+  }
+}
+
+function newId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeTask(task) {
+  const nowIso = new Date().toISOString();
+  return {
+    id: task.id || newId(),
+    title: String(task.title || "").trim(),
+    description: String(task.description || "").trim(),
+    dueDate: task.dueDate || "",
+    estimatedHours: toNumber(task.estimatedHours, 2),
+    actualHours: toNumber(task.actualHours, 0),
+    importance: clamp(Math.round(toNumber(task.importance, 3)), 1, 5),
+    area: AREA_ORDER.includes(task.area) ? task.area : "Jine",
+    status: STATUS_ORDER.includes(task.status) ? task.status : "Todo",
+    tags: Array.isArray(task.tags) ? task.tags.map((t) => String(t).trim()).filter(Boolean) : [],
+    dependencyIds: Array.isArray(task.dependencyIds) ? task.dependencyIds : [],
+    createdByUser: String(task.createdByUser || "").trim().toLowerCase(),
+    createdByName: String(task.createdByName || "").trim(),
+    createdAt: task.createdAt || nowIso,
+    updatedAt: task.updatedAt || task.createdAt || nowIso,
+    completedAt: task.completedAt || null,
+    priorityScore: 0
+  };
+}
+
+function migrateLegacyTaskOwners(list) {
+  const legacyOwner = ACCOUNT_DEFINITIONS[LEGACY_TASK_OWNER_USERNAME];
+  if (!legacyOwner) {
+    return 0;
+  }
+
+  const migratedAt = new Date().toISOString();
+  let changed = 0;
+  list.forEach((task) => {
+    if (task.createdByUser) {
+      return;
+    }
+
+    task.createdByUser = LEGACY_TASK_OWNER_USERNAME;
+    task.createdByName = legacyOwner.displayName;
+    task.updatedAt = migratedAt;
+    changed += 1;
+  });
+
+  return changed;
+}
+
+function canDeleteTask(task) {
+  return Boolean(task?.createdByUser && authState.username && task.createdByUser === authState.username);
+}
+
+function setupNavigation() {
+  const links = document.querySelectorAll(".nav-link");
+  const shortcutButtons = document.querySelectorAll("[data-nav-target]");
+
+  links.forEach((button) => {
+    button.addEventListener("click", () => showView(button.dataset.nav));
+  });
+
+  shortcutButtons.forEach((button) => {
+    button.addEventListener("click", () => showView(button.dataset.navTarget));
+  });
+}
+
+function showView(view) {
+  document.querySelectorAll(".view").forEach((section) => section.classList.remove("is-active"));
+  document.querySelectorAll(".nav-link").forEach((button) => button.classList.remove("is-active"));
+
+  document.getElementById(`view-${view}`)?.classList.add("is-active");
+  const navView = view === "task-detail" ? "tasks" : view;
+  document.querySelector(`.nav-link[data-nav='${navView}']`)?.classList.add("is-active");
+}
+
+function setupCreateForm() {
+  const form = document.getElementById("task-form");
+
+  form.innerHTML = `
+    <div class="col-12"><label>Název</label><input name="title" required maxlength="180" /></div>
+    <div class="col-12"><label>Popis</label><textarea name="description" rows="3"></textarea></div>
+    <div class="col-3"><label>Termín</label><input name="dueDate" type="date" /></div>
+    <div class="col-3"><label>Odhad pracnosti (h)</label><input name="estimatedHours" type="number" step="0.25" min="0" value="2" /></div>
+    <div class="col-3"><label>Skutečná pracnost (h)</label><input name="actualHours" type="number" step="0.25" min="0" value="0" /></div>
+    <div class="col-3"><label>Důležitost (1-5)</label><input name="importance" type="number" min="1" max="5" value="3" /></div>
+    <div class="col-4"><label>Oblast</label>
+      <select name="area">
+        <option value="Svp">SVP</option>
+        <option value="Sdp">SDP</option>
+        <option value="Bozp">BOZP</option>
+        <option value="Po">PO</option>
+        <option value="Jine" selected>Jine</option>
+      </select>
+    </div>
+    <div class="col-4"><label>Stav</label>
+      <select name="status">
+        <option value="Todo">K vyřízení</option>
+        <option value="InProgress">Rozpracováno</option>
+        <option value="Done">Hotovo</option>
+        <option value="Blocked">Blokováno</option>
+      </select>
+    </div>
+    <div class="col-4"><label>Štítky (CSV)</label><input name="tagsCsv" placeholder="např. Finance, Report" /></div>
+    <div class="col-12"><label>Závislosti</label><select name="dependencyIds" multiple size="6" id="dependency-select"></select></div>
+    <div class="col-12"><button class="btn btn-primary" type="submit">Uložit úkol</button> <button class="btn btn-outline" type="button" id="cancel-edit">Zrušit úpravy</button></div>
+  `;
+
+  form.addEventListener("submit", onCreateOrEditSubmit);
+  document.getElementById("cancel-edit").addEventListener("click", handleCancelEdit);
+  refreshDependencyOptions();
+}
+
+function handleCancelEdit() {
+  resetCreateForm();
+  showView("tasks");
+}
+
+function setupAutoForm() {
+  const form = document.getElementById("auto-form");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const value = document.getElementById("auto-input").value;
+    const lines = value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      return;
+    }
+
+    const existingTitles = new Set(tasks.map((task) => task.title.toLowerCase()));
+    for (const line of lines) {
+      if (existingTitles.has(line.toLowerCase())) {
+        continue;
+      }
+
+      const now = new Date();
+      const task = normalizeTask({
+        id: newId(),
+        title: line,
+        description: "Automaticky vygenerovaný úkol z textového vstupu.",
+        dueDate: toDateInput(addDays(now, 2)),
+        estimatedHours: 1,
+        actualHours: 0,
+        importance: 3,
+        area: inferArea(line),
+        status: "Todo",
+        tags: [],
+        dependencyIds: [],
+        createdByUser: authState.username,
+        createdByName: authState.displayName,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+        completedAt: null
+      });
+      task.priorityScore = calculatePriority(task);
+      tasks.push(task);
+      await persistTask(task);
+      existingTitles.add(line.toLowerCase());
+    }
+
+    form.reset();
+    renderAll();
+    scheduleAutoPush("bulk-create");
+    showView("tasks");
+  });
+}
+
+async function onCreateOrEditSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const wasEdit = Boolean(editTaskId);
+
+  const dependencyIds = Array.from(form.querySelector("#dependency-select").selectedOptions)
+    .map((opt) => opt.value)
+    .filter((id) => id && id !== editTaskId);
+
+  const now = new Date();
+  const status = String(data.get("status") || "Todo");
+  const prev = editTaskId ? tasks.find((task) => task.id === editTaskId) : null;
+
+  const task = normalizeTask({
+    id: editTaskId || newId(),
+    title: data.get("title"),
+    description: data.get("description"),
+    dueDate: data.get("dueDate"),
+    estimatedHours: data.get("estimatedHours"),
+    actualHours: data.get("actualHours"),
+    importance: data.get("importance"),
+    area: data.get("area"),
+    status,
+    tags: parseCsv(String(data.get("tagsCsv") || "")),
+    dependencyIds,
+    createdByUser: prev?.createdByUser || authState.username,
+    createdByName: prev?.createdByName || authState.displayName,
+    createdAt: prev?.createdAt || now.toISOString(),
+    updatedAt: now.toISOString(),
+    completedAt: status === "Done" ? (prev?.completedAt || now.toISOString()) : null
+  });
+
+  task.priorityScore = calculatePriority(task);
+
+  if (editTaskId) {
+    const index = tasks.findIndex((t) => t.id === editTaskId);
+    if (index >= 0) {
+      tasks[index] = task;
+    }
+  } else {
+    tasks.push(task);
+  }
+
+  await persistTask(task);
+  resetCreateForm();
+  renderAll();
+  scheduleAutoPush(wasEdit ? "edit-task" : "create-task");
+  showView("tasks");
+}
+
+function resetCreateForm() {
+  editTaskId = null;
+  document.getElementById("task-form").reset();
+  document.querySelector("#task-form button[type='submit']").textContent = "Uložit úkol";
+}
+
+function refreshDependencyOptions() {
+  const select = document.getElementById("dependency-select");
+  if (!select) {
+    return;
+  }
+
+  const currentSelected = new Set(Array.from(select.selectedOptions).map((o) => o.value));
+  select.innerHTML = "";
+
+  tasks
+    .sort((a, b) => a.title.localeCompare(b.title, "cs"))
+    .forEach((task) => {
+      if (task.id === editTaskId) {
+        return;
+      }
+      const option = document.createElement("option");
+      option.value = task.id;
+      option.textContent = task.title;
+      option.selected = currentSelected.has(task.id);
+      select.appendChild(option);
+    });
+}
+
+function renderAll() {
+  tasks.forEach((task) => {
+    task.priorityScore = calculatePriority(task);
+  });
+
+  renderDashboard();
+  renderTasks();
+  if (document.getElementById("view-task-detail")?.classList.contains("is-active")) {
+    renderTaskDetail(activeTaskDetailId);
+  }
+  refreshDependencyOptions();
+}
+
+function renderDashboard() {
+  const kpi = getKpi();
+  const kpiGrid = document.getElementById("kpi-grid");
+  kpiGrid.innerHTML = "";
+
+  const items = [
+    { key: "todo", label: "K vyřízení", value: kpi.todo, cls: "kpi-red" },
+    { key: "inprogress", label: "Rozpracované", value: kpi.inprogress, cls: "kpi-blue" },
+    { key: "blocked", label: "Blokované", value: kpi.blocked, cls: "kpi-grey" },
+    { key: "completed", label: "Dokončené", value: kpi.completed, cls: "kpi-blue" },
+    { key: "open", label: "Otevřené", value: kpi.open, cls: "kpi-grey" },
+    { key: null, label: "KPI plnění", value: `${kpi.completionRate.toFixed(1)}%`, cls: "kpi-light" }
+  ];
+
+  items.forEach((item) => {
+    const button = document.createElement("button");
+    button.className = `kpi ${item.cls}`;
+    button.innerHTML = `<div class="kpi-label">${item.label}</div><div class="kpi-value">${item.value}</div>`;
+    button.addEventListener("click", () => {
+      activeFilter = item.key;
+      showView("tasks");
+      renderTasks();
+    });
+    kpiGrid.appendChild(button);
+  });
+
+  renderTopPriority();
+  renderCharts();
+}
+
+function renderTopPriority() {
+  const body = document.getElementById("top-priority-body");
+  const list = tasks
+    .slice()
+    .sort((a, b) => b.priorityScore - a.priorityScore)
+    .slice(0, 8);
+
+  body.innerHTML = list
+    .map((task) => `
+      <tr>
+        <td>${escapeHtml(task.title)}</td>
+        <td>${task.dueDate || "-"}</td>
+        <td><span class="badge badge-blue">${task.priorityScore}</span></td>
+        <td>${STATUS_LABEL[task.status]}</td>
+      </tr>
+    `)
+    .join("") || '<tr><td colspan="4">Zatím bez úkolů.</td></tr>';
+}
+
+function renderTasks() {
+  const filtered = applyFilter(tasks, activeFilter);
+
+  const filterBadge = document.getElementById("active-filter");
+  if (activeFilter) {
+    filterBadge.classList.remove("hidden");
+    filterBadge.innerHTML = `Filtr: ${FILTER_LABEL[activeFilter] || activeFilter} <button class="btn btn-outline btn-sm" id="clear-filter">Zrušit filtr</button>`;
+    document.getElementById("clear-filter").addEventListener("click", () => {
+      activeFilter = null;
+      renderTasks();
+    });
+  } else {
+    filterBadge.classList.add("hidden");
+    filterBadge.textContent = "";
+  }
+
+  const areaPicker = document.getElementById("area-picker");
+  areaPicker.classList.add("hidden");
+  areaPicker.innerHTML = "";
+
+  renderTaskList(filtered);
+}
+
+function renderTaskList(list) {
+  const host = document.getElementById("area-panels");
+  host.innerHTML = "";
+
+  const rows = list.length === 0
+    ? '<tr><td colspan="8">Zatím bez úkolů.</td></tr>'
+    : list
+      .slice()
+      .sort((a, b) => b.priorityScore - a.priorityScore)
+      .map((task) => {
+        const tagText = task.tags.join(", ");
+        const doneDisabled = task.status === "Done" ? "disabled" : "";
+        const canDelete = canDeleteTask(task);
+        return `
+          <tr>
+            <td>
+              <button class="task-title-btn" data-action="view" data-id="${task.id}">${escapeHtml(task.title)}</button>
+            </td>
+            <td><span class="area-chip area-${task.area.toLowerCase()}">${AREA_LABEL[task.area]}</span></td>
+            <td><span class="badge badge-blue">${task.priorityScore}</span></td>
+            <td>${task.dueDate || "-"}</td>
+            <td>${task.actualHours} / ${task.estimatedHours} h</td>
+            <td><span class="badge ${statusBadgeClass(task.status)}">${STATUS_LABEL[task.status]}</span></td>
+            <td>${escapeHtml(tagText)}</td>
+            <td>
+              <button class="btn btn-outline btn-sm" data-action="edit" data-id="${task.id}">Upravit</button>
+              <button class="btn btn-outline btn-sm" data-action="done" data-id="${task.id}" ${doneDisabled}>Hotovo</button>
+              ${canDelete ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${task.id}">Smazat</button>` : ""}
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+  const panel = document.createElement("article");
+  panel.className = "card";
+  panel.innerHTML = `
+    <div class="top-row">
+      <h2 class="panel-title">Seznam úkolů</h2>
+      <span class="badge badge-grey">${list.length} úkolů</span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Úkol</th><th>Oblast</th><th>Priorita</th><th>Termín</th><th>Pracnost</th><th>Stav</th><th>Štítky</th><th>Akce</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+
+  panel.querySelectorAll("button[data-action]").forEach((button) => {
+    button.addEventListener("click", () => handleTaskAction(button.dataset.action, button.dataset.id));
+  });
+
+  host.appendChild(panel);
+}
+
+function renderAreaPicker(grouped, showAllAreas = false) {
+  const host = document.getElementById("area-picker");
+  host.classList.toggle("hidden", showAllAreas);
+  host.innerHTML = "";
+
+  let firstWithData = AREA_ORDER.find((area) => grouped.get(area).length > 0) || AREA_ORDER[0];
+  let selectedArea = host.dataset.selectedArea || firstWithData;
+  if (!AREA_ORDER.includes(selectedArea)) {
+    selectedArea = firstWithData;
+  }
+
+  AREA_ORDER.forEach((area) => {
+    const button = document.createElement("button");
+    button.className = `area-picker area-${area.toLowerCase()}${selectedArea === area ? " is-active" : ""}`;
+    button.innerHTML = `<span class="area-title">${AREA_LABEL[area]}</span><span class="area-count">${grouped.get(area).length} úkolů</span>`;
+    button.addEventListener("click", () => {
+      host.dataset.selectedArea = area;
+      renderAreaPicker(grouped);
+      renderAreaPanels(grouped);
+    });
+    host.appendChild(button);
+  });
+
+  host.dataset.selectedArea = selectedArea;
+}
+
+function renderAreaPanels(grouped, showAllAreas = false) {
+  const host = document.getElementById("area-panels");
+  const selectedArea = document.getElementById("area-picker").dataset.selectedArea || AREA_ORDER[0];
+  host.innerHTML = "";
+
+  AREA_ORDER.forEach((area) => {
+    const areaTasks = grouped.get(area);
+    const panel = document.createElement("article");
+    panel.className = `card area-card area-${area.toLowerCase()}${showAllAreas || selectedArea === area ? "" : " hidden"}`;
+
+    const rows = areaTasks.length === 0
+      ? '<tr><td colspan="7">Zatím bez úkolů.</td></tr>'
+      : areaTasks
+        .slice()
+        .sort((a, b) => b.priorityScore - a.priorityScore)
+        .map((task) => {
+          const tagText = task.tags.join(", ");
+          const doneDisabled = task.status === "Done" ? "disabled" : "";
+          const canDelete = canDeleteTask(task);
+          return `
+            <tr>
+              <td>
+                <div><strong>${escapeHtml(task.title)}</strong> <span class="area-chip area-${task.area.toLowerCase()}">${AREA_LABEL[task.area]}</span></div>
+              </td>
+              <td><span class="badge badge-blue">${task.priorityScore}</span></td>
+              <td>${task.dueDate || "-"}</td>
+              <td>${task.actualHours} / ${task.estimatedHours} h</td>
+              <td><span class="badge ${statusBadgeClass(task.status)}">${STATUS_LABEL[task.status]}</span></td>
+              <td>${escapeHtml(tagText)}</td>
+              <td>
+                <button class="btn btn-outline btn-sm" data-action="edit" data-id="${task.id}">Upravit</button>
+                <button class="btn btn-outline btn-sm" data-action="done" data-id="${task.id}" ${doneDisabled}>Hotovo</button>
+                ${canDelete ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${task.id}">Smazat</button>` : ""}
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+    panel.innerHTML = `
+      <div class="top-row">
+        <h2 class="panel-title">${AREA_LABEL[area]}</h2>
+        <span class="badge badge-grey">${areaTasks.length} úkolů</span>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Úkol</th><th>Priorita</th><th>Termín</th><th>Pracnost</th><th>Stav</th><th>Štítky</th><th>Akce</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+
+    panel.querySelectorAll("button[data-action]").forEach((button) => {
+      button.addEventListener("click", () => handleTaskAction(button.dataset.action, button.dataset.id));
+    });
+
+    host.appendChild(panel);
+  });
+}
+
+async function handleTaskAction(action, id) {
+  const task = tasks.find((row) => row.id === id);
+  if (!task) {
+    return;
+  }
+
+  if (action === "view") {
+    openTaskDetail(task.id);
+    return;
+  }
+
+  if (action === "edit") {
+    editTask(task);
+    return;
+  }
+
+  if (action === "done" && task.status !== "Done") {
+    task.status = "Done";
+    task.updatedAt = new Date().toISOString();
+    task.completedAt = new Date().toISOString();
+    task.actualHours = Math.max(task.actualHours, task.estimatedHours);
+    task.priorityScore = calculatePriority(task);
+    clearTaskDeletedMark(task.id);
+    await persistTask(task);
+    renderAll();
+    scheduleAutoPush("mark-done");
+    return;
+  }
+
+  if (action === "delete") {
+    if (!canDeleteTask(task)) {
+      alert("Mazat lze jen úkoly, které jste sami zadali.");
+      return;
+    }
+
+    const allow = await askConfirm();
+    if (!allow) {
+      return;
+    }
+    markTaskDeleted(id);
+    tasks = tasks.filter((row) => row.id !== id);
+    await deleteTaskById(id);
+    renderAll();
+    scheduleAutoPush("delete-task");
+  }
+}
+
+function editTask(task) {
+  editTaskId = task.id;
+  activeTaskDetailId = task.id;
+  showView("create");
+
+  const form = document.getElementById("task-form");
+  form.title.value = task.title;
+  form.description.value = task.description;
+  form.dueDate.value = task.dueDate;
+  form.estimatedHours.value = task.estimatedHours;
+  form.actualHours.value = task.actualHours;
+  form.importance.value = task.importance;
+  form.area.value = task.area;
+  form.status.value = task.status;
+  form.tagsCsv.value = task.tags.join(", ");
+
+  refreshDependencyOptions();
+  Array.from(form.dependencyIds.options).forEach((opt) => {
+    opt.selected = task.dependencyIds.includes(opt.value);
+  });
+
+  form.querySelector("button[type='submit']").textContent = "Uložit změny";
+}
+
+function openTaskDetail(id) {
+  activeTaskDetailId = id;
+  renderTaskDetail(id);
+  showView("task-detail");
+}
+
+function renderTaskDetail(id) {
+  const host = document.getElementById("task-detail-content");
+  if (!host) {
+    return;
+  }
+
+  const task = tasks.find((row) => row.id === id);
+  if (!task) {
+    host.innerHTML = `
+      <article class="card">
+        <h2 class="panel-title">Úkol nebyl nalezen</h2>
+        <p class="subtitle">Úkol byl pravděpodobně smazán nebo ještě není načtený.</p>
+        <button class="btn btn-outline" type="button" data-detail-action="back">Zpět na seznam</button>
+      </article>
+    `;
+  } else {
+    const description = task.description ? escapeHtml(task.description) : "-";
+    const tags = task.tags.length ? escapeHtml(task.tags.join(", ")) : "-";
+    const canDelete = canDeleteTask(task);
+    host.innerHTML = `
+      <article class="card">
+        <div class="top-row">
+          <h2 class="panel-title">${escapeHtml(task.title)}</h2>
+          <span class="badge ${statusBadgeClass(task.status)}">${STATUS_LABEL[task.status]}</span>
+        </div>
+        <div class="detail-grid">
+          <div><strong>Oblast:</strong> ${AREA_LABEL[task.area]}</div>
+          <div><strong>Priorita:</strong> ${task.priorityScore}</div>
+          <div><strong>Termín:</strong> ${task.dueDate || "-"}</div>
+          <div><strong>Pracnost:</strong> ${task.actualHours} / ${task.estimatedHours} h</div>
+          <div><strong>Štítky:</strong> ${tags}</div>
+          <div><strong>Popis:</strong> ${description}</div>
+        </div>
+        <div class="sync-actions mt8">
+          <button class="btn btn-primary" type="button" data-detail-action="edit" data-id="${task.id}">Upravit úkol</button>
+          ${canDelete ? `<button class="btn btn-danger" type="button" data-detail-action="delete" data-id="${task.id}">Smazat</button>` : ""}
+          <button class="btn btn-outline" type="button" data-detail-action="back">Zpět na seznam</button>
+        </div>
+      </article>
+    `;
+  }
+
+  host.querySelectorAll("button[data-detail-action]").forEach((button) => {
+    const action = button.dataset.detailAction;
+    if (action === "back") {
+      button.addEventListener("click", () => showView("tasks"));
+      return;
+    }
+    if (action === "edit") {
+      button.addEventListener("click", () => {
+        const taskId = button.dataset.id;
+        const selected = tasks.find((row) => row.id === taskId);
+        if (selected) {
+          editTask(selected);
+        }
+      });
+      return;
+    }
+    if (action === "delete") {
+      button.addEventListener("click", () => {
+        const taskId = button.dataset.id;
+        handleTaskAction("delete", taskId);
+        showView("tasks");
+      });
+    }
+  });
+}
+
+function calculatePriority(task) {
+  if (task.status === "Done") {
+    return 0;
+  }
+
+  const now = new Date();
+  const due = task.dueDate ? new Date(`${task.dueDate}T00:00:00`) : addDays(now, 7);
+  const diffDays = Math.floor((due.getTime() - now.getTime()) / 86400000);
+
+  const dueUrgency = diffDays <= 0 ? 100 : clamp(100 - diffDays * 10, 20, 100);
+  const effortScore = clamp((task.estimatedHours / 8) * 100, 10, 100);
+  const importanceScore = clamp((task.importance / 5) * 100, 20, 100);
+  const overdueScore = diffDays < 0 ? clamp(Math.abs(diffDays) * 12, 0, 100) : 0;
+  const depsScore = clamp(task.dependencyIds.length * 20, 0, 100);
+
+  const weighted = dueUrgency * 0.35
+    + effortScore * 0.15
+    + importanceScore * 0.30
+    + overdueScore * 0.10
+    + depsScore * 0.10;
+
+  return Math.round(clamp(weighted, 0, 100));
+}
+
+function getKpi() {
+  const todo = tasks.filter((task) => task.status === "Todo");
+  const inprogress = tasks.filter((task) => task.status === "InProgress");
+  const blocked = tasks.filter((task) => task.status === "Blocked");
+  const done = tasks.filter((task) => task.status === "Done");
+  const open = tasks.filter((task) => task.status !== "Done");
+
+  return {
+    todo: todo.length,
+    blocked: blocked.length,
+    completed: done.length,
+    inprogress: inprogress.length,
+    open: open.length,
+    completionRate: tasks.length ? (done.length / tasks.length) * 100 : 0
+  };
+}
+
+function applyFilter(list, filter) {
+  if (!filter) {
+    return list;
+  }
+
+  if (filter === "todo") {
+    return list.filter((task) => task.status === "Todo");
+  }
+  if (filter === "blocked") {
+    return list.filter((task) => task.status === "Blocked");
+  }
+  if (filter === "completed") {
+    return list.filter((task) => task.status === "Done");
+  }
+  if (filter === "inprogress") {
+    return list.filter((task) => task.status === "InProgress");
+  }
+  if (filter === "open") {
+    return list.filter((task) => task.status !== "Done");
+  }
+
+  return list;
+}
+
+function renderCharts() {
+  if (typeof Chart === "undefined") {
+    return;
+  }
+
+  charts.forEach((chart) => chart.destroy());
+  charts = [];
+
+  const { daily, weekly, monthly, states, heatmap } = buildSeries();
+
+  charts.push(new Chart(document.getElementById("dailyChart"), {
+    type: "line",
+    data: {
+      labels: Object.keys(daily),
+      datasets: [{ label: "Dokončené úkoly / den", data: Object.values(daily), borderColor: brand.blue, backgroundColor: brand.blueSoft, tension: 0.3, fill: true }]
+    }
+  }));
+
+  charts.push(new Chart(document.getElementById("weeklyChart"), {
+    type: "bar",
+    data: {
+      labels: Object.keys(weekly),
+      datasets: [{ label: "Dokončené úkoly / týden", data: Object.values(weekly), backgroundColor: brand.red }]
+    }
+  }));
+
+  charts.push(new Chart(document.getElementById("monthlyChart"), {
+    type: "line",
+    data: {
+      labels: Object.keys(monthly),
+      datasets: [{ label: "Dokončené úkoly / měsíc", data: Object.values(monthly), borderColor: brand.grey, backgroundColor: brand.greySoft, tension: 0.3 }]
+    }
+  }));
+
+  charts.push(new Chart(document.getElementById("statusChart"), {
+    type: "doughnut",
+    data: {
+      labels: states.map((s) => STATUS_LABEL[s.status]),
+      datasets: [{ data: states.map((s) => s.count), backgroundColor: [brand.blue, brand.grey, brand.red, "#b8bbc4"] }]
+    }
+  }));
+
+  renderHeatmap(heatmap);
+}
+
+function buildSeries() {
+  const done = tasks.filter((task) => task.status === "Done" && task.completedAt);
+
+  const daily = countByRange(done, 14, "day");
+  const weekly = countByRange(done, 10, "week");
+  const monthly = countByRange(done, 8, "month");
+
+  const states = STATUS_ORDER.map((status) => ({
+    status,
+    count: tasks.filter((task) => task.status === status).length
+  }));
+
+  const heatmap = {};
+  for (let i = 119; i >= 0; i--) {
+    const day = stripTime(addDays(new Date(), -i));
+    const key = toDateInput(day);
+    heatmap[key] = 0;
+  }
+
+  done.forEach((task) => {
+    const key = toDateInput(stripTime(new Date(task.completedAt)));
+    if (Object.prototype.hasOwnProperty.call(heatmap, key)) {
+      heatmap[key] += 1;
+    }
+  });
+
+  return { daily, weekly, monthly, states, heatmap };
+}
+
+function renderHeatmap(heatmap) {
+  const host = document.getElementById("heatmap");
+  host.innerHTML = "";
+
+  Object.keys(heatmap).sort().forEach((date) => {
+    const val = heatmap[date];
+    const level = Math.min(4, val);
+    const div = document.createElement("div");
+    div.className = `heat-cell heat-${level}`;
+    div.title = `${date}: ${val}`;
+    host.appendChild(div);
+  });
+}
+
+function countByRange(doneTasks, units, mode) {
+  const out = {};
+
+  for (let i = units - 1; i >= 0; i--) {
+    let date;
+    let key;
+
+    if (mode === "day") {
+      date = stripTime(addDays(new Date(), -i));
+      key = toDateInput(date);
+    } else if (mode === "week") {
+      date = stripTime(addDays(new Date(), -(i * 7)));
+      key = `T${isoWeek(date)}-${date.getFullYear()}`;
+    } else {
+      date = new Date();
+      date.setMonth(date.getMonth() - i, 1);
+      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    out[key] = 0;
+  }
+
+  doneTasks.forEach((task) => {
+    const dt = new Date(task.completedAt);
+    let key;
+    if (mode === "day") {
+      key = toDateInput(stripTime(dt));
+    } else if (mode === "week") {
+      key = `T${isoWeek(dt)}-${dt.getFullYear()}`;
+    } else {
+      key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(out, key)) {
+      out[key] += 1;
+    }
+  });
+
+  return out;
+}
+
+function setupServiceWorker() {
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+  navigator.serviceWorker.register("./service-worker.js?v=24").then((registration) => {
+    registration.update();
+  }).catch((error) => {
+    console.error("Registrace service workeru selhala", error);
+  });
+}
+
+function inferArea(text) {
+  const source = String(text || "").toLowerCase();
+  if (source.includes("svp") || source.includes("inspekce")) {
+    return "Svp";
+  }
+  if (source.includes("sdp") || source.includes("distribuc")) {
+    return "Sdp";
+  }
+  if (source.includes("bozp") || source.includes("bezpecnost") || source.includes("bezpečnost")) {
+    return "Bozp";
+  }
+  if (source.includes("pozar") || source.includes("požar") || source.includes("hasic") || source.includes("hasič") || source.includes(" po ")) {
+    return "Po";
+  }
+  return "Jine";
+}
+
+function statusBadgeClass(status) {
+  if (status === "Todo") return "status-todo";
+  if (status === "InProgress") return "status-inprogress";
+  if (status === "Done") return "status-done";
+  return "status-blocked";
+}
+
+function isOverdue(task) {
+  if (!task.dueDate || task.status === "Done") {
+    return false;
+  }
+  return new Date(`${task.dueDate}T00:00:00`) < stripTime(new Date());
+}
+
+function withinDays(task, days) {
+  if (!task.dueDate || task.status === "Done") {
+    return false;
+  }
+  const due = new Date(`${task.dueDate}T00:00:00`);
+  const now = stripTime(new Date());
+  const end = addDays(now, days);
+  return due >= now && due <= end;
+}
+
+function toNumber(value, fallback) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function addDays(date, days) {
+  const out = new Date(date);
+  out.setDate(out.getDate() + days);
+  return out;
+}
+
+function stripTime(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function toDateInput(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function sameDate(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function parseCsv(csv) {
+  return csv
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((value, index, arr) => arr.findIndex((row) => row.toLowerCase() === value.toLowerCase()) === index);
+}
+
+function isoWeek(date) {
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  return Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+}
+
+function askConfirm() {
+  const dialog = document.getElementById("confirm-dialog");
+  if (typeof dialog.showModal !== "function") {
+    return Promise.resolve(window.confirm("Smazat úkol?"));
+  }
+
+  dialog.showModal();
+  return new Promise((resolve) => {
+    dialog.addEventListener("close", () => resolve(dialog.returnValue === "confirm"), { once: true });
+  });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+window.AkcniPlanPwa = {
+  clearAll: async () => {
+    tasks.forEach((task) => markTaskDeleted(task.id));
+    await clearStore();
+    tasks = [];
+    renderAll();
+    scheduleAutoPush("clear-all");
+  }
+};

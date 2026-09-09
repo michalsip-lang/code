@@ -1,0 +1,55 @@
+@model AkcniPlan.ViewModels.TaskFormViewModel
+@using AkcniPlan.Models
+@{
+    var allTasks = (List<TaskItem>)ViewBag.AllTasks;
+}
+
+<div class="row g-3">
+    <div class="col-12">
+        <label class="form-label">Název</label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+    <div class="col-12">
+        <label class="form-label">Popis</label>
+        <textarea asp-for="Description" rows="3" class="form-control"></textarea>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Termín</label>
+        <input asp-for="DueDate" type="date" class="form-control" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Odhad pracnosti (h)</label>
+        <input asp-for="EstimatedHours" class="form-control" step="0.25" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Skutečná pracnost (h)</label>
+        <input asp-for="ActualHours" class="form-control" step="0.25" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Důležitost (1-5)</label>
+        <input asp-for="Importance" class="form-control" min="1" max="5" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Oblast</label>
+        <select asp-for="Area" class="form-select" asp-items="Html.GetEnumSelectList<TaskArea>()"></select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Stav</label>
+        <select asp-for="Status" class="form-select" asp-items="Html.GetEnumSelectList<TaskItemStatus>()"></select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Štítky (CSV)</label>
+        <input asp-for="TagsCsv" class="form-control" placeholder="např. Finance, Report, Týdenní plán" />
+    </div>
+    <div class="col-12">
+        <label class="form-label">Závislosti</label>
+        <select asp-for="DependencyIds" multiple class="form-select" size="6">
+            @foreach (var task in allTasks)
+            {
+                <option value="@task.Id">@task.Title</option>
+            }
+        </select>
+        <div class="form-text">Držte Cmd a vyberte více položek.</div>
+    </div>
+</div>

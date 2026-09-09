@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Elements xmlns="http://schemas.microsoft.com/sharepoint/">
+  <CustomAction
+      Id="Samohyl.Ribbon.BOZPPO.DisplayForm"
+      Title="Přehled zaměstnanců BOZP/PO"
+      RegistrationType="List"
+      RegistrationId="100"
+      Location="CommandUI.Ribbon"
+      Sequence="10050">
+    <CommandUIExtension>
+      <CommandUIDefinitions>
+        <CommandUIDefinition Location="Ribbon.ListForm.Display.Manage.Controls._children">
+          <Button
+              Id="Samohyl.Ribbon.BOZPPO.Button"
+              Command="Samohyl.Ribbon.BOZPPO.Command"
+              Sequence="20"
+              Image32by32="/_layouts/15/images/placeholder32x32.png"
+              LabelText="Přehled BOZP/PO"
+              ToolTipTitle="Přehled zaměstnanců BOZP/PO"
+              ToolTipDescription="Otevře přehled zaměstnanců a školení BOZP/PO pro aktuální středisko."
+              TemplateAlias="o1" />
+        </CommandUIDefinition>
+      </CommandUIDefinitions>
+      <CommandUIHandlers>
+        <CommandUIHandler
+            Command="Samohyl.Ribbon.BOZPPO.Command"
+            CommandAction="javascript:(function(){var url='/homeZVK/SiteAssets/prehled_urazu_dalsi_tlacitko.js';function run(){if(window.runDalsiUrazyAkce&&typeof window.runDalsiUrazyAkce==='function'){window.runDalsiUrazyAkce();}}if(window.runDalsiUrazyAkce&&typeof window.runDalsiUrazyAkce==='function'){run();return;}var s=document.createElement('script');s.type='text/javascript';s.src=url;s.onload=run;document.getElementsByTagName('head')[0].appendChild(s);}());"
+            EnabledScript="javascript:true" />
+      </CommandUIHandlers>
+    </CommandUIExtension>
+  </CustomAction>
+</Elements>

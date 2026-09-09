@@ -1,0 +1,186 @@
+@model List<AkcniPlan.Models.TaskItem>
+@using AkcniPlan.Models
+@{
+    ViewData["Title"] = "Úkoly";
+    var groupedTasks = Model.GroupBy(x => x.Area).ToDictionary(g => g.Key, g => g.ToList());
+    var allAreas = Enum.GetValues<TaskArea>();
+    var initialSelectedArea = allAreas.FirstOrDefault(area => groupedTasks.ContainsKey(area) && groupedTasks[area].Count > 0);
+    var filterLabel = ViewBag.FilterLabel as string;
+
+    string AreaCss(TaskArea area) => area switch
+    {
+        TaskArea.Svp => "area-svp",
+        TaskArea.Sdp => "area-sdp",
+        TaskArea.Bozp => "area-bozp",
+        TaskArea.Po => "area-po",
+        _ => "area-jine"
+    };
+
+    string AreaLabel(TaskArea area) => area switch
+    {
+        TaskArea.Svp => "SVP",
+        TaskArea.Sdp => "SDP",
+        TaskArea.Bozp => "BOZP",
+        TaskArea.Po => "PO",
+        _ => "Jiné"
+    };
+
+    string StatusLabel(TaskItemStatus status) => status switch
+    {
+        TaskItemStatus.Todo => "K vyřízení",
+        TaskItemStatus.InProgress => "Rozpracováno",
+        TaskItemStatus.Done => "Hotovo",
+        TaskItemStatus.Blocked => "Blokováno",
+        _ => status.ToString()
+    };
+
+    string AreaKey(TaskArea area) => area.ToString().ToLowerInvariant();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0 samohyl-page-title">Úkoly</h1>
+        <div class="samohyl-subtitle">Prioritizované úkoly podle firemních oblastí.</div>
+        @if (!string.IsNullOrWhiteSpace(filterLabel))
+        {
+            <div class="mt-2">
+                <span class="badge text-bg-primary">Filtr: @filterLabel</span>
+                <a class="btn btn-sm btn-link" asp-action="Index">Zrušit filtr</a>
+            </div>
+        }
+    </div>
+    <a class="btn btn-primary" asp-action="Create">Nový úkol</a>
+</div>
+
+@if (TempData["StatusMessage"] is string message)
+{
+    <div class="alert alert-info">@message</div>
+}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h6">Automatické vytvoření úkolů</h2>
+        <form asp-action="AutoGenerate" method="post">
+            @Html.AntiForgeryToken()
+            <div class="mb-2">
+                <textarea class="form-control" name="autoInput" rows="3" placeholder="Každý řádek bude nový úkol"></textarea>
+            </div>
+            <button class="btn btn-outline-primary" type="submit">Vytvořit automaticky</button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+@foreach (var area in allAreas)
+{
+    var areaCss = AreaCss(area);
+    var areaLabel = AreaLabel(area);
+    var areaKey = AreaKey(area);
+    var areaCount = groupedTasks.ContainsKey(area) ? groupedTasks[area].Count : 0;
+    var activeClass = area == initialSelectedArea ? "is-active" : string.Empty;
+
+    <div class="col-6 col-md-4 col-lg">
+        <button type="button" class="samohyl-area-picker @areaCss @activeClass w-100" data-area="@areaKey" aria-label="Filtrovat kategorii @areaLabel">
+            <span class="samohyl-area-picker-title">@areaLabel</span>
+            <span class="samohyl-area-picker-count">@areaCount úkolů</span>
+        </button>
+    </div>
+}
+</div>
+
+@foreach (var area in allAreas)
+{
+    var areaTasks = groupedTasks.ContainsKey(area) ? groupedTasks[area] : new List<TaskItem>();
+    var areaCss = AreaCss(area);
+    var areaLabel = AreaLabel(area);
+    var areaKey = AreaKey(area);
+    var hiddenClass = area == initialSelectedArea ? string.Empty : "d-none";
+
+    <div class="card samohyl-area-card @areaCss mb-4 samohyl-area-panel @hiddenClass" data-area-panel="@areaKey">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h5 mb-0 samohyl-area-title">@areaLabel</h2>
+                <span class="badge text-bg-secondary">@areaTasks.Count úkolů</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Úkol</th>
+                            <th>Priorita</th>
+                            <th>Termín</th>
+                            <th>Pracnost</th>
+                            <th>Stav</th>
+                            <th>Štítky</th>
+                            <th class="text-end">Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @if (areaTasks.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="7" class="text-muted">Zatím bez úkolů.</td>
+                        </tr>
+                    }
+                    @foreach (var t in areaTasks)
+                    {
+                        var badges = string.Join(", ", t.TaskTags.Select(x => x.TaskTag.Name));
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">@t.Title <span class="samohyl-area-badge @areaCss">@areaLabel</span></div>
+                                <div class="small text-muted">@t.Description</div>
+                            </td>
+                            <td><span class="badge text-bg-primary">@t.PriorityScore</span></td>
+                            <td>@(t.DueDate?.ToString("yyyy-MM-dd") ?? "-" )</td>
+                            <td>@t.ActualHours / @t.EstimatedHours h</td>
+                            <td>@StatusLabel(t.Status)</td>
+                            <td>@badges</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@t.Id">Upravit</a>
+                                <form asp-action="ToggleDone" asp-route-id="@t.Id" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    @if (t.Status == TaskItemStatus.Done)
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Hotovo</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-success" type="submit">Hotovo</button>
+                                    }
+                                </form>
+                                <form asp-action="Delete" asp-route-id="@t.Id" method="post" class="d-inline" onsubmit="return confirm('Smazat úkol?');">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Smazat</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            const pickers = document.querySelectorAll('.samohyl-area-picker');
+            const panels = document.querySelectorAll('.samohyl-area-panel');
+
+            function showArea(areaKey) {
+                pickers.forEach((picker) => {
+                    picker.classList.toggle('is-active', picker.dataset.area === areaKey);
+                });
+
+                panels.forEach((panel) => {
+                    panel.classList.toggle('d-none', panel.dataset.areaPanel !== areaKey);
+                });
+            }
+
+            pickers.forEach((picker) => {
+                picker.addEventListener('click', () => showArea(picker.dataset.area));
+            });
+        })();
+    </script>
+}

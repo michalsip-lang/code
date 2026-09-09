@@ -1,0 +1,21 @@
+@model AkcniPlan.ViewModels.TaskFormViewModel
+@{
+    ViewData["Title"] = "Upravit úkol";
+}
+
+<h1 class="h3 mb-3">Upravit úkol</h1>
+
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
+    <input asp-for="Id" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <partial name="_Form" model="Model" />
+    <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Uložit změny</button>
+        <a class="btn btn-outline-secondary" asp-action="Index">Zpět</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

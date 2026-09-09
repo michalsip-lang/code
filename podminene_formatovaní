@@ -1,0 +1,222 @@
+<script>
+(function(){
+  var FIELD = 'stav_zaznamu';
+  var PUBLISHED_FIELD = 'publikovano';
+
+  var STATES = {
+
+    red: [
+      'Dokončeno, zalistováno, ale GPSR nebylo archivováno',
+      'Nedokončeno, vypršela lhůta',
+      'Nedokončeno, přerušeno uživatelem'
+    ],
+
+    yellow: [
+      'Nově založeno, rozpracováno',
+      'Dokončeno, zalistováno, čeká na archivaci'
+    ],
+
+    green: [
+      'Dokončeno, zalistováno, archivováno',
+      'Dokončeno, nelistováno',
+      'Dokončeno, zalistováno'
+    ]
+  };
+
+  var COLORS = {
+    red:    '#ffeaea',
+    yellow: '#fff7cc',
+    green:  '#e6ffe6',
+    blue:   '#e6f0ff'
+  };
+
+  // CSS
+  (function(){
+    var s=document.createElement('style');
+    s.textContent =
+      'tr.mz-red{background:'+COLORS.red+' !important;}' +
+      'tr.mz-yellow{background:'+COLORS.yellow+' !important;}' +
+      'tr.mz-green{background:'+COLORS.green+' !important;}' +
+      'tr.mz-blue{background:'+COLORS.blue+' !important;}';
+    document.head.appendChild(s);
+  })();
+
+  function norm(v){
+    return (v==null?'':String(v))
+      .replace(/\s+/g,' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function getListId(){
+    var tbl=document.querySelector('table.ms-listviewtable');
+    if(!tbl||!tbl.id) return null;
+
+    var m=tbl.id.match(/^\{([^}]+)\}-\{([^}]+)\}$/);
+    return m?m[1]:null;
+  }
+
+  function collectRows(){
+    var map={}, tbl=document.querySelector('table.ms-listviewtable');
+    if(!tbl) return map;
+
+    var trs=tbl.querySelectorAll('tbody tr');
+
+    for(var i=0;i<trs.length;i++){
+      var tr=trs[i];
+
+      if(/ms-groupHeader|ms-gb/i.test(tr.className||'')) continue;
+
+      var iid=tr.getAttribute('iid');
+      if(iid){
+        var m=iid.match(/,\s*(\d+),/);
+        if(m){ map[m[1]]=tr; continue; }
+      }
+
+      var a=tr.querySelector("a[href*='?ID='],a[href*='&ID=']");
+      if(!a) continue;
+
+      var m2=(a.href||'').match(/[?&]ID=(\d+)/i);
+      if(m2) map[m2[1]]=tr;
+    }
+
+    return map;
+  }
+
+  function fetchStates(ids,listId,cb){
+    if(!ids.length){ cb({}); return; }
+
+    var caml =
+      '<View><Query><Where><In><FieldRef Name="ID"/><Values>' +
+      ids.map(function(id){
+        return '<Value Type="Counter">'+id+'</Value>';
+      }).join('') +
+      '</Values></In></Where></Query><ViewFields>' +
+      '<FieldRef Name="ID"/>' +
+      '<FieldRef Name="'+FIELD+'"/>' +
+      '<FieldRef Name="'+PUBLISHED_FIELD+'"/>' +
+      '</ViewFields></View>';
+
+    var url=(window._spPageContextInfo.webServerRelativeUrl||'')
+              .replace(/\/$/,'') +
+            "/_api/web/lists(guid'"+listId+"')/GetItems";
+
+    var x=new XMLHttpRequest();
+    x.open('POST',url,true);
+
+    x.setRequestHeader('Accept','application/json;odata=verbose');
+    x.setRequestHeader('Content-Type','application/json;odata=verbose');
+
+    var dig=(document.getElementById('__REQUESTDIGEST')||{}).value||'';
+    if(dig) x.setRequestHeader('X-RequestDigest',dig);
+
+    x.onreadystatechange=function(){
+      if(x.readyState!==4) return;
+
+      var map={};
+
+      if(x.status>=200&&x.status<300){
+        try{
+          var res=JSON.parse(x.responseText).d.results||[];
+
+          for(var i=0;i<res.length;i++){
+            var it=res[i];
+            map[it.ID]={
+              state: norm(it[FIELD]),
+              published: norm(it[PUBLISHED_FIELD])
+            };
+          }
+        }catch(e){}
+      }
+
+      cb(map);
+    };
+
+    x.send(JSON.stringify({
+      query:{
+        __metadata:{type:'SP.CamlQuery'},
+        ViewXml:caml
+      }
+    }));
+  }
+
+  function paint(){
+    var listId=getListId();
+    if(!listId) return;
+
+    var rowMap=collectRows();
+    var ids=Object.keys(rowMap);
+
+    if(!ids.length) return;
+
+    fetchStates(ids,listId,function(states){
+
+      var redVals    = STATES.red.map(function(v){ return norm(v); });
+      var yellowVals = STATES.yellow.map(function(v){ return norm(v); });
+      var greenVals  = STATES.green.map(function(v){ return norm(v); });
+
+      ids.forEach(function(id){
+
+        var tr=rowMap[id];
+        if(!tr) return;
+
+        // vyčistit staré třídy
+        tr.className = (tr.className||'')
+          .replace(/\bmz-red\b/g,'')
+          .replace(/\bmz-yellow\b/g,'')
+          .replace(/\bmz-green\b/g,'')
+          .replace(/\bmz-blue\b/g,'')
+          .replace(/\s{2,}/g,' ')
+          .trim();
+
+        var item = states[id] || {};
+        var val = item.state || '';
+        var publishedVal = item.published || '';
+
+        if(redVals.indexOf(val) !== -1){
+          tr.className += ' mz-red';
+        }
+        else if(yellowVals.indexOf(val) !== -1){
+          tr.className += ' mz-yellow';
+        }
+        else if(greenVals.indexOf(val) !== -1){
+          tr.className += ' mz-green';
+        }
+
+        if(publishedVal === 'true' || publishedVal === 'ano'){
+          tr.className += ' mz-blue';
+        }
+
+      });
+    });
+  }
+
+  function start(){
+
+    var tries=0;
+
+    var iv=setInterval(function(){
+      tries++;
+      paint();
+      if(tries>40) clearInterval(iv);
+    },250);
+
+    var root=document.getElementById('DeltaPlaceHolderMain')||document.body;
+
+    if(window.MutationObserver && root){
+      var mo=new MutationObserver(paint);
+      mo.observe(root,{childList:true,subtree:true});
+    }
+  }
+
+  if(typeof RegisterModuleInit==='function' && window._spPageContextInfo){
+    try{ RegisterModuleInit(location.pathname,start); }catch(_){}
+    start();
+  }
+  else{
+    if(document.readyState!=='loading') start();
+    else document.addEventListener('DOMContentLoaded',start);
+  }
+
+})();
+</script>

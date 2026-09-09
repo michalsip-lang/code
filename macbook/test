@@ -1,0 +1,29 @@
+cls
+# URL of the Site
+$web = Get-SPWeb -Identity "http://portal.samohyl.cz/vo/"
+
+# Access the Workflow Manager
+$manager = $web.Site.WorkflowManager
+
+# Name of the list
+$list = $web.Lists["Zákazník"]
+
+# Name of the Workflow
+$assoc = $list.WorkflowAssociations.GetAssociationByName("Nastavení práv na kartě", "en-US")
+
+# Iterate through items in the list
+foreach ($item in $list.Items) {
+    # Get active workflows on the current item
+    $workflows = $manager.GetItemActiveWorkflows($item)
+
+    foreach ($workflow in $workflows) {
+        if ($workflow.ParentAssociation.Name -eq $assoc.Name) {
+            # Stop the workflow by removing it
+            $manager.RemoveWorkflowFromListItem($workflow)
+            Write-Host "Workflow stopped for item ID: $($item.ID)"
+        }
+    }
+}
+
+# Dispose of objects
+$web.Dispose()
