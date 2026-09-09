@@ -903,10 +903,6 @@ var fmeaApp = (function() {
 
     var currentUser = null;
     var loadCurrentUser = function() {
-        if (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo && _spPageContextInfo.userDisplayName) {
-            currentUser = _spPageContextInfo.userDisplayName;
-            return Promise.resolve(currentUser);
-        }
         return request(config.siteUrl + '/_api/web/currentuser?$select=Title,LoginName,Email', {
             method: 'GET',
             headers: { 'Accept': 'application/json;odata=verbose' }
@@ -919,8 +915,12 @@ var fmeaApp = (function() {
         })
         .then(function(result) {
             var user = result.d || result;
-            currentUser = user.Title || user.LoginName || user.Email || null;
-            if (!currentUser) {
+            currentUser = {
+                displayName: user.Title || (typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo.userDisplayName : '') || user.LoginName || user.Email || '',
+                loginName: user.LoginName || '',
+                email: user.Email || ''
+            };
+            if (!currentUser.displayName) {
                 throw new Error('SharePoint nevrátil přihlášeného uživatele.');
             }
             return currentUser;
@@ -1114,6 +1114,7 @@ var fmeaApp = (function() {
         record.historie = [{
             kdy: getTimestamp(),
             kdo: getCurrentUser(),
+            kdoId: getCurrentUserId(),
             co: 'Záznam vytvořen'
         }];
         
@@ -1437,7 +1438,11 @@ var fmeaApp = (function() {
     };
 
     var getCurrentUser = function() {
-        return currentUser || 'Neověřený uživatel';
+        return currentUser ? currentUser.displayName : 'Neověřený uživatel';
+    };
+
+    var getCurrentUserId = function() {
+        return currentUser ? currentUser.loginName : '';
     };
 
     var getTimestamp = function() {
@@ -1467,6 +1472,7 @@ var fmeaApp = (function() {
         record.historie.push({
             kdy: getTimestamp(),
             kdo: getCurrentUser(),
+            kdoId: getCurrentUserId(),
             co: isStructured ? 'Změna záznamu' : changes,
             zmeny: isStructured ? changes : parseHistoryText(changes)
         });
@@ -1662,7 +1668,9 @@ var fmeaApp = (function() {
         return '<div class="history-list">' + visible.map(function(item) {
             var changes = getHistoryChanges(item);
             var summary = changes.length > 0 ? changes.length + ' změn' : (item.co || 'Záznam');
-            return '<div><strong>' + escapeHtml(item.kdo || '') + '</strong><br><span class="decision-text">' + escapeHtml(item.kdy || '') + '</span><br>' + escapeHtml(summary) + '</div>';
+            var actor = item.kdo || '';
+            if (item.kdoId) actor += ' (' + item.kdoId + ')';
+            return '<div><strong>' + escapeHtml(actor) + '</strong><br><span class="decision-text">' + escapeHtml(item.kdy || '') + '</span><br>' + escapeHtml(summary) + '</div>';
         }).join('') + '</div>';
     };
 
@@ -1670,7 +1678,9 @@ var fmeaApp = (function() {
         history = normalizeHistory(history);
         if (history.length === 0) return '<p class="decision-text">Zatím nejsou evidované žádné změny.</p>';
         return '<div class="history-list detail-history-list">' + history.slice().reverse().map(function(item) {
-            return '<div class="history-entry"><div class="history-entry-head"><strong>' + escapeHtml(item.kdo || '') + '</strong><span>' + escapeHtml(item.kdy || '') + '</span></div>' + renderHistoryChanges(item) + '</div>';
+            var actor = item.kdo || '';
+            if (item.kdoId) actor += ' (' + item.kdoId + ')';
+            return '<div class="history-entry"><div class="history-entry-head"><strong>' + escapeHtml(actor) + '</strong><span>' + escapeHtml(item.kdy || '') + '</span></div>' + renderHistoryChanges(item) + '</div>';
         }).join('') + '</div>';
     };
 
