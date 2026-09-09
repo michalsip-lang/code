@@ -545,6 +545,14 @@
             body.print-mode tr {
                 page-break-inside: avoid;
             }
+            body.print-mode table th:last-child,
+            body.print-mode table td:last-child {
+                display: none !important;
+            }
+            body.print-mode table th:first-child,
+            body.print-mode table td:first-child {
+                color: var(--samohyl-blue);
+            }
         }
         @media (max-width: 720px) {
             .brand-header {
@@ -715,7 +723,6 @@
             <div class="print-header">
                 <div>
                     <h1>FMEA Protokol</h1>
-                    <p>RAD-GDP/GMP-FMEA-ALL-001 / MET-GDP/GMP-FMEA-ALL-002</p>
                     <div class="print-meta">
                         <div>Schválil: <span id="printApprovedBy"></span></div>
                         <div>Datum tisku: <span id="printDate"></span></div>
