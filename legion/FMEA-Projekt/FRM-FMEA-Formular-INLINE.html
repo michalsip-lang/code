@@ -769,7 +769,7 @@ var fmeaApp = (function() {
     };
     var config = {
         listName: 'FMEA_Analyza', // Název SharePoint listy
-        siteUrl: (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo && _spPageContextInfo.webAbsoluteUrl) ? _spPageContextInfo.webAbsoluteUrl : (getSharePointSiteUrl() || 'http://portal.samohyl.cz/sdp_svp'),
+        siteUrl: (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo && _spPageContextInfo.webAbsoluteUrl) ? _spPageContextInfo.webAbsoluteUrl : (getSharePointSiteUrl() || (window.location.protocol === 'https:' ? 'https://' : 'http://') + 'portal.samohyl.cz/sdp_svp'),
         useLocalStorage: false,
         fields: {
             proces: 'Proces_FMEA',
@@ -790,6 +790,58 @@ var fmeaApp = (function() {
             detekcePo: 'DetekcePo',
             historie: 'Historie'
         }
+    };
+
+    var request = function(url, options) {
+        return new Promise(function(resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            xhr.open(options.method || 'GET', url, true);
+            xhr.withCredentials = true;
+            Object.keys(options.headers || {}).forEach(function(header) {
+                xhr.setRequestHeader(header, options.headers[header]);
+            });
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState !== 4) return;
+                resolve({
+                    ok: xhr.status >= 200 && xhr.status < 300,
+                    status: xhr.status,
+                    json: function() { return Promise.resolve(JSON.parse(xhr.responseText)); }
+                });
+            };
+            xhr.onerror = function() {
+                reject(new Error('Síťová chyba při komunikaci se SharePointem. Ověřte URL a přihlášení.'));
+            };
+            xhr.send(options.body || null);
+        });
+    };
+
+    var getRequestDigest = function() {
+        var digestElement = document.getElementById('__REQUESTDIGEST');
+        if (digestElement && digestElement.value) {
+            return Promise.resolve(digestElement.value);
+        }
+
+        return request(config.siteUrl + '/_api/contextinfo', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json;odata=verbose',
+                'Content-Type': 'application/json;odata=verbose'
+            }
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Nelze získat bezpečnostní token: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function(result) {
+            var information = result.d && result.d.GetContextWebInformation;
+            var digest = information && information.FormDigestValue;
+            if (!digest) {
+                throw new Error('SharePoint nevrátil bezpečnostní token.');
+            }
+            return digest;
+        });
     };
 
     var formFields = ['proces', 'selhani', 'nasledky', 'pricina', 'kontrolaPrevence', 'kontrolaDetekce', 'zavaznost', 'vyskytu', 'detekce', 'opatreni', 'vlastnikOpatreni', 'terminOpatreni', 'dukazUcinnosti', 'zavaznostPo', 'vyskytuPo', 'detekcePo'];
@@ -910,7 +962,7 @@ var fmeaApp = (function() {
     var loadFromSharePoint = function() {
         var url = config.siteUrl + "/_api/web/lists/getbytitle('" + config.listName + "')/items?$select=*";
         
-        fetch(url, {
+        request(url, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -1014,15 +1066,17 @@ var fmeaApp = (function() {
             Historie: JSON.stringify(record.historie || [])
         };
         
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-RequestDigest': document.getElementById('__REQUESTDIGEST') ? 
-                                   document.getElementById('__REQUESTDIGEST').value : ''
-            },
-            body: JSON.stringify(itemData)
+        getRequestDigest()
+        .then(function(requestDigest) {
+            return request(url, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-RequestDigest': requestDigest
+                },
+                body: JSON.stringify(itemData)
+            });
         })
         .then(function(response) {
             if (!response.ok) {
@@ -1095,15 +1149,19 @@ var fmeaApp = (function() {
             Historie: JSON.stringify(record.historie || [])
         };
         
-        fetch(url, {
-            method: 'PATCH',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-RequestDigest': document.getElementById('__REQUESTDIGEST') ? 
-                                   document.getElementById('__REQUESTDIGEST').value : ''
-            },
-            body: JSON.stringify(itemData)
+        getRequestDigest()
+        .then(function(requestDigest) {
+            return request(url, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-RequestDigest': requestDigest,
+                    'X-HTTP-Method': 'MERGE',
+                    'If-Match': '*'
+                },
+                body: JSON.stringify(itemData)
+            });
         })
         .catch(function(error) {
             console.error('Chyba aktualizace:', error);
@@ -1135,12 +1193,16 @@ var fmeaApp = (function() {
     var deleteFromSharePoint = function(itemId) {
         var url = config.siteUrl + "/_api/web/lists/getbytitle('" + config.listName + "')/items(" + itemId + ")";
         
-        fetch(url, {
-            method: 'DELETE',
-            headers: {
-                'X-RequestDigest': document.getElementById('__REQUESTDIGEST') ? 
-                                   document.getElementById('__REQUESTDIGEST').value : ''
-            }
+        getRequestDigest()
+        .then(function(requestDigest) {
+            return request(url, {
+                method: 'POST',
+                headers: {
+                    'X-RequestDigest': requestDigest,
+                    'X-HTTP-Method': 'DELETE',
+                    'If-Match': '*'
+                }
+            });
         })
         .then(function(response) {
             if (!response.ok) {
