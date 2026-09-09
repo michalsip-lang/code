@@ -490,6 +490,7 @@
             body.print-mode .brand-header,
             body.print-mode #offlineWarning,
             body.print-mode #statusMessage,
+            body.print-mode main,
             body.print-mode .form-group,
             body.print-mode .record-modal,
             body.print-mode .actions,
@@ -1790,6 +1791,9 @@ var fmeaApp = (function() {
         document.body.className = document.body.className.replace(/\bprint-mode\b/g, '').trim();
         document.body.className += (document.body.className ? ' ' : '') + 'print-mode';
         window.print();
+        window.setTimeout(function() {
+            document.body.className = document.body.className.replace(/\bprint-mode\b/g, '').trim();
+        }, 1000);
     };
 
     var saveAsPDF = function() {
