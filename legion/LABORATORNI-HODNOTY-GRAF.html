@@ -30,14 +30,6 @@
         svg { display:block; width:100%; height:100%; }
         .chart-note { margin:12px 0 0; color:var(--muted); font:12px Arial,sans-serif; }
         .category-summary { margin:0 0 14px; color:var(--ink); font:13px/1.5 Arial,sans-serif; }
-        .evaluations { margin-top:20px; border-top:1px solid var(--line); padding-top:16px; }
-        .evaluations h3 { margin:0 0 12px; color:#123f65; font-size:18px; }
-        .evaluation-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
-        .evaluation-card { border:1px solid var(--line); border-left:4px solid var(--blue); border-radius:4px; padding:12px; background:#fbfcfd; }
-        .evaluation-card h4 { margin:0 0 5px; color:#123f65; font-size:15px; }
-        .evaluation-summary { margin:0 0 9px; color:var(--muted); font:12px Arial,sans-serif; }
-        .evaluation-item { display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-top:1px solid #e6ebef; font:12px Arial,sans-serif; }
-        .evaluation-item strong { font-weight:bold; } .evaluation-item small { color:var(--muted); text-align:right; }
         .value-ok { color:var(--green); } .value-low,.value-high { color:var(--orange); } .value-missing { color:var(--muted); }
         .tooltip { position:absolute; display:none; pointer-events:none; min-width:190px; padding:10px; background:#17212b; color:#fff; border-radius:4px; font:12px Arial,sans-serif; box-shadow:0 6px 18px #0003; z-index:2; }
         .table-wrap { overflow:auto; margin-top:20px; } table { width:100%; border-collapse:collapse; font:12px Arial,sans-serif; } th,td { padding:8px 9px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; } th:first-child,td:first-child { text-align:left; } th { color:#123f65; background:var(--blue-soft); position:sticky; top:0; }
@@ -73,7 +65,6 @@
             <div class="chart-wrap"><svg id="chart" role="img" aria-label="Graf laboratorních hodnot"></svg><div id="tooltip" class="tooltip"></div></div>
             <div id="legend" class="legend"></div>
             <p class="chart-note">V režimu „Poměr k referenčnímu rozmezí“ znamená 100 % horní hranici referenčního rozmezí. Hodnoty jsou převzaty z dodaných laboratorních zpráv.</p>
-            <div class="evaluations"><h3>Vyhodnocení podle kategorií</h3><div id="evaluations" class="evaluation-grid"></div></div>
             <div class="table-wrap"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
         </section>
     </div>
@@ -145,20 +136,6 @@
         var movement='Trend: '+rising+' hodnot roste, '+falling+' klesá a '+stable+' je stabilních.';
         el('chartTitle').textContent=category; el('categorySummary').textContent=condition+' '+movement+' Jde o orientační porovnání s laboratorními mezemi, nikoli o lékařskou diagnózu.';
     }
-    function renderEvaluations() {
-        var grouped = {};
-        names.forEach(function(name) { var category=data[name].category; if (!grouped[category]) grouped[category]=[]; grouped[category].push(name); });
-        el('evaluations').innerHTML = categories.map(function(category) {
-            var items=grouped[category]||[], measured=0, within=0, below=0, above=0;
-            var rows=items.map(function(name) {
-                var item=data[name], index=latestIndex(item.values); if (index===-1) return '<div class="evaluation-item"><strong>'+esc(name)+'</strong><small class="value-missing">bez hodnoty</small></div>';
-                measured++; var state=valueStatus(item,item.values[index]); if(state.label==='v mezích') within++; if(state.label==='pod mezí') below++; if(state.label==='nad mezí') above++;
-                return '<div class="evaluation-item"><strong>'+esc(name)+'</strong><small class="'+state.className+'">'+esc(display(item.values[index]))+' '+esc(item.unit)+' · '+esc(dates[index])+' · '+state.label+' · '+trendLabel(item,index)+'</small></div>';
-            }).join('');
-            var summary=measured+' měřených'; if(within) summary+=', '+within+' v mezích'; if(below) summary+=', '+below+' pod mezí'; if(above) summary+=', '+above+' nad mezí';
-            return '<article class="evaluation-card"><h4>'+esc(category)+'</h4><p class="evaluation-summary">Poslední dostupné měření: '+esc(dates[dates.length-1])+' · '+summary+'</p>'+rows+'</article>';
-        }).join('');
-    }
     var categories = names.map(function(name) { return data[name].category; }).filter(function(category, index, list) { return list.indexOf(category) === index; });
     function visibleNames() { var query = el('search').value.toLowerCase(); var category = el('category').value; return names.filter(function(name){ return name.toLowerCase().indexOf(query) !== -1 && (category === 'all' || data[name].category === category); }); }
     function renderCategories() { el('category').innerHTML = '<option value="all">Všechny kategorie</option>' + categories.map(function(category) { return '<option value="' + esc(category) + '">' + esc(category) + '</option>'; }).join(''); }
@@ -229,7 +206,6 @@
                 });
             });
         el('legend').innerHTML=selected.map(function(name,index){return '<span><i class="dot" style="background:'+colors[index%colors.length]+'"></i>'+esc(name)+' ('+esc(data[name].unit)+')</span>';}).join('')||'<span>Není vybrán žádný parametr.</span>';
-        renderEvaluations();
         renderTable(mode);
         el('status').textContent=selected.length+' vybraných parametrů';
     }
