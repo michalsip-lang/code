@@ -903,7 +903,7 @@ var fmeaApp = (function() {
 
     var currentUser = null;
     var loadCurrentUser = function() {
-        return request(config.siteUrl + '/_api/web/currentuser?$select=Title,LoginName,Email', {
+        return request(config.siteUrl + '/_api/web/currentuser', {
             method: 'GET',
             headers: { 'Accept': 'application/json;odata=verbose' }
         })
@@ -920,10 +920,38 @@ var fmeaApp = (function() {
                 loginName: user.LoginName || '',
                 email: user.Email || ''
             };
-            if (!currentUser.displayName) {
+            if (!currentUser.displayName || !currentUser.loginName) {
                 throw new Error('SharePoint nevrátil přihlášeného uživatele.');
             }
             return currentUser;
+        })
+        .catch(function(error) {
+            var pageContext = typeof _spPageContextInfo !== 'undefined' ? _spPageContextInfo : null;
+            if (!pageContext || !pageContext.userId) {
+                throw error;
+            }
+            return request(config.siteUrl + '/_api/web/getuserbyid(' + pageContext.userId + ')', {
+                method: 'GET',
+                headers: { 'Accept': 'application/json;odata=verbose' }
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw error;
+                }
+                return response.json();
+            })
+            .then(function(result) {
+                var user = result.d || result;
+                currentUser = {
+                    displayName: user.Title || pageContext.userDisplayName || user.LoginName || '',
+                    loginName: user.LoginName || '',
+                    email: user.Email || ''
+                };
+                if (!currentUser.displayName || !currentUser.loginName) {
+                    throw error;
+                }
+                return currentUser;
+            });
         });
     };
 
