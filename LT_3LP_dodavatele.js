@@ -345,6 +345,27 @@
         }
     }
 
+    function handleConditionFieldChange(event) {
+        var conditionField;
+        var supplierField;
+        var purchaserField;
+
+        event = event || window.event;
+        conditionField = event && (event.target || event.srcElement);
+
+        if (conditionField && conditionField.checked === false) {
+            supplierField = findTargetField();
+            purchaserField = findFieldByInternalNames(
+                CONFIG.purchaserTargetFieldInternalNames
+            );
+
+            setTargetFieldValue(supplierField, "");
+            setTargetFieldValue(purchaserField, "");
+        }
+
+        updateConditionalFieldAvailability();
+    }
+
     function bindConditionField() {
         var conditionField = findConditionField();
 
@@ -353,7 +374,7 @@
         }
 
         if (getAttribute(conditionField, "data-dodavatel-condition-bound") !== "true") {
-            addEvent(conditionField, "change", updateConditionalFieldAvailability);
+            addEvent(conditionField, "change", handleConditionFieldChange);
             conditionField.setAttribute("data-dodavatel-condition-bound", "true");
         }
 
