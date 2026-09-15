@@ -14,6 +14,7 @@
     var observer = null;
     var fallbackInterval = null;
     var styleAdded = false;
+    var delegatedClickBound = false;
 
     function addEvent(element, eventName, handler) {
         if (!element) {
@@ -50,6 +51,8 @@
     function isTextField(element) {
         var tagName;
         var type;
+        var contentEditable;
+        var role;
 
         if (!element || !element.tagName) {
             return false;
@@ -62,14 +65,16 @@
         }
 
         if (tagName !== "input") {
-            return false;
+            contentEditable = getAttribute(element, "contenteditable").toLowerCase();
+            role = getAttribute(element, "role").toLowerCase();
+
+            return contentEditable === "true" || role === "textbox";
         }
 
         type = (getAttribute(element, "type") || "text").toLowerCase();
 
         return type === "text" ||
-            type === "search" ||
-            type === "hidden";
+            type === "search";
     }
 
     function containsIgnoreCase(value, search) {
@@ -96,6 +101,47 @@
         return null;
     }
 
+    function findTextFieldInContainer(container) {
+        var fields;
+        var i;
+
+        if (!container || !container.getElementsByTagName) {
+            return null;
+        }
+
+        fields = container.getElementsByTagName("input");
+
+        for (i = 0; i < fields.length; i += 1) {
+            if (isTextField(fields[i])) {
+                return fields[i];
+            }
+        }
+
+        fields = container.getElementsByTagName("textarea");
+
+        if (fields.length) {
+            return fields[0];
+        }
+
+        fields = container.getElementsByTagName("*");
+
+        for (i = 0; i < fields.length; i += 1) {
+            if (isTextField(fields[i])) {
+                return fields[i];
+            }
+        }
+
+        return null;
+    }
+
+    function hasTargetReference(element) {
+        return containsIgnoreCase(getAttribute(element, "id"), CONFIG.fieldInternalName) ||
+            containsIgnoreCase(getAttribute(element, "name"), CONFIG.fieldInternalName) ||
+            containsIgnoreCase(getAttribute(element, "data-field-internal-name"), CONFIG.fieldInternalName) ||
+            containsIgnoreCase(getAttribute(element, "data-field-name"), CONFIG.fieldInternalName) ||
+            containsIgnoreCase(getAttribute(element, "data-name"), CONFIG.fieldInternalName);
+    }
+
     function findTargetField() {
         var field;
         var elements;
@@ -104,6 +150,7 @@
         var ariaLabel;
         var dataName;
         var dataFieldName;
+        var parent;
 
         field = document.getElementById(CONFIG.fieldInternalName);
 
@@ -150,6 +197,36 @@
                 containsIgnoreCase(dataName, CONFIG.fieldInternalName) ||
                 containsIgnoreCase(dataFieldName, CONFIG.fieldInternalName)) {
                 return elements[i];
+            }
+        }
+
+        /* Některé verze SharePointu mají interní název pouze na wrapperu pole. */
+        for (i = 0; i < elements.length; i += 1) {
+            if (!hasTargetReference(elements[i])) {
+                continue;
+            }
+
+            field = findTextFieldInContainer(elements[i]);
+
+            if (field) {
+                return field;
+            }
+        }
+
+        /* Další možnost je wrapper několik úrovní nad viditelným vstupem. */
+        for (i = 0; i < elements.length; i += 1) {
+            if (!isTextField(elements[i])) {
+                continue;
+            }
+
+            parent = elements[i].parentNode;
+
+            while (parent && parent !== document.body) {
+                if (hasTargetReference(parent)) {
+                    return elements[i];
+                }
+
+                parent = parent.parentNode;
             }
         }
 
@@ -836,16 +913,57 @@
         addEvent(field, "keydown", keydownHandler);
     }
 
+    function handleDelegatedClick(event) {
+        var target;
+        var field;
+        var current;
+
+        if (dialogState) {
+            return;
+        }
+
+        event = event || window.event;
+        target = event.target || event.srcElement;
+        field = findTargetField();
+
+        if (!target || !field) {
+            return;
+        }
+
+        current = target;
+
+        while (current && current !== document.body) {
+            if (current === field) {
+                if (event.preventDefault) {
+                    event.preventDefault();
+                }
+
+                openSupplierDialog(field);
+                return;
+            }
+
+            current = current.parentNode;
+        }
+    }
+
     function isSupportedFormPage() {
         var path = String(window.location.pathname || "").toLowerCase();
+        var query = String(window.location.search || "").toLowerCase();
 
-        return /\/(newform|editform)\.aspx$/.test(path);
+        return /\/(newform|editform)\.aspx$/.test(path) ||
+            (/\/listform\.aspx$/.test(path) &&
+                /(?:^|[?&])pagetype=(?:6|8)(?:&|$)/.test(query));
     }
 
     function initializeSupplierPicker() {
         // Picker se aktivuje pouze na formulářích pro nový nebo upravovaný záznam.
         if (!isSupportedFormPage()) {
             return;
+        }
+
+        if (!delegatedClickBound) {
+            addEvent(document, "click", handleDelegatedClick);
+            delegatedClickBound = true;
         }
 
         var field = findTargetField();
