@@ -276,17 +276,10 @@
             "}" +
             ".dodavatel-picker-header{" +
                 "position:relative;padding:16px 52px 14px 20px;" +
-                "background:linear-gradient(90deg,#292982 0%,#34349a 62%,#808184 100%);" +
-                "color:#ffffff;border-bottom:1px solid #1f1f63;" +
+                "background:#292982;" +
+                "color:#ffffff;border-bottom:0;" +
             "}" +
-            ".dodavatel-picker-title{margin:0;font-size:20px;font-weight:600;}" +
-            ".dodavatel-picker-close{" +
-                "position:absolute;top:10px;right:12px;width:34px;height:34px;border:0;" +
-                "background:transparent;color:#fff;font-size:26px;line-height:30px;cursor:pointer;" +
-            "}" +
-            ".dodavatel-picker-close:hover,.dodavatel-picker-close:focus{" +
-                "background:#1f1f63;outline:1px solid #fff;" +
-            "}" +
+            ".dodavatel-picker-title{margin:0;color:#ffffff;font-size:20px;font-weight:600;}" +
             ".dodavatel-picker-body{padding:20px;background:#ffffff;}" +
             ".dodavatel-picker-search{" +
                 "display:block;width:100%;height:36px;padding:7px 10px;border:1px solid #808184;" +
@@ -792,7 +785,6 @@
         var dialog;
         var header;
         var title;
-        var closeButton;
         var body;
         var search;
         var status;
@@ -820,13 +812,7 @@
         title = createElement("h2", "dodavatel-picker-title", "Výběr dodavatelů");
         title.id = "dodavatel-picker-title";
 
-        closeButton = createElement("button", "dodavatel-picker-close", "×");
-        closeButton.type = "button";
-        closeButton.setAttribute("aria-label", "Zavřít");
-        addEvent(closeButton, "click", closeSupplierDialog);
-
         header.appendChild(title);
-        header.appendChild(closeButton);
 
         body = createElement("div", "dodavatel-picker-body");
         search = createElement("input", "dodavatel-picker-search");
