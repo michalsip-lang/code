@@ -4,6 +4,8 @@
     var CONFIG = {
         fieldInternalName: "dodavatel_3pl",
         alternateFieldInternalNames: ["dodavatele_3lp"],
+        purchaserTargetFieldInternalNames: ["nakupci_3lp"],
+        conditionFieldInternalNames: ["listace_jineho_dodavatele"],
         siteUrl: "http://portal.samohyl.cz/nakup",
         listTitle: "Dodavatele",
         listRelativeUrl: "/nakup/Lists/Dodavatele",
@@ -266,6 +268,96 @@
         }
 
         return null;
+    }
+
+    function findFieldByInternalNames(names) {
+        var elements = document.getElementsByTagName("*");
+        var i;
+        var j;
+        var value;
+
+        for (i = 0; i < elements.length; i += 1) {
+            if (!isTextField(elements[i])) {
+                continue;
+            }
+
+            for (j = 0; j < names.length; j += 1) {
+                value = getAttribute(elements[i], "id") + " " +
+                    getAttribute(elements[i], "name") + " " +
+                    getAttribute(elements[i], "data-field-internal-name") + " " +
+                    getAttribute(elements[i], "data-field-name");
+
+                if (containsIgnoreCase(value, names[j])) {
+                    return elements[i];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function findConditionField() {
+        var elements = document.getElementsByTagName("input");
+        var i;
+        var j;
+        var value;
+
+        for (i = 0; i < elements.length; i += 1) {
+            if (String(elements[i].type).toLowerCase() !== "checkbox") {
+                continue;
+            }
+
+            value = getAttribute(elements[i], "id") + " " +
+                getAttribute(elements[i], "name") + " " +
+                getAttribute(elements[i], "data-field-internal-name");
+
+            for (j = 0; j < CONFIG.conditionFieldInternalNames.length; j += 1) {
+                if (containsIgnoreCase(value, CONFIG.conditionFieldInternalNames[j])) {
+                    return elements[i];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function isSupplierPickerEnabled() {
+        var conditionField = findConditionField();
+
+        return !conditionField || conditionField.checked === true;
+    }
+
+    function updateConditionalFieldAvailability() {
+        var enabled = isSupplierPickerEnabled();
+        var supplierField = findTargetField();
+        var purchaserField = findFieldByInternalNames(
+            CONFIG.purchaserTargetFieldInternalNames
+        );
+
+        if (supplierField) {
+            supplierField.disabled = !enabled;
+            supplierField.setAttribute("aria-disabled", enabled ? "false" : "true");
+        }
+
+        if (purchaserField) {
+            purchaserField.disabled = !enabled;
+            purchaserField.setAttribute("aria-disabled", enabled ? "false" : "true");
+        }
+    }
+
+    function bindConditionField() {
+        var conditionField = findConditionField();
+
+        if (!conditionField) {
+            return;
+        }
+
+        if (getAttribute(conditionField, "data-dodavatel-condition-bound") !== "true") {
+            addEvent(conditionField, "change", updateConditionalFieldAvailability);
+            conditionField.setAttribute("data-dodavatel-condition-bound", "true");
+        }
+
+        updateConditionalFieldAvailability();
     }
 
     function injectStyles() {
@@ -798,7 +890,10 @@
     function confirmSelection() {
         var state = dialogState;
         var result = [];
+        var emailResult = [];
         var seen = {};
+        var emailSeen = {};
+        var purchaserField;
         var i;
         var supplier;
         var key;
@@ -814,10 +909,31 @@
             if (state.selected[key] && !seen[key]) {
                 seen[key] = true;
                 result.push(supplier.title);
+
+                if (supplier.email && !emailSeen[normalizeSearchValue(supplier.email)]) {
+                    emailSeen[normalizeSearchValue(supplier.email)] = true;
+                    emailResult.push(supplier.email);
+                }
             }
         }
 
         setTargetFieldValue(state.field, result.join(CONFIG.separator));
+
+        purchaserField = findFieldByInternalNames(
+            CONFIG.purchaserTargetFieldInternalNames
+        );
+
+        if (purchaserField) {
+            setTargetFieldValue(
+                purchaserField,
+                emailResult.join(CONFIG.separator)
+            );
+        } else if (window.console && window.console.error) {
+            window.console.error(
+                "Pole nakupci_3lp nebylo nalezeno; emaily nebyly zapsány."
+            );
+        }
+
         closeSupplierDialog();
     }
 
@@ -916,7 +1032,7 @@
         var confirmButton;
         var keydownHandler;
 
-        if (dialogState || !field) {
+        if (dialogState || !field || !isSupplierPickerEnabled()) {
             return;
         }
 
@@ -1127,6 +1243,8 @@
             bindTargetField(field);
         }
 
+        bindConditionField();
+
         if (!observer && window.MutationObserver && document.body) {
             observer = new MutationObserver(function () {
                 var currentField = findTargetField();
@@ -1134,6 +1252,8 @@
                 if (currentField) {
                     bindTargetField(currentField);
                 }
+
+                bindConditionField();
             });
 
             observer.observe(document.body, {
@@ -1149,6 +1269,8 @@
                 if (currentField) {
                     bindTargetField(currentField);
                 }
+
+                bindConditionField();
             }, 1000);
 
             window.setTimeout(function () {
