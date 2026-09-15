@@ -6,6 +6,7 @@
         alternateFieldInternalNames: ["dodavatele_3lp"],
         purchaserTargetFieldInternalNames: ["nakupci_3lp"],
         conditionFieldInternalNames: ["listace_jineho_dodavatele"],
+        historyFieldInternalNames: ["historie", "Historie"],
         siteUrl: "http://portal.samohyl.cz/nakup",
         listTitle: "Dodavatele",
         listRelativeUrl: "/nakup/Lists/Dodavatele",
@@ -296,6 +297,47 @@
         return null;
     }
 
+    function getCurrentUserName() {
+        if (typeof _spPageContextInfo !== "undefined" &&
+            _spPageContextInfo &&
+            _spPageContextInfo.userDisplayName) {
+            return _spPageContextInfo.userDisplayName;
+        }
+
+        return "Neznámý uživatel";
+    }
+
+    function getHistoryTimestamp() {
+        var now = new Date();
+
+        try {
+            return now.toLocaleString("cs-CZ");
+        } catch (error) {
+            return now.toLocaleString();
+        }
+    }
+
+    function appendHistoryEntry(action) {
+        var historyField = findFieldByInternalNames(
+            CONFIG.historyFieldInternalNames
+        );
+        var oldValue;
+        var entry;
+
+        if (!historyField || !action) {
+            return;
+        }
+
+        oldValue = String(historyField.value || "");
+        entry = getCurrentUserName() + " | " +
+            getHistoryTimestamp() + " | " + action;
+
+        setTargetFieldValue(
+            historyField,
+            oldValue ? oldValue + "\n" + entry : entry
+        );
+    }
+
     function findConditionField() {
         var elements = document.getElementsByTagName("input");
         var i;
@@ -361,6 +403,9 @@
 
             setTargetFieldValue(supplierField, "");
             setTargetFieldValue(purchaserField, "");
+            appendHistoryEntry(
+                "Vypnuta evidence jiného dodavatele; vymazána pole dodavatelů a nákupčích"
+            );
         }
 
         updateConditionalFieldAvailability();
@@ -954,6 +999,13 @@
                 "Pole nakupci_3lp nebylo nalezeno; emaily nebyly zapsány."
             );
         }
+
+        appendHistoryEntry(
+            "Potvrzen výběr dodavatelů: " +
+            (result.length ? result.join(CONFIG.separator) : "bez dodavatele") +
+            "; nákupčí emaily: " +
+            (emailResult.length ? emailResult.join(CONFIG.separator) : "bez emailu")
+        );
 
         closeSupplierDialog();
     }
