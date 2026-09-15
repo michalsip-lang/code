@@ -6,6 +6,7 @@
         alternateFieldInternalNames: ["dodavatele_3lp"],
         siteUrl: "http://portal.samohyl.cz/nakup",
         listTitle: "Dodavatele",
+        listRelativeUrl: "/nakup/Lists/Dodavatele",
         displayField: "Title",
         separator: "; ",
         requestTimeoutMs: 30000
@@ -266,16 +267,17 @@
         var css =
             ".dodavatel-picker-overlay{" +
                 "position:fixed;z-index:2147483646;top:0;right:0;bottom:0;left:0;" +
-                "background:rgba(0,0,0,.42);overflow:auto;padding:24px;box-sizing:border-box;" +
+                "background:rgba(20,22,47,.46);overflow:auto;padding:24px;box-sizing:border-box;" +
             "}" +
             ".dodavatel-picker-dialog{" +
-                "position:relative;width:100%;max-width:700px;margin:24px auto;background:#fff;" +
-                "border:1px solid #c8c8c8;box-shadow:0 4px 18px rgba(0,0,0,.35);" +
-                "font-family:Segoe UI,Arial,sans-serif;color:#323130;box-sizing:border-box;" +
+                "position:relative;width:100%;max-width:700px;margin:24px auto;background:#ffffff;" +
+                "border:1px solid rgba(41,41,130,.16);box-shadow:0 12px 30px rgba(41,41,130,.22);" +
+                "font-family:Segoe UI,Arial,sans-serif;color:#14162f;box-sizing:border-box;" +
             "}" +
             ".dodavatel-picker-header{" +
-                "position:relative;padding:16px 52px 14px 20px;background:#0072c6;" +
-                "color:#fff;border-bottom:1px solid #005a9e;" +
+                "position:relative;padding:16px 52px 14px 20px;" +
+                "background:linear-gradient(90deg,#292982 0%,#34349a 62%,#808184 100%);" +
+                "color:#ffffff;border-bottom:1px solid #1f1f63;" +
             "}" +
             ".dodavatel-picker-title{margin:0;font-size:20px;font-weight:600;}" +
             ".dodavatel-picker-close{" +
@@ -283,28 +285,28 @@
                 "background:transparent;color:#fff;font-size:26px;line-height:30px;cursor:pointer;" +
             "}" +
             ".dodavatel-picker-close:hover,.dodavatel-picker-close:focus{" +
-                "background:#005a9e;outline:1px solid #fff;" +
+                "background:#1f1f63;outline:1px solid #fff;" +
             "}" +
-            ".dodavatel-picker-body{padding:20px;}" +
+            ".dodavatel-picker-body{padding:20px;background:#ffffff;}" +
             ".dodavatel-picker-search{" +
-                "display:block;width:100%;height:36px;padding:7px 10px;border:1px solid #a6a6a6;" +
+                "display:block;width:100%;height:36px;padding:7px 10px;border:1px solid #808184;" +
                 "box-sizing:border-box;font-size:14px;" +
             "}" +
-            ".dodavatel-picker-search:focus{border-color:#0072c6;outline:1px solid #0072c6;}" +
-            ".dodavatel-picker-status{min-height:22px;margin:10px 0;font-size:13px;color:#605e5c;}" +
-            ".dodavatel-picker-error{padding:10px;border:1px solid #a80000;background:#fde7e9;color:#a80000;line-height:1.4;}" +
-            ".dodavatel-picker-list{height:320px;overflow-y:auto;border:1px solid #d2d2d2;background:#fff;}" +
-            ".dodavatel-picker-item{display:block;padding:9px 12px;border-bottom:1px solid #eeeeee;cursor:pointer;font-size:14px;line-height:20px;}" +
-            ".dodavatel-picker-item:hover{background:#f3f6f9;}" +
+            ".dodavatel-picker-search:focus{border-color:#292982;outline:1px solid #292982;}" +
+            ".dodavatel-picker-status{min-height:22px;margin:10px 0;font-size:13px;color:#808184;}" +
+            ".dodavatel-picker-error{padding:10px;border:1px solid #e01b37;background:#fff0f2;color:#a61f2c;line-height:1.4;}" +
+            ".dodavatel-picker-list{height:320px;overflow-y:auto;border:1px solid rgba(41,41,130,.16);background:#f3f4f8;}" +
+            ".dodavatel-picker-item{display:block;padding:9px 12px;border-bottom:1px solid rgba(41,41,130,.12);cursor:pointer;font-size:14px;line-height:20px;background:#ffffff;}" +
+            ".dodavatel-picker-item:hover{background:#f3f4f8;}" +
             ".dodavatel-picker-item input{margin:0 9px 0 0;vertical-align:middle;}" +
-            ".dodavatel-picker-empty{padding:18px;color:#605e5c;}" +
-            ".dodavatel-picker-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px solid #e1e1e1;background:#fafafa;}" +
-            ".dodavatel-picker-count{font-size:13px;color:#605e5c;}" +
+            ".dodavatel-picker-empty{padding:18px;color:#808184;background:#ffffff;}" +
+            ".dodavatel-picker-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px solid rgba(41,41,130,.12);background:#f3f4f8;}" +
+            ".dodavatel-picker-count{font-size:13px;color:#808184;}" +
             ".dodavatel-picker-actions{display:flex;gap:8px;}" +
-            ".dodavatel-picker-button{min-width:120px;height:34px;padding:0 14px;border:1px solid #8a8886;background:#fff;color:#323130;font-size:14px;cursor:pointer;}" +
-            ".dodavatel-picker-button-primary{border-color:#0072c6;background:#0072c6;color:#fff;}" +
-            ".dodavatel-picker-button:hover,.dodavatel-picker-button:focus{outline:1px solid #005a9e;outline-offset:1px;}" +
-            ".dodavatel-picker-button-primary:hover,.dodavatel-picker-button-primary:focus{background:#005a9e;}" +
+            ".dodavatel-picker-button{min-width:120px;height:34px;padding:0 14px;border:1px solid #808184;background:#ffffff;color:#14162f;font-size:14px;cursor:pointer;}" +
+            ".dodavatel-picker-button-primary{border-color:#292982;background:#292982;color:#ffffff;}" +
+            ".dodavatel-picker-button:hover,.dodavatel-picker-button:focus{outline:1px solid #292982;outline-offset:1px;}" +
+            ".dodavatel-picker-button-primary:hover,.dodavatel-picker-button-primary:focus{background:#1f1f63;}" +
             "@media screen and (max-width:520px){" +
                 ".dodavatel-picker-overlay{padding:8px;}" +
                 ".dodavatel-picker-dialog{margin:8px auto;}" +
@@ -348,11 +350,11 @@
     }
 
     function getInitialRestUrl() {
-        var escapedTitle = escapeODataString(CONFIG.listTitle);
+        var escapedListUrl = escapeODataString(CONFIG.listRelativeUrl);
 
         return CONFIG.siteUrl +
-            "/_api/web/lists/GetByTitle('" +
-            encodeURIComponent(escapedTitle) +
+            "/_api/web/GetList('" +
+            escapedListUrl +
             "')/items" +
             "?%24select=Id%2CTitle&%24orderby=Title%20asc";
     }
