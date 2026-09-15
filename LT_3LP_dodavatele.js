@@ -26,6 +26,7 @@
     var fallbackInterval = null;
     var styleAdded = false;
     var delegatedClickBound = false;
+    var currentUserName = "";
 
     function addEvent(element, eventName, handler) {
         if (!element) {
@@ -298,6 +299,10 @@
     }
 
     function getCurrentUserName() {
+        if (currentUserName) {
+            return currentUserName;
+        }
+
         if (typeof _spPageContextInfo !== "undefined" &&
             _spPageContextInfo &&
             _spPageContextInfo.userDisplayName) {
@@ -305,6 +310,45 @@
         }
 
         return "Neznámý uživatel";
+    }
+
+    function loadCurrentUser() {
+        var request = new XMLHttpRequest();
+        var url = CONFIG.siteUrl + "/_api/web/currentuser";
+
+        if (typeof _spPageContextInfo !== "undefined" &&
+            _spPageContextInfo &&
+            _spPageContextInfo.userDisplayName) {
+            currentUserName = _spPageContextInfo.userDisplayName;
+        }
+
+        try {
+            request.open("GET", url, true);
+            request.setRequestHeader("Accept", "application/json;odata=verbose");
+            request.onreadystatechange = function () {
+                var data;
+                var user;
+
+                if (request.readyState !== 4 ||
+                    request.status < 200 || request.status >= 300) {
+                    return;
+                }
+
+                try {
+                    data = JSON.parse(request.responseText);
+                    user = data && data.d ? data.d : data;
+
+                    if (user && (user.Title || user.LoginName || user.Email)) {
+                        currentUserName = user.Title || user.LoginName || user.Email;
+                    }
+                } catch (ignore) {
+                    /* Page context zůstává záložním zdrojem identity. */
+                }
+            };
+            request.send(null);
+        } catch (ignoreRequest) {
+            /* Načtení identity nesmí zablokovat formulář. */
+        }
     }
 
     function getHistoryTimestamp() {
@@ -329,13 +373,94 @@
         }
 
         oldValue = String(historyField.value || "");
-        entry = getCurrentUserName() + " | " +
-            getHistoryTimestamp() + " | " + action;
+        entry = "KDO: " + getCurrentUserName() +
+            " | KDY: " + getHistoryTimestamp() +
+            " | CO: " + action;
+
+        if (historyField.className.indexOf("dodavatel-picker-history-field") === -1) {
+            historyField.className += " dodavatel-picker-history-field";
+        }
 
         setTargetFieldValue(
             historyField,
             oldValue ? oldValue + "\n" + entry : entry
         );
+
+        if (dialogState && dialogState.historyElement) {
+            renderHistoryTable(dialogState.historyElement, historyField.value);
+        }
+    }
+
+    function parseHistoryLine(line) {
+        var parts = String(line || "").split(" | ");
+        var result = { who: "", when: "", what: "" };
+        var i;
+
+        for (i = 0; i < parts.length; i += 1) {
+            if (parts[i].indexOf("KDO:") === 0) {
+                result.who = parts[i].replace(/^KDO:\s*/, "");
+            } else if (parts[i].indexOf("KDY:") === 0) {
+                result.when = parts[i].replace(/^KDY:\s*/, "");
+            } else if (parts[i].indexOf("CO:") === 0) {
+                result.what = parts[i].replace(/^CO:\s*/, "");
+            }
+        }
+
+        if (!result.what && line) {
+            result.what = line;
+        }
+
+        return result;
+    }
+
+    function renderHistoryTable(container, value) {
+        var lines = String(value || "").split(/\r?\n/).filter(function (line) {
+            return line.replace(/^\s+|\s+$/g, "") !== "";
+        });
+        var table;
+        var head;
+        var row;
+        var cell;
+        var tableRow;
+        var item;
+        var i;
+
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+
+        if (!lines.length) {
+            container.appendChild(createElement(
+                "div",
+                "dodavatel-picker-history-empty",
+                "Zatím nejsou evidované žádné změny."
+            ));
+            return;
+        }
+
+        table = createElement("table", "dodavatel-picker-history-table");
+        head = document.createElement("thead");
+        row = document.createElement("tr");
+
+        ["Kdo", "Kdy", "Co provedl"].forEach(function (text) {
+            row.appendChild(createElement("th", "", text));
+        });
+
+        head.appendChild(row);
+        table.appendChild(head);
+        row = document.createElement("tbody");
+
+        for (i = lines.length - 1; i >= 0; i -= 1) {
+            item = parseHistoryLine(lines[i]);
+            tableRow = document.createElement("tr");
+            tableRow.appendChild(createElement("td", "", item.who));
+            tableRow.appendChild(createElement("td", "", item.when));
+            tableRow.appendChild(createElement("td", "", item.what));
+            row.appendChild(tableRow);
+        }
+
+        table.appendChild(row);
+        container.appendChild(table);
     }
 
     function findConditionField() {
@@ -461,6 +586,14 @@
             ".dodavatel-picker-supplier-name{min-width:0;padding-right:12px;overflow-wrap:break-word;}" +
             ".dodavatel-picker-buyer-name{min-width:0;color:#808184;overflow-wrap:break-word;}" +
             ".dodavatel-picker-email{min-width:0;color:#292982;overflow-wrap:break-word;}" +
+            ".dodavatel-picker-history-field{border-color:#292982 !important;background:#f0f1fb !important;line-height:1.5;}" +
+            ".dodavatel-picker-history-card{margin-top:16px;border-left:4px solid #292982;border-top:1px solid rgba(41,41,130,.12);border-right:1px solid rgba(41,41,130,.12);border-bottom:1px solid rgba(41,41,130,.12);background:#ffffff;}" +
+            ".dodavatel-picker-history-title{padding:10px 12px;margin:0;color:#292982;font-size:15px;font-weight:700;border-bottom:1px solid rgba(41,41,130,.12);}" +
+            ".dodavatel-picker-history-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;}" +
+            ".dodavatel-picker-history-table th,.dodavatel-picker-history-table td{padding:8px 10px;text-align:left;vertical-align:top;border:1px solid rgba(41,41,130,.12);overflow-wrap:anywhere;}" +
+            ".dodavatel-picker-history-table th{background:#f0f1fb;color:#292982;font-weight:700;}" +
+            ".dodavatel-picker-history-table td{color:#14162f;}" +
+            ".dodavatel-picker-history-empty{padding:12px;color:#808184;font-size:12px;}" +
             ".dodavatel-picker-empty{padding:18px;color:#808184;background:#ffffff;}" +
             ".dodavatel-picker-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px solid rgba(41,41,130,.12);background:#f3f4f8;}" +
             ".dodavatel-picker-count{font-size:13px;color:#808184;}" +
@@ -1098,6 +1231,9 @@
         var search;
         var status;
         var list;
+        var historyCard;
+        var historyTitle;
+        var historyElement;
         var footer;
         var count;
         var actions;
@@ -1133,6 +1269,19 @@
         list = createElement("div", "dodavatel-picker-list");
         list.setAttribute("aria-label", "Seznam dodavatelů");
 
+        historyCard = createElement("section", "dodavatel-picker-history-card");
+        historyTitle = createElement(
+            "h3",
+            "dodavatel-picker-history-title",
+            "Historie záznamu"
+        );
+        historyElement = createElement("div", "dodavatel-picker-history-content");
+        historyCard.appendChild(historyTitle);
+        historyCard.appendChild(historyElement);
+
+        var historyField = findFieldByInternalNames(CONFIG.historyFieldInternalNames);
+        renderHistoryTable(historyElement, historyField ? historyField.value : "");
+
         footer = createElement("div", "dodavatel-picker-footer");
         count = createElement("div", "dodavatel-picker-count", "Vybráno dodavatelů: 0");
         actions = createElement("div", "dodavatel-picker-actions");
@@ -1149,6 +1298,7 @@
         body.appendChild(search);
         body.appendChild(status);
         body.appendChild(list);
+        body.appendChild(historyCard);
         dialog.appendChild(header);
         dialog.appendChild(body);
         dialog.appendChild(footer);
@@ -1164,6 +1314,7 @@
             searchElement: search,
             statusElement: status,
             listElement: list,
+            historyElement: historyElement,
             countElement: count,
             suppliers: [],
             selected: readExistingSelection(field),
@@ -1304,6 +1455,8 @@
         if (!isSupportedFormPage()) {
             return;
         }
+
+        loadCurrentUser();
 
         if (!delegatedClickBound) {
             addEvent(document, "click", handleDelegatedClick);
