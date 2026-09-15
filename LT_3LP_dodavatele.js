@@ -8,6 +8,8 @@
         listTitle: "Dodavatele",
         listRelativeUrl: "/nakup/Lists/Dodavatele",
         displayField: "Title",
+        buyerFieldInternalName: "N_x00e1_kup_x010d__x00ed_",
+        buyerColumnLabel: "Nákupčí krátce",
         separator: "; ",
         requestTimeoutMs: 30000
     };
@@ -289,9 +291,13 @@
             ".dodavatel-picker-status{min-height:22px;margin:10px 0;font-size:13px;color:#808184;}" +
             ".dodavatel-picker-error{padding:10px;border:1px solid #e01b37;background:#fff0f2;color:#a61f2c;line-height:1.4;}" +
             ".dodavatel-picker-list{height:320px;overflow-y:auto;border:1px solid rgba(41,41,130,.16);background:#f3f4f8;}" +
-            ".dodavatel-picker-item{display:block;padding:9px 12px;border-bottom:1px solid rgba(41,41,130,.12);cursor:pointer;font-size:14px;line-height:20px;background:#ffffff;}" +
+            ".dodavatel-picker-list-header{display:grid;grid-template-columns:24px minmax(180px,1.5fr) minmax(150px,1fr);padding:7px 12px;border-bottom:1px solid rgba(41,41,130,.16);background:#f3f4f8;color:#808184;font-size:12px;font-weight:600;}" +
+            ".dodavatel-picker-list-header span:first-child{visibility:hidden;}" +
+            ".dodavatel-picker-item{display:grid;grid-template-columns:24px minmax(180px,1.5fr) minmax(150px,1fr);align-items:center;padding:9px 12px;border-bottom:1px solid rgba(41,41,130,.12);cursor:pointer;font-size:14px;line-height:20px;background:#ffffff;}" +
             ".dodavatel-picker-item:hover{background:#f3f4f8;}" +
             ".dodavatel-picker-item input{margin:0 9px 0 0;vertical-align:middle;}" +
+            ".dodavatel-picker-supplier-name{min-width:0;padding-right:12px;overflow-wrap:break-word;}" +
+            ".dodavatel-picker-buyer-name{min-width:0;color:#808184;overflow-wrap:break-word;}" +
             ".dodavatel-picker-empty{padding:18px;color:#808184;background:#ffffff;}" +
             ".dodavatel-picker-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px solid rgba(41,41,130,.12);background:#f3f4f8;}" +
             ".dodavatel-picker-count{font-size:13px;color:#808184;}" +
@@ -308,6 +314,7 @@
                 ".dodavatel-picker-count{display:block;margin-bottom:10px;}" +
                 ".dodavatel-picker-actions{display:flex;}" +
                 ".dodavatel-picker-button{flex:1;min-width:0;}" +
+                ".dodavatel-picker-list-header,.dodavatel-picker-item{grid-template-columns:24px minmax(120px,1.4fr) minmax(100px,1fr);}" +
             "}";
 
         if (styleAdded) {
@@ -344,12 +351,35 @@
 
     function getInitialRestUrl() {
         var escapedListUrl = escapeODataString(CONFIG.listRelativeUrl);
+        var select = "Id," + CONFIG.displayField + "," + CONFIG.buyerFieldInternalName;
 
         return CONFIG.siteUrl +
             "/_api/web/GetList('" +
             escapedListUrl +
             "')/items" +
-            "?%24select=Id%2CTitle&%24orderby=Title%20asc";
+            "?%24select=" + encodeURIComponent(select) +
+            "&%24orderby=" + encodeURIComponent(CONFIG.displayField + " asc");
+    }
+
+    function getBuyerName(item) {
+        var value;
+
+        if (!item) {
+            return "";
+        }
+
+        value = item[CONFIG.buyerFieldInternalName];
+
+        if (value === null || typeof value === "undefined") {
+            return "";
+        }
+
+        if (typeof value === "object") {
+            return String(value.Title || value.Name || value.Description || "")
+                .replace(/^\s+|\s+$/g, "");
+        }
+
+        return String(value).replace(/^\s+|\s+$/g, "");
     }
 
     function loadSupplierPage(url, callback) {
@@ -437,6 +467,7 @@
                 var i;
                 var item;
                 var title;
+                var buyer;
                 var key;
 
                 if (error) {
@@ -465,12 +496,14 @@
                     }
 
                     key = normalizeSupplierName(title);
+                    buyer = getBuyerName(item);
 
                     if (!seen[key]) {
                         seen[key] = true;
                         suppliers.push({
                             id: item.Id,
-                            title: title
+                            title: title,
+                            buyer: buyer
                         });
                     }
                 }
@@ -559,6 +592,14 @@
             state.listElement.removeChild(state.listElement.firstChild);
         }
 
+        if (state.suppliers.length) {
+            label = createElement("div", "dodavatel-picker-list-header");
+            label.appendChild(createElement("span", "", ""));
+            label.appendChild(createElement("span", "", "Dodavatel"));
+            label.appendChild(createElement("span", "", CONFIG.buyerColumnLabel));
+            state.listElement.appendChild(label);
+        }
+
         for (i = 0; i < state.suppliers.length; i += 1) {
             supplier = state.suppliers[i];
 
@@ -585,7 +626,12 @@
             });
 
             label.appendChild(checkbox);
-            label.appendChild(document.createTextNode(supplier.title));
+            label.appendChild(createElement("span", "dodavatel-picker-supplier-name", supplier.title));
+            label.appendChild(createElement(
+                "span",
+                "dodavatel-picker-buyer-name",
+                supplier.buyer || ""
+            ));
             state.listElement.appendChild(label);
             visibleCount += 1;
         }
