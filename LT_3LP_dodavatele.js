@@ -6,7 +6,7 @@
         alternateFieldInternalNames: ["dodavatele_3lp"],
         purchaserTargetFieldInternalNames: ["nakupci_3lp"],
         conditionFieldInternalNames: ["listace_jineho_dodavatele"],
-        historyFieldInternalNames: ["historie", "Historie"],
+        historyFieldInternalNames: ["historie_2"],
         siteUrl: "http://portal.samohyl.cz/nakup",
         listTitle: "Dodavatele",
         listRelativeUrl: "/nakup/Lists/Dodavatele",
@@ -298,6 +298,52 @@
         return null;
     }
 
+    function findHistoryField() {
+        var elements = document.getElementsByTagName("*");
+        var i;
+        var j;
+        var reference;
+
+        for (i = 0; i < elements.length; i += 1) {
+            reference = getAttribute(elements[i], "id") + " " +
+                getAttribute(elements[i], "name") + " " +
+                getAttribute(elements[i], "data-field-internal-name") + " " +
+                getAttribute(elements[i], "data-field-name");
+
+            for (j = 0; j < CONFIG.historyFieldInternalNames.length; j += 1) {
+                if (containsIgnoreCase(reference, CONFIG.historyFieldInternalNames[j]) &&
+                    elements[i].tagName.toLowerCase() !== "label") {
+                    return elements[i];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function findHistoryDisplayElement() {
+        var elements = document.getElementsByTagName("*");
+        var i;
+        var j;
+        var reference;
+
+        for (i = 0; i < elements.length; i += 1) {
+            reference = getAttribute(elements[i], "id") + " " +
+                getAttribute(elements[i], "name") + " " +
+                getAttribute(elements[i], "data-field-internal-name") + " " +
+                getAttribute(elements[i], "data-field-name");
+
+            for (j = 0; j < CONFIG.historyFieldInternalNames.length; j += 1) {
+                if (containsIgnoreCase(reference, CONFIG.historyFieldInternalNames[j]) &&
+                    elements[i].tagName.toLowerCase() !== "label") {
+                    return elements[i];
+                }
+            }
+        }
+
+        return null;
+    }
+
     function getCurrentUserName() {
         if (currentUserName) {
             return currentUserName;
@@ -362,33 +408,62 @@
     }
 
     function appendHistoryEntry(action) {
-        var historyField = findFieldByInternalNames(
-            CONFIG.historyFieldInternalNames
-        );
+        var historyField = findHistoryField();
         var oldValue;
-        var entry;
+        var row;
+        var html;
 
         if (!historyField || !action) {
             return;
         }
 
-        oldValue = String(historyField.value || "");
-        entry = "KDO: " + getCurrentUserName() +
-            " | KDY: " + getHistoryTimestamp() +
-            " | CO: " + action;
+        oldValue = historyField.value || historyField.innerHTML || "";
+        row = "<tr><td>" + escapeHtml(getCurrentUserName()) +
+            "</td><td>" + escapeHtml(getHistoryTimestamp()) +
+            "</td><td>" + escapeHtml(action) + "</td></tr>";
+
+        if (String(oldValue).indexOf("<table") !== -1) {
+            html = String(oldValue).replace(/<\/tbody>\s*<\/table>/i, row + "</tbody></table>");
+        } else {
+            html = "<table class=\"dodavatel-history-table\"><thead><tr>" +
+                "<th>Kdo</th><th>Kdy</th><th>Co provedl</th>" +
+                "</tr></thead><tbody>" + row + "</tbody></table>";
+        }
 
         if (historyField.className.indexOf("dodavatel-picker-history-field") === -1) {
             historyField.className += " dodavatel-picker-history-field";
         }
 
-        setTargetFieldValue(
-            historyField,
-            oldValue ? oldValue + "\n" + entry : entry
-        );
+        setHistoryFieldHtml(historyField, html);
 
         if (dialogState && dialogState.historyElement) {
-            renderHistoryTable(dialogState.historyElement, historyField.value);
+            renderHistoryTable(dialogState.historyElement, html);
         }
+    }
+
+    function setHistoryFieldHtml(field, html) {
+        if (!field) {
+            return;
+        }
+
+        if (typeof field.value !== "undefined") {
+            field.value = html;
+        } else {
+            field.innerHTML = html;
+        }
+
+        dispatchCompatibleEvent(field, "input");
+        dispatchCompatibleEvent(field, "change");
+        dispatchCompatibleEvent(field, "blur");
+    }
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
     }
 
     function parseHistoryLine(line) {
@@ -414,6 +489,11 @@
     }
 
     function renderHistoryTable(container, value) {
+        if (String(value || "").indexOf("<table") !== -1) {
+            container.innerHTML = value;
+            return;
+        }
+
         var lines = String(value || "").split(/\r?\n/).filter(function (line) {
             return line.replace(/^\s+|\s+$/g, "") !== "";
         });
@@ -461,6 +541,21 @@
 
         table.appendChild(row);
         container.appendChild(table);
+    }
+
+    function initializeHistoryDisplay() {
+        var historyElement = findHistoryDisplayElement();
+        var sourceValue;
+
+        if (!historyElement ||
+            getAttribute(historyElement, "data-dodavatel-history-rendered") === "true") {
+            return;
+        }
+
+        sourceValue = historyElement.value || historyElement.innerHTML || historyElement.textContent || "";
+        injectStyles();
+        renderHistoryTable(historyElement, sourceValue);
+        historyElement.setAttribute("data-dodavatel-history-rendered", "true");
     }
 
     function findConditionField() {
@@ -593,6 +688,9 @@
             ".dodavatel-picker-history-table th,.dodavatel-picker-history-table td{padding:8px 10px;text-align:left;vertical-align:top;border:1px solid rgba(41,41,130,.12);overflow-wrap:anywhere;}" +
             ".dodavatel-picker-history-table th{background:#f0f1fb;color:#292982;font-weight:700;}" +
             ".dodavatel-picker-history-table td{color:#14162f;}" +
+            ".dodavatel-history-table{width:100%;border-collapse:collapse;font-size:13px;}" +
+            ".dodavatel-history-table th,.dodavatel-history-table td{padding:8px 10px;text-align:left;border:1px solid #d9d9e6;vertical-align:top;}" +
+            ".dodavatel-history-table th{background:#f0f1fb;color:#292982;}" +
             ".dodavatel-picker-history-empty{padding:12px;color:#808184;font-size:12px;}" +
             ".dodavatel-picker-empty{padding:18px;color:#808184;background:#ffffff;}" +
             ".dodavatel-picker-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px solid rgba(41,41,130,.12);background:#f3f4f8;}" +
@@ -1279,7 +1377,7 @@
         historyCard.appendChild(historyTitle);
         historyCard.appendChild(historyElement);
 
-        var historyField = findFieldByInternalNames(CONFIG.historyFieldInternalNames);
+        var historyField = findHistoryField();
         renderHistoryTable(historyElement, historyField ? historyField.value : "");
 
         footer = createElement("div", "dodavatel-picker-footer");
@@ -1450,6 +1548,10 @@
                 /(?:^|[?&])pagetype=(?:6|8)(?:&|$)/.test(query));
     }
 
+    function isDisplayFormPage() {
+        return /\/dispform\.aspx$/i.test(window.location.pathname || "");
+    }
+
     function initializeSupplierPicker() {
         // Picker se aktivuje pouze na formulářích pro nový nebo upravovaný záznam.
         if (!isSupportedFormPage()) {
@@ -1505,6 +1607,21 @@
                     fallbackInterval = null;
                 }
             }, 30000);
+        }
+    }
+
+    if (isDisplayFormPage()) {
+        if (document.readyState === "loading") {
+            addEvent(document, "DOMContentLoaded", initializeHistoryDisplay);
+        } else {
+            initializeHistoryDisplay();
+        }
+
+        if (window.MutationObserver && document.body) {
+            new MutationObserver(initializeHistoryDisplay).observe(document.body, {
+                childList: true,
+                subtree: true
+            });
         }
     }
 
