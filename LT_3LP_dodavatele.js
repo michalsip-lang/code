@@ -3,6 +3,7 @@
 
     var CONFIG = {
         fieldInternalName: "dodavatel_3pl",
+        alternateFieldInternalNames: ["dodavatele_3lp"],
         siteUrl: "http://portal.samohyl.cz/nakup",
         listTitle: "Dodavatele",
         displayField: "Title",
@@ -81,6 +82,23 @@
         return String(value).toLowerCase().indexOf(String(search).toLowerCase()) !== -1;
     }
 
+    function matchesFieldInternalName(value) {
+        var names = CONFIG.alternateFieldInternalNames || [];
+        var i;
+
+        if (containsIgnoreCase(value, CONFIG.fieldInternalName)) {
+            return true;
+        }
+
+        for (i = 0; i < names.length; i += 1) {
+            if (containsIgnoreCase(value, names[i])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     function findFieldByAttribute(attributeName, expectedValue, partial) {
         var elements = document.getElementsByTagName("*");
         var i;
@@ -90,10 +108,10 @@
             value = getAttribute(elements[i], attributeName);
 
             if (partial) {
-                if (containsIgnoreCase(value, expectedValue) && isTextField(elements[i])) {
+                if (matchesFieldInternalName(value) && isTextField(elements[i])) {
                     return elements[i];
                 }
-            } else if (value === expectedValue && isTextField(elements[i])) {
+            } else if (matchesFieldInternalName(value) && isTextField(elements[i])) {
                 return elements[i];
             }
         }
@@ -135,11 +153,11 @@
     }
 
     function hasTargetReference(element) {
-        return containsIgnoreCase(getAttribute(element, "id"), CONFIG.fieldInternalName) ||
-            containsIgnoreCase(getAttribute(element, "name"), CONFIG.fieldInternalName) ||
-            containsIgnoreCase(getAttribute(element, "data-field-internal-name"), CONFIG.fieldInternalName) ||
-            containsIgnoreCase(getAttribute(element, "data-field-name"), CONFIG.fieldInternalName) ||
-            containsIgnoreCase(getAttribute(element, "data-name"), CONFIG.fieldInternalName);
+        return matchesFieldInternalName(getAttribute(element, "id")) ||
+            matchesFieldInternalName(getAttribute(element, "name")) ||
+            matchesFieldInternalName(getAttribute(element, "data-field-internal-name")) ||
+            matchesFieldInternalName(getAttribute(element, "data-field-name")) ||
+            matchesFieldInternalName(getAttribute(element, "data-name"));
     }
 
     function findTargetField() {
@@ -156,6 +174,16 @@
 
         if (isTextField(field)) {
             return field;
+        }
+
+        if (CONFIG.alternateFieldInternalNames) {
+            for (i = 0; i < CONFIG.alternateFieldInternalNames.length; i += 1) {
+                field = document.getElementById(CONFIG.alternateFieldInternalNames[i]);
+
+                if (isTextField(field)) {
+                    return field;
+                }
+            }
         }
 
         field = findFieldByAttribute("name", CONFIG.fieldInternalName, true);
@@ -192,10 +220,10 @@
             dataName = getAttribute(elements[i], "data-name");
             dataFieldName = getAttribute(elements[i], "data-field-name");
 
-            if (containsIgnoreCase(title, CONFIG.fieldInternalName) ||
-                containsIgnoreCase(ariaLabel, CONFIG.fieldInternalName) ||
-                containsIgnoreCase(dataName, CONFIG.fieldInternalName) ||
-                containsIgnoreCase(dataFieldName, CONFIG.fieldInternalName)) {
+            if (matchesFieldInternalName(title) ||
+                matchesFieldInternalName(ariaLabel) ||
+                matchesFieldInternalName(dataName) ||
+                matchesFieldInternalName(dataFieldName)) {
                 return elements[i];
             }
         }
