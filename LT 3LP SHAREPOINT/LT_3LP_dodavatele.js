@@ -715,6 +715,12 @@
         }
     }
 
+    function scheduleAttachmentAudit() {
+        [250, 1000, 2500, 5000].forEach(function (delay) {
+            window.setTimeout(auditAttachmentChanges, delay);
+        });
+    }
+
     function handleAuditFieldChange(event) {
         var field = event && (event.target || event.srcElement);
 
@@ -744,6 +750,11 @@
         var current = target;
 
         while (current && current !== document.body) {
+            if (containsIgnoreCase(getAttribute(current, "class"), "addnewattachment")) {
+                scheduleAttachmentAudit();
+                break;
+            }
+
             if (isSaveAction(current)) {
                 appendHistoryEntry("Uživatel klikl na Uložit");
                 break;
