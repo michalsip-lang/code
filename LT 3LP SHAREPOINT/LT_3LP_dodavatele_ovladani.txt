@@ -1,0 +1,175 @@
+UZIVATELSKY TEST FORMULARE EVIDENCE LISTACNICH TABULEK 3PL
+
+Skript: LT_3LP_dodavatele.js
+Verze dokumentu: 1.0
+Datum: 16. 9. 2026
+
+======================================================================
+1. UCEL TESTU
+======================================================================
+Overit, ze formular umoznuje uzivateli vyplnit zakaznika, vybrat
+jednoho nebo vice dodavatelu, vlozit podkladovou a finalni prilohu
+a ulozit zmeny vcetne zaznamu v auditni historii.
+
+======================================================================
+2. PODMINKY TESTU
+======================================================================
+- Otevrit NewForm.aspx nebo EditForm.aspx seznamu Evidence listacnich
+  tabulek 3LP.
+- Uzivatel musi mit opravneni upravovat polozku a vkladat prilohy.
+- TreeInfo musi mit nastaveni EnableAppendAndRemove: true.
+- Skript LT_3LP_dodavatele.js musi byt nacten na formulari.
+- Pro test je vhodne pouzit soubor typu XLS/XLSX.
+
+======================================================================
+3. TESTOVACI SCENARE
+======================================================================
+
+T01 - Nacteni formulare
+Kroky:
+1. Otevrit EditForm.aspx.
+Ocekavany vysledek:
+- Formular se nacte bez nekonecneho nacitani.
+- Tlacitko Vlozit prilohy je viditelne ihned po nacteni.
+- Text tlacitka je bily na modrem podkladu.
+- U podkladove prilohy je zobrazena seda napoveda.
+- Pole Příloha: seznam zbozi final je skryte, pokud neni vlozena
+  podkladova priloha.
+
+T02 - Vyber zakaznika
+Kroky:
+1. Vybrat zakaznika v poli Zakaznik.
+2. Opustit pole nebo zmenit hodnotu.
+Ocekavany vysledek:
+- V poli se zobrazi nazev zakaznika.
+- Do historie se zapisuje zobrazovany nazev zakaznika, ne interni ID.
+
+T03 - Evidence jineho dodavatele zapnuta
+Kroky:
+1. Zaskrtnout volbu Ma zalistovano od jineho dodavatele.
+Ocekavany vysledek:
+- Pole Dodavatele je aktivni.
+- Pole Nakupci je aktivni.
+- Je mozne otevrit okno Vyber dodavatelu.
+
+T04 - Vyber dodavatelu
+Kroky:
+1. Kliknout do pole Dodavatele.
+2. Vyhledat dodavatele.
+3. Oznacit jednoho nebo vice dodavatelu.
+4. Kliknout na Potvrdit vyber.
+Ocekavany vysledek:
+- Okno obsahuje vyhledavani a seznam dodavatelu.
+- U dodavatele se zobrazi nakupci a jeho e-mail, pokud jsou dostupne.
+- Nazvy vybranych dodavatelu se zapisi do pole Dodavatele.
+- E-mailove adresy se zapisi do pole Nakupci.
+- Do historie se zapise potvrzeni vyberu.
+
+T05 - Zruseni vyberu dodavatelu
+Kroky:
+1. Otevrit okno Vyber dodavatelu.
+2. Zmenit vyber.
+3. Kliknout na Zrusit.
+Ocekavany vysledek:
+- Okno se zavre.
+- Puvodni hodnota pole zustane nezmenena.
+
+T06 - Evidence jineho dodavatele vypnuta
+Kroky:
+1. Zrusit zaskrtnuti volby Ma zalistovano od jineho dodavatele.
+Ocekavany vysledek:
+- Pole Dodavatele se vymaze a deaktivuje.
+- Pole Nakupci se vymaze a deaktivuje.
+- Do historie se zapise vypnuti evidence a vymazani poli.
+
+T07 - Podkladova priloha
+Kroky:
+1. V poli Příloha: seznam zbozi podklad kliknout na Vlozit prilohy.
+2. Vybrat soubor XLS/XLSX.
+3. Dokoncit vlozeni v TreeInfo.
+Ocekavany vysledek:
+- Tlacitko je modre s bilym textem.
+- Zobrazena napoveda popisuje pozadovany obsah souboru.
+- Priloha se zobrazi v seznamu.
+- Pole Příloha: seznam zbozi final se zpřistupni.
+- Do historie se zapise pridani podkladove prilohy.
+
+T08 - Finalni priloha
+Kroky:
+1. Po vlozeni podkladove prilohy kliknout u pole Příloha: seznam zbozi
+   final na Vlozit prilohy.
+2. Vybrat finalni soubor.
+Ocekavany vysledek:
+- Finalni pole je dostupne pouze po vlozeni podkladove prilohy.
+- Finalni soubor se zobrazi v seznamu.
+- Do historie se zapise pridani finalni prilohy.
+
+T09 - Odebrani prilohy
+Kroky:
+1. U existujici prilohy zkontrolovat ovladaci prvky TreeInfo.
+Ocekavany vysledek:
+- Ovladaci prvek Odstranit vybrane je skryty.
+- Uzivatel muze prilohy pridavat, ale nema je odebirat bez zmeny
+  opravneni nebo nastaveni TreeInfo.
+
+T10 - Zmena bez ulozeni
+Kroky:
+1. Zmenit zakaznika nebo dodavatele.
+2. Kliknout na Storno.
+Ocekavany vysledek:
+- Formular se neulozi.
+- Zmeny se po znovuotevreni polozky neprojevi.
+
+T11 - Ulozeni formulare
+Kroky:
+1. Provest alespon jednu zmenu.
+2. Kliknout na Ulozit.
+Ocekavany vysledek:
+- Formular se ulozi.
+- Zmeny hodnot a akce Ulozit se zapisi do pole historie.
+- Po opetovnem otevreni zustanou hodnoty i historie zachovany.
+
+T12 - Zobrazeni existujici polozky
+Kroky:
+1. Otevrit DispForm.aspx existujici polozky.
+Ocekavany vysledek:
+- Zobrazi se ulozene hodnoty.
+- Zobrazi se podkladove a finalni prilohy podle ulozeneho stavu.
+- Zobrazi se auditni historie.
+- Formular neobsahuje ovladaci prvky pro odebrani priloh.
+
+======================================================================
+4. KONTROLA HISTORIE
+======================================================================
+Overit, ze historie obsahuje alespon:
+- uzivatele,
+- datum a cas,
+- popis akce,
+- nazev zmeneneho pole nebo typ akce.
+
+Poznamka: Zaznamy historie se pripravuji v prubehu prace s formularem
+a do SharePointu se ulozi spolu s polozkou po kliknuti na Ulozit.
+
+======================================================================
+5. VYSLEDEK TESTU
+======================================================================
+Datum testu: ____________________
+Test provedl: ____________________
+Vysledek: PASS / FAIL
+
+Zjistene problemy:
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+
+======================================================================
+6. PRAVIDLA PRO AKTUALIZACI DOKUMENTU
+======================================================================
+Tento soubor aktualizovat pri kazde zmene ovladani formulare, zejmena
+pri zmene:
+- nazvu nebo chovani poli,
+- zavislosti mezi podkladovou a finalni prilohou,
+- nastaveni TreeInfo,
+- vzhledu nebo textu ovladacich prvku,
+- zaznamu auditni historie,
+- pravidel pro ulozeni nebo zruseni formulare.
