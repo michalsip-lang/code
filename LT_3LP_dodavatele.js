@@ -6,6 +6,8 @@
         alternateFieldInternalNames: ["dodavatele_3lp"],
         purchaserTargetFieldInternalNames: ["nakupci_3lp"],
         conditionFieldInternalNames: ["listace_jineho_dodavatele"],
+        attachmentSourceFieldInternalNames: ["priloha_podklad", "priloha_podkald"],
+        attachmentTargetFieldInternalNames: ["priloha_final"],
         historyFieldInternalNames: ["historie"],
         siteUrl: "http://portal.samohyl.cz/nakup",
         listTitle: "Dodavatele",
@@ -627,6 +629,193 @@
         }
 
         updateConditionalFieldAvailability();
+    }
+
+    function hasFieldNameReference(element, names) {
+        var reference;
+        var i;
+
+        if (!element || !names || !names.length) {
+            return false;
+        }
+
+        reference = getAttribute(element, "id") + " " +
+            getAttribute(element, "name") + " " +
+            getAttribute(element, "data-field-internal-name") + " " +
+            getAttribute(element, "data-field-name") + " " +
+            getAttribute(element, "data-name") + " " +
+            getAttribute(element, "title");
+
+        for (i = 0; i < names.length; i += 1) {
+            if (containsIgnoreCase(reference, names[i])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function findAttachmentFieldContainer(names) {
+        var elements = document.getElementsByTagName("*");
+        var element;
+        var parent;
+        var i;
+
+        for (i = 0; i < elements.length; i += 1) {
+            element = elements[i];
+
+            if (!hasFieldNameReference(element, names)) {
+                continue;
+            }
+
+            parent = element;
+
+            while (parent && parent !== document.body) {
+                if (String(parent.tagName).toLowerCase() === "tr" ||
+                    containsIgnoreCase(getAttribute(parent, "class"), "ms-formfield")) {
+                    return parent;
+                }
+
+                parent = parent.parentNode;
+            }
+
+            return element;
+        }
+
+        return null;
+    }
+
+    function hasAttachmentContent(container) {
+        var fieldElements;
+        var fileInputs;
+        var links;
+        var attachmentMarkers;
+        var value;
+        var i;
+
+        if (!container) {
+            return false;
+        }
+
+        if (hasFieldNameReference(
+            container,
+            CONFIG.attachmentSourceFieldInternalNames
+        ) && typeof container.value === "string" &&
+            container.value.replace(/\s+/g, "") !== "") {
+            return true;
+        }
+
+        fieldElements = container.querySelectorAll ?
+            container.querySelectorAll("textarea, input, [contenteditable='true'], [data-field-internal-name], [data-field-name]") : [];
+
+        for (i = 0; i < fieldElements.length; i += 1) {
+            if (!hasFieldNameReference(
+                fieldElements[i],
+                CONFIG.attachmentSourceFieldInternalNames
+            )) {
+                continue;
+            }
+
+            value = typeof fieldElements[i].value === "string" ?
+                fieldElements[i].value :
+                (fieldElements[i].textContent || fieldElements[i].innerHTML || "");
+
+            if (String(value)
+                .replace(/&nbsp;|<br\s*\/?>(\s*)/gi, " ")
+                .replace(/<[^>]*>/g, "")
+                .replace(/\s+/g, "") !== "") {
+                return true;
+            }
+        }
+
+        fileInputs = container.querySelectorAll ?
+            container.querySelectorAll("input[type='file']") : [];
+
+        for (i = 0; i < fileInputs.length; i += 1) {
+            if ((fileInputs[i].files && fileInputs[i].files.length) ||
+                fileInputs[i].value ||
+                getAttribute(fileInputs[i], "value")) {
+                return true;
+            }
+        }
+
+        attachmentMarkers = container.querySelectorAll ?
+            container.querySelectorAll("[data-attachment-name], [data-attachment], .ms-fileField") : [];
+
+        if (attachmentMarkers.length) {
+            return true;
+        }
+
+        links = container.getElementsByTagName ? container.getElementsByTagName("a") : [];
+
+        for (i = 0; i < links.length; i += 1) {
+            if (containsIgnoreCase(getAttribute(links[i], "href"), "/attachments/")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function updateAttachmentFieldAvailability() {
+        var sourceContainer = findAttachmentFieldContainer(
+            CONFIG.attachmentSourceFieldInternalNames
+        );
+        var targetContainer = findAttachmentFieldContainer(
+            CONFIG.attachmentTargetFieldInternalNames
+        );
+        var available = hasAttachmentContent(sourceContainer);
+
+        if (!targetContainer) {
+            return;
+        }
+
+        targetContainer.style.display = available ? "" : "none";
+        targetContainer.hidden = !available;
+        targetContainer.setAttribute("aria-hidden", available ? "false" : "true");
+    }
+
+    function bindAttachmentSourceChanges() {
+        var sourceContainer = findAttachmentFieldContainer(
+            CONFIG.attachmentSourceFieldInternalNames
+        );
+        var fileInputs;
+        var i;
+
+        if (!sourceContainer || !sourceContainer.querySelectorAll) {
+            return;
+        }
+
+        if (hasFieldNameReference(
+            sourceContainer,
+            CONFIG.attachmentSourceFieldInternalNames
+        ) && typeof sourceContainer.value === "string" &&
+            getAttribute(sourceContainer, "data-attachment-availability-bound") !== "true") {
+            addEvent(sourceContainer, "change", updateAttachmentFieldAvailability);
+            addEvent(sourceContainer, "input", updateAttachmentFieldAvailability);
+            sourceContainer.setAttribute("data-attachment-availability-bound", "true");
+        }
+
+        fileInputs = sourceContainer.querySelectorAll(
+            "textarea, input, [contenteditable='true']"
+        );
+
+        for (i = 0; i < fileInputs.length; i += 1) {
+            if (!hasFieldNameReference(
+                fileInputs[i],
+                CONFIG.attachmentSourceFieldInternalNames
+            )) {
+                continue;
+            }
+
+            if (getAttribute(fileInputs[i], "data-attachment-availability-bound") === "true") {
+                continue;
+            }
+
+            addEvent(fileInputs[i], "change", updateAttachmentFieldAvailability);
+            addEvent(fileInputs[i], "input", updateAttachmentFieldAvailability);
+            fileInputs[i].setAttribute("data-attachment-availability-bound", "true");
+        }
     }
 
     function injectStyles() {
@@ -1505,7 +1694,7 @@
         var path = String(window.location.pathname || "").toLowerCase();
         var query = String(window.location.search || "").toLowerCase();
 
-        return /\/(newform|editform)\.aspx$/.test(path) ||
+        return /\/(newform|editform|dispform)\.aspx$/.test(path) ||
             (/\/listform\.aspx$/.test(path) &&
                 /(?:^|[?&])pagetype=(?:6|8)(?:&|$)/.test(query));
     }
@@ -1530,6 +1719,8 @@
         }
 
         bindConditionField();
+        bindAttachmentSourceChanges();
+        updateAttachmentFieldAvailability();
 
         if (!observer && window.MutationObserver && document.body) {
             observer = new MutationObserver(function () {
@@ -1540,6 +1731,8 @@
                 }
 
                 bindConditionField();
+                bindAttachmentSourceChanges();
+                updateAttachmentFieldAvailability();
             });
 
             observer.observe(document.body, {
@@ -1557,6 +1750,8 @@
                 }
 
                 bindConditionField();
+                bindAttachmentSourceChanges();
+                updateAttachmentFieldAvailability();
             }, 1000);
 
             window.setTimeout(function () {
