@@ -1162,14 +1162,21 @@
             ".dodavatel-picker-button:hover,.dodavatel-picker-button:focus{outline:1px solid #292982;outline-offset:1px;}" +
             ".dodavatel-picker-button-primary:hover,.dodavatel-picker-button-primary:focus{background:#1f1f63;}" +
             ".dodavatel-picker-attachment-button{" +
-                "display:inline-block;padding:8px 14px;border:1px solid #292982;" +
-                "border-radius:3px;background:#292982;color:#ffffff !important;" +
-                "font-family:Segoe UI,Arial,sans-serif;font-size:14px;" +
-                "font-weight:600;text-decoration:none;cursor:pointer;" +
+                "display:inline-block;min-width:120px;height:34px;padding:0 14px;" +
+                "box-sizing:border-box;border:1px solid #292982;background:#292982;" +
+                "color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;" +
+                "font-family:Segoe UI,Arial,sans-serif;" +
+                "font-size:14px;font-weight:400;line-height:32px;" +
+                "text-align:center;text-decoration:none;cursor:pointer;" +
             "}" +
-            ".dodavatel-picker-attachment-button:hover,.dodavatel-picker-attachment-button:focus{" +
-                "background:#1f1f63;color:#ffffff !important;outline:1px solid #292982;" +
+            ".dodavatel-picker-attachment-button:visited,.dodavatel-picker-attachment-button:hover," +
+            ".dodavatel-picker-attachment-button:focus,.dodavatel-picker-attachment-button:active{" +
+                "background:#1f1f63;color:#ffffff !important;" +
+                "-webkit-text-fill-color:#ffffff !important;outline:1px solid #292982;" +
                 "outline-offset:1px;" +
+            "}" +
+            ".dodavatel-picker-attachment-button *{" +
+                "color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;" +
             "}" +
             ".dodavatel-picker-attachment-hint{" +
                 "margin:0 0 10px 0;padding:8px 10px;border-left:3px solid #808184;" +
@@ -2025,6 +2032,7 @@
             bindTargetField(field);
         }
 
+        injectStyles();
         bindConditionField();
         bindAttachmentSourceChanges();
         updateAttachmentFieldAvailability();
