@@ -1057,7 +1057,9 @@
         ];
         var i;
         var container;
+        var fieldBody;
         var buttons;
+        var removeButtons;
         var hint;
 
         for (i = 0; i < names.length; i += 1) {
@@ -1067,21 +1069,43 @@
                 continue;
             }
 
+            fieldBody = container.querySelector("td.ms-formbody") || container;
             buttons = container.querySelectorAll("a.addNewAttachment");
+            removeButtons = container.querySelectorAll(
+                "a.deleteAll, .deleteAll"
+            );
 
             Array.prototype.forEach.call(buttons, function (button) {
-                button.textContent = "Vložit přílohy";
-                button.className += " dodavatel-picker-attachment-button";
-                button.setAttribute("role", "button");
+                if (button.textContent !== "Vložit přílohy") {
+                    button.textContent = "Vložit přílohy";
+                }
+
+                if (String(button.className).indexOf(
+                    "dodavatel-picker-attachment-button"
+                ) === -1) {
+                    button.className += " dodavatel-picker-attachment-button";
+                }
+
+                if (getAttribute(button, "role") !== "button") {
+                    button.setAttribute("role", "button");
+                }
             });
 
-            if (i === 0 && !container.querySelector(".dodavatel-picker-attachment-hint")) {
+            Array.prototype.forEach.call(removeButtons, function (button) {
+                button.style.display = "none";
+                button.style.visibility = "hidden";
+                button.setAttribute("aria-hidden", "true");
+            });
+
+            if (i === 0 && !fieldBody.querySelector(
+                ".dodavatel-picker-attachment-hint"
+            )) {
                 hint = createElement(
                     "div",
                     "dodavatel-picker-attachment-hint",
                     CONFIG.attachmentHint
                 );
-                container.insertBefore(hint, container.firstChild);
+                fieldBody.insertBefore(hint, fieldBody.firstChild);
             }
         }
     }
@@ -1151,6 +1175,7 @@
                 "margin:0 0 10px 0;padding:8px 10px;border-left:3px solid #808184;" +
                 "background:#f3f4f8;color:#808184;font-size:12px;line-height:1.5;" +
             "}" +
+            ".dodavatel-picker-attachment-button{display:inline-block !important;visibility:visible !important;}" +
             "@media screen and (max-width:520px){" +
                 ".dodavatel-picker-overlay{padding:8px;}" +
                 ".dodavatel-picker-dialog{margin:8px auto;}" +
