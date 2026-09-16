@@ -29,6 +29,9 @@
     var styleAdded = false;
     var delegatedClickBound = false;
     var currentUserName = "";
+    var auditBound = false;
+    var auditAttachmentCounts = {};
+    var writingHistory = false;
 
     function addEvent(element, eventName, handler) {
         if (!element) {
@@ -414,9 +417,11 @@
         var oldValue;
         var entry;
 
-        if (!historyField || !action) {
+        if (!historyField || !action || writingHistory) {
             return;
         }
+
+        writingHistory = true;
 
         oldValue = String(historyField.value || historyField.textContent || "");
         entry = getCurrentUserName() +
@@ -435,6 +440,207 @@
         if (dialogState && dialogState.historyElement) {
             renderHistoryTable(dialogState.historyElement, historyField.value);
         }
+
+        writingHistory = false;
+    }
+
+    function getAuditFieldName(field) {
+        var row;
+        var label;
+        var title;
+
+        if (!field) {
+            return "neznámé pole";
+        }
+
+        title = getAttribute(field, "title") ||
+            getAttribute(field, "data-field-name") ||
+            getAttribute(field, "name") ||
+            getAttribute(field, "id");
+
+        row = field.closest ? field.closest("tr") : field.parentNode;
+        label = row && row.querySelector ? row.querySelector("td.ms-formlabel, label") : null;
+
+        return String(label ? (label.innerText || label.textContent || "") : title)
+            .replace(/\s+/g, " ")
+            .replace(/^\s+|\s+$/g, "") || "neznámé pole";
+    }
+
+    function getAuditValue(field) {
+        var row;
+        var options;
+        var visibleFields;
+        var value;
+        var i;
+
+        if (!field) {
+            return "";
+        }
+
+        if (String(field.tagName).toLowerCase() === "select" &&
+            field.selectedIndex >= 0 && field.options[field.selectedIndex]) {
+            return String(field.options[field.selectedIndex].text || "")
+                .replace(/^\s+|\s+$/g, "");
+        }
+
+        row = field.closest ? field.closest("tr") : field.parentNode;
+        visibleFields = row && row.querySelectorAll ? row.querySelectorAll(
+            "input[type='text'], textarea, select, [contenteditable='true'], " +
+            "a.ms-entity-respicker, span.ms-entity-respicker, .ms-lookup, " +
+            ".sp-peoplepicker-topLevel"
+        ) : [];
+
+        for (i = 0; i < visibleFields.length; i += 1) {
+            if (visibleFields[i] === field ||
+                (visibleFields[i].offsetParent === null &&
+                    visibleFields[i].tagName.toLowerCase() !== "textarea")) {
+                continue;
+            }
+
+            if (String(visibleFields[i].tagName).toLowerCase() === "select" &&
+                visibleFields[i].selectedIndex >= 0 &&
+                visibleFields[i].options[visibleFields[i].selectedIndex]) {
+                value = visibleFields[i].options[
+                    visibleFields[i].selectedIndex
+                ].text;
+            } else {
+                value = typeof visibleFields[i].value === "string" ?
+                    visibleFields[i].value :
+                    (visibleFields[i].innerText || visibleFields[i].textContent || "");
+            }
+
+            if (String(value || "").replace(/\s+/g, "").length) {
+                return String(value);
+            }
+        }
+
+        value = typeof field.value === "string" ? field.value :
+            (field.textContent || field.innerHTML || "");
+
+        return String(value)
+            .replace(/<[^>]*>/g, " ")
+            .replace(/\s+/g, " ")
+            .replace(/^\s+|\s+$/g, "")
+            .substring(0, 160);
+    }
+
+    function isHistoryField(field) {
+        var reference = getAttribute(field, "id") + " " +
+            getAttribute(field, "name") + " " +
+            getAttribute(field, "title");
+
+        return CONFIG.historyFieldInternalNames.some(function (name) {
+            return containsIgnoreCase(reference, name);
+        });
+    }
+
+    function getAttachmentItemCount(container) {
+        if (!container || !container.querySelectorAll) {
+            return 0;
+        }
+
+        return container.querySelectorAll(
+            ".tispMultipleUploadFT .containerItems > *"
+        ).length;
+    }
+
+    function getAttachmentAuditName(container) {
+        var text = container && container.querySelector ?
+            container.querySelector(".ms-formlabel, h3, nobr") : null;
+
+        return String(text ? (text.innerText || text.textContent || "") : "přílohy")
+            .replace(/\s+/g, " ")
+            .replace(/^\s+|\s+$/g, "");
+    }
+
+    function auditAttachmentChanges() {
+        var names = [
+            CONFIG.attachmentSourceFieldInternalNames,
+            CONFIG.attachmentTargetFieldInternalNames
+        ];
+        var i;
+        var container;
+        var key;
+        var count;
+        var previous;
+
+        for (i = 0; i < names.length; i += 1) {
+            container = findAttachmentFieldContainer(names[i]);
+
+            if (!container) {
+                continue;
+            }
+
+            key = names[i].join("|");
+            count = getAttachmentItemCount(container);
+            previous = auditAttachmentCounts[key];
+            auditAttachmentCounts[key] = count;
+
+            if (typeof previous === "undefined" || previous === count) {
+                continue;
+            }
+
+            appendHistoryEntry(
+                (count > previous ? "Přidána příloha v poli " : "Odstraněna příloha v poli ") +
+                getAttachmentAuditName(container) + ". Počet: " + count
+            );
+        }
+    }
+
+    function handleAuditFieldChange(event) {
+        var field = event && (event.target || event.srcElement);
+
+        if (!field || writingHistory || isHistoryField(field) ||
+            !isTextField(field) && String(field.tagName).toLowerCase() !== "select") {
+            return;
+        }
+
+        appendHistoryEntry(
+            "Vyplněno/upraveno pole " + getAuditFieldName(field) +
+            (getAuditValue(field) ? ": " + getAuditValue(field) : " (vymazáno)")
+        );
+    }
+
+    function isSaveAction(element) {
+        var text = String(
+            element && (element.value || element.innerText || element.textContent || "")
+        ).replace(/^\s+|\s+$/g, "").toLowerCase();
+
+        return text === "uložit" || text === "ulozit" || text === "save" ||
+            containsIgnoreCase(getAttribute(element, "title"), "uložit") ||
+            containsIgnoreCase(getAttribute(element, "title"), "save");
+    }
+
+    function handleAuditClick(event) {
+        var target = event && (event.target || event.srcElement);
+        var current = target;
+
+        while (current && current !== document.body) {
+            if (isSaveAction(current)) {
+                appendHistoryEntry("Uživatel klikl na Uložit");
+                break;
+            }
+
+            if (containsIgnoreCase(getAttribute(current, "class"), "delete") ||
+                containsIgnoreCase(getAttribute(current, "class"), "remove") ||
+                containsIgnoreCase(getAttribute(current, "class"), "deleteall")) {
+                appendHistoryEntry("Uživatel odstranil přílohu nebo požádal o její odstranění");
+                break;
+            }
+
+            current = current.parentNode;
+        }
+    }
+
+    function initializeAuditLogging() {
+        if (auditBound) {
+            return;
+        }
+
+        addEvent(document, "change", handleAuditFieldChange);
+        addEvent(document, "click", handleAuditClick);
+        auditBound = true;
+        auditAttachmentChanges();
     }
 
     function escapeHtml(value) {
@@ -1746,6 +1952,7 @@
         bindConditionField();
         bindAttachmentSourceChanges();
         updateAttachmentFieldAvailability();
+        initializeAuditLogging();
 
         if (!observer && window.MutationObserver && document.body) {
             observer = new MutationObserver(function () {
@@ -1758,6 +1965,7 @@
                 bindConditionField();
                 bindAttachmentSourceChanges();
                 updateAttachmentFieldAvailability();
+                auditAttachmentChanges();
             });
 
             observer.observe(document.body, {
@@ -1777,6 +1985,7 @@
                 bindConditionField();
                 bindAttachmentSourceChanges();
                 updateAttachmentFieldAvailability();
+                auditAttachmentChanges();
             }, 1000);
 
             window.setTimeout(function () {
