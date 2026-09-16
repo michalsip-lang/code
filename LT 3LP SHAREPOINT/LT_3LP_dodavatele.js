@@ -33,6 +33,7 @@
     var currentUserName = "";
     var auditBound = false;
     var auditAttachmentCounts = {};
+    var auditAttachmentNames = {};
     var writingHistory = false;
 
     function addEvent(element, eventName, handler) {
@@ -307,25 +308,38 @@
 
     function findHistoryField() {
         var elements = document.getElementsByTagName("*");
+        var fallback = null;
         var i;
         var j;
         var reference;
+        var tagName;
 
         for (i = 0; i < elements.length; i += 1) {
             reference = getAttribute(elements[i], "id") + " " +
                 getAttribute(elements[i], "name") + " " +
                 getAttribute(elements[i], "data-field-internal-name") + " " +
-                getAttribute(elements[i], "data-field-name");
+                getAttribute(elements[i], "data-field-name") + " " +
+                getAttribute(elements[i], "title");
 
             for (j = 0; j < CONFIG.historyFieldInternalNames.length; j += 1) {
                 if (containsIgnoreCase(reference, CONFIG.historyFieldInternalNames[j]) &&
                     elements[i].tagName.toLowerCase() !== "label") {
-                    return elements[i];
+                    tagName = elements[i].tagName.toLowerCase();
+
+                    if (tagName === "textarea" ||
+                        (tagName === "input" &&
+                            String(getAttribute(elements[i], "type")).toLowerCase() !== "hidden")) {
+                        return elements[i];
+                    }
+
+                    if (!fallback) {
+                        fallback = elements[i];
+                    }
                 }
             }
         }
 
-        return null;
+        return fallback;
     }
 
     function findHistoryDisplayElement() {
@@ -416,6 +430,8 @@
 
     function appendHistoryEntry(action) {
         var historyField = findHistoryField();
+        var row;
+        var storedField;
         var oldValue;
         var entry;
 
@@ -425,7 +441,19 @@
 
         writingHistory = true;
 
-        oldValue = String(historyField.value || historyField.textContent || "");
+        oldValue = String(historyField.value || "");
+
+        if (!oldValue && historyField.closest) {
+            row = historyField.closest("tr");
+            storedField = row && row.querySelector ? row.querySelector(
+                "textarea, input:not([type='hidden'])"
+            ) : null;
+            oldValue = String(storedField && storedField.value || "");
+        }
+
+        if (!oldValue) {
+            oldValue = String(historyField.textContent || "");
+        }
         entry = getCurrentUserName() +
             " | " + getHistoryTimestamp() +
             " | " + action;
@@ -546,6 +574,39 @@
         ).length;
     }
 
+    function getAttachmentItemNames(container) {
+        var items;
+        var names = {};
+        var i;
+        var item;
+        var name;
+
+        if (!container || !container.querySelectorAll) {
+            return names;
+        }
+
+        items = container.querySelectorAll(
+            ".tispMultipleUploadFT .containerItems > *"
+        );
+
+        for (i = 0; i < items.length; i += 1) {
+            item = items[i];
+            name = item.querySelector ? item.querySelector(
+                "a, .fileName, .file-name, [data-attachment-name]"
+            ) : null;
+            name = name ?
+                (name.textContent || name.innerText || "") :
+                (item.textContent || item.innerText || "");
+            name = String(name).replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+
+            if (name) {
+                names[name] = true;
+            }
+        }
+
+        return names;
+    }
+
     function getAttachmentAuditName(container) {
         var text = container && container.querySelector ?
             container.querySelector(".ms-formlabel, h3, nobr") : null;
@@ -565,6 +626,9 @@
         var key;
         var count;
         var previous;
+        var namesSnapshot;
+        var previousNames;
+        var name;
 
         for (i = 0; i < names.length; i += 1) {
             container = findAttachmentFieldContainer(names[i]);
@@ -575,17 +639,33 @@
 
             key = names[i].join("|");
             count = getAttachmentItemCount(container);
+            namesSnapshot = getAttachmentItemNames(container);
             previous = auditAttachmentCounts[key];
+            previousNames = auditAttachmentNames[key] || {};
             auditAttachmentCounts[key] = count;
+            auditAttachmentNames[key] = namesSnapshot;
 
-            if (typeof previous === "undefined" || previous === count) {
+            if (typeof previous === "undefined") {
                 continue;
             }
 
-            appendHistoryEntry(
-                (count > previous ? "Přidána příloha v poli " : "Odstraněna příloha v poli ") +
-                getAttachmentAuditName(container) + ". Počet: " + count
-            );
+            for (name in namesSnapshot) {
+                if (namesSnapshot[name] && !previousNames[name]) {
+                    appendHistoryEntry(
+                        "Přidána příloha v poli " +
+                        getAttachmentAuditName(container) + ": " + name
+                    );
+                }
+            }
+
+            for (name in previousNames) {
+                if (previousNames[name] && !namesSnapshot[name]) {
+                    appendHistoryEntry(
+                        "Odstraněna příloha v poli " +
+                        getAttachmentAuditName(container) + ": " + name
+                    );
+                }
+            }
         }
     }
 
