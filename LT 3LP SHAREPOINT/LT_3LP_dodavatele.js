@@ -1382,11 +1382,11 @@
                 "padding-top:10px;padding-bottom:10px;vertical-align:top;" +
             "}" +
             ".dodavatel-picker-task-attachment-row > td.ms-formlabel{" +
-                "width:180px;padding-right:18px;color:#292982;font-weight:600;" +
+                "width:180px;padding-left:12px;padding-right:18px;color:#292982;font-weight:600;" +
                 "white-space:nowrap;" +
             "}" +
             ".dodavatel-picker-task-attachment-row > td.ms-formbody{" +
-                "width:auto;padding-left:0;text-align:left;" +
+                "width:auto;padding-left:18px;padding-right:0;text-align:left;" +
             "}" +
             ".dodavatel-picker-task-attachment-row .tispMultipleUploadFT{" +
                 "max-width:100%;" +
