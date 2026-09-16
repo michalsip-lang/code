@@ -1,7 +1,7 @@
 UZIVATELSKY TEST FORMULARE EVIDENCE LISTACNICH TABULEK 3PL
 
 Skript: LT_3LP_dodavatele.js
-Verze dokumentu: 1.1
+Verze dokumentu: 1.2
 Datum: 16. 9. 2026
 
 ======================================================================
@@ -143,10 +143,12 @@ Kroky:
 1. Otevrit ukol s nazvem Příprava LT pro Alza.
 2. Zkontrolovat cast s volbou vysledku ukolu.
 Ocekavany vysledek:
-- Pole podkladove a finalni prilohy se presunou do tela tohoto ukolu.
-- Obe pole jsou zobrazena nad volbou Hotovo.
+- Pole priloha_final se presune do tela tohoto ukolu nad volbu Hotovo.
+- Pole priloha_podklad zustane na puvodnim miste formulare.
 - Tlacitka Vložit přílohy zustanou funkcni a maji modry vzhled s bilym
   textem.
+- Radek finalni prilohy je zarovnany k levemu okraji tela ukolu.
+- Vzhled ciloveho ukolu pouziva modrou barvu ve stylu Samohyl.
 - U ostatnich ukolu zustane puvodni umisteni poli priloh beze zmeny.
 
 ======================================================================

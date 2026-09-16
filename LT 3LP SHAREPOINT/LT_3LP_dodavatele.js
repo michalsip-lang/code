@@ -1123,11 +1123,19 @@
     function moveTaskAttachmentsAboveOutcome() {
         var outcomeRow;
         var parent;
-        var sourceRow;
         var targetRow;
+        var taskContainer;
 
         if (!isTargetTaskForAttachmentMove()) {
             return;
+        }
+
+        taskContainer = document.getElementById("tblMainContainer");
+
+        if (taskContainer && String(taskContainer.className).indexOf(
+            "dodavatel-picker-task-styled"
+        ) === -1) {
+            taskContainer.className += " dodavatel-picker-task-styled";
         }
 
         outcomeRow = document.getElementById("TaskFormTrOutcomes");
@@ -1137,22 +1145,20 @@
         }
 
         parent = outcomeRow.parentNode;
-        sourceRow = findAttachmentFieldContainer(
-            CONFIG.attachmentSourceFieldInternalNames
-        );
         targetRow = findAttachmentFieldContainer(
             CONFIG.attachmentTargetFieldInternalNames
         );
 
-        if (sourceRow && sourceRow.parentNode !== parent) {
-            parent.insertBefore(
-                sourceRow,
-                targetRow && targetRow.parentNode === parent ? targetRow : outcomeRow
-            );
-        }
-
         if (targetRow && targetRow.parentNode !== parent) {
             parent.insertBefore(targetRow, outcomeRow);
+        }
+
+        if (targetRow) {
+            if (String(targetRow.className).indexOf(
+                "dodavatel-picker-task-attachment-row"
+            ) === -1) {
+                targetRow.className += " dodavatel-picker-task-attachment-row";
+            }
         }
     }
 
@@ -1229,6 +1235,28 @@
                 "background:#f3f4f8;color:#808184;font-size:12px;line-height:1.5;" +
             "}" +
             ".dodavatel-picker-attachment-button{display:inline-block !important;visibility:visible !important;}" +
+            ".dodavatel-picker-task-styled{" +
+                "border-color:#292982 !important;background:#ffffff;" +
+            "}" +
+            ".dodavatel-picker-task-styled .ui-widget-header{" +
+                "background:#292982;color:#ffffff;border-color:#292982;" +
+            "}" +
+            ".dodavatel-picker-task-attachment-row > td{" +
+                "padding-top:10px;padding-bottom:10px;vertical-align:top;" +
+            "}" +
+            ".dodavatel-picker-task-attachment-row > td.ms-formlabel{" +
+                "width:180px;padding-right:18px;color:#292982;font-weight:600;" +
+                "white-space:nowrap;" +
+            "}" +
+            ".dodavatel-picker-task-attachment-row > td.ms-formbody{" +
+                "width:auto;padding-left:0;text-align:left;" +
+            "}" +
+            ".dodavatel-picker-task-attachment-row .tispMultipleUploadFT{" +
+                "max-width:100%;" +
+            "}" +
+            ".dodavatel-picker-task-attachment-row .tispMultipleUploadFT .buttons{" +
+                "margin-top:8px;text-align:left;" +
+            "}" +
             "@media screen and (max-width:520px){" +
                 ".dodavatel-picker-overlay{padding:8px;}" +
                 ".dodavatel-picker-dialog{margin:8px auto;}" +
