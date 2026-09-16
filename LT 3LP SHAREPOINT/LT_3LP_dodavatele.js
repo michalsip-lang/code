@@ -8,6 +8,7 @@
         conditionFieldInternalNames: ["listace_jineho_dodavatele"],
         attachmentSourceFieldInternalNames: ["priloha_podklad", "priloha_podkald"],
         attachmentTargetFieldInternalNames: ["priloha_final"],
+        taskTitleForAttachmentMove: "Příprava LT pro Alza",
         attachmentHint: "Vložte XLS soubor se seznamem zboží včetně cenotvorby / slevotvorby / kompenzace / forecastu / bere na sklad nebo trade / předpokládané datum odběru, pokud bere na sklad.",
         historyFieldInternalNames: ["historie"],
         siteUrl: "http://portal.samohyl.cz/nakup",
@@ -1110,6 +1111,51 @@
         }
     }
 
+    function isTargetTaskForAttachmentMove() {
+        var taskTitle = document.getElementById("lblTaskName");
+
+        return taskTitle &&
+            String(taskTitle.textContent || taskTitle.innerText || "")
+                .replace(/\s+/g, " ")
+                .replace(/^\s+|\s+$/g, "") === CONFIG.taskTitleForAttachmentMove;
+    }
+
+    function moveTaskAttachmentsAboveOutcome() {
+        var outcomeRow;
+        var parent;
+        var sourceRow;
+        var targetRow;
+
+        if (!isTargetTaskForAttachmentMove()) {
+            return;
+        }
+
+        outcomeRow = document.getElementById("TaskFormTrOutcomes");
+
+        if (!outcomeRow || !outcomeRow.parentNode) {
+            return;
+        }
+
+        parent = outcomeRow.parentNode;
+        sourceRow = findAttachmentFieldContainer(
+            CONFIG.attachmentSourceFieldInternalNames
+        );
+        targetRow = findAttachmentFieldContainer(
+            CONFIG.attachmentTargetFieldInternalNames
+        );
+
+        if (sourceRow && sourceRow.parentNode !== parent) {
+            parent.insertBefore(
+                sourceRow,
+                targetRow && targetRow.parentNode === parent ? targetRow : outcomeRow
+            );
+        }
+
+        if (targetRow && targetRow.parentNode !== parent) {
+            parent.insertBefore(targetRow, outcomeRow);
+        }
+    }
+
     function injectStyles() {
         var style;
         var css =
@@ -2037,6 +2083,7 @@
         bindAttachmentSourceChanges();
         updateAttachmentFieldAvailability();
         customizeAttachmentControls();
+        moveTaskAttachmentsAboveOutcome();
         initializeAuditLogging();
 
         if (!observer && window.MutationObserver && document.body) {
@@ -2051,6 +2098,7 @@
                 bindAttachmentSourceChanges();
                 updateAttachmentFieldAvailability();
                 customizeAttachmentControls();
+                moveTaskAttachmentsAboveOutcome();
                 auditAttachmentChanges();
             });
 
@@ -2072,6 +2120,7 @@
                 bindAttachmentSourceChanges();
                 updateAttachmentFieldAvailability();
                 customizeAttachmentControls();
+                moveTaskAttachmentsAboveOutcome();
                 auditAttachmentChanges();
             }, 1000);
 

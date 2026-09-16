@@ -1,7 +1,7 @@
 UZIVATELSKY TEST FORMULARE EVIDENCE LISTACNICH TABULEK 3PL
 
 Skript: LT_3LP_dodavatele.js
-Verze dokumentu: 1.0
+Verze dokumentu: 1.1
 Datum: 16. 9. 2026
 
 ======================================================================
@@ -138,6 +138,17 @@ Ocekavany vysledek:
 - Zobrazi se auditni historie.
 - Formular neobsahuje ovladaci prvky pro odebrani priloh.
 
+T13 - Umisteni priloh v konkretnim ukolu
+Kroky:
+1. Otevrit ukol s nazvem Příprava LT pro Alza.
+2. Zkontrolovat cast s volbou vysledku ukolu.
+Ocekavany vysledek:
+- Pole podkladove a finalni prilohy se presunou do tela tohoto ukolu.
+- Obe pole jsou zobrazena nad volbou Hotovo.
+- Tlacitka Vložit přílohy zustanou funkcni a maji modry vzhled s bilym
+  textem.
+- U ostatnich ukolu zustane puvodni umisteni poli priloh beze zmeny.
+
 ======================================================================
 4. KONTROLA HISTORIE
 ======================================================================
@@ -173,3 +184,4 @@ pri zmene:
 - vzhledu nebo textu ovladacich prvku,
 - zaznamu auditni historie,
 - pravidel pro ulozeni nebo zruseni formulare.
+- nazvu ciloveho ukolu pro specialni umisteni poli priloh.
