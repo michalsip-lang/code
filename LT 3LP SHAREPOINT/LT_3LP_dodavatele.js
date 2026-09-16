@@ -575,6 +575,9 @@
     }
 
     function getAttachmentItemNames(container) {
+        var controls;
+        var data;
+        var fileUrl;
         var items;
         var names = {};
         var i;
@@ -582,6 +585,38 @@
         var name;
 
         if (!container || !container.querySelectorAll) {
+            return names;
+        }
+
+        controls = container.querySelectorAll("input[id^='tisa_controlvalue_']");
+
+        for (i = 0; i < controls.length; i += 1) {
+            try {
+                data = JSON.parse(controls[i].value || "[]");
+            } catch (ignore) {
+                data = [];
+            }
+
+            if (!data || Object.prototype.toString.call(data) !== "[object Array]") {
+                continue;
+            }
+
+            for (item = 0; item < data.length; item += 1) {
+                fileUrl = String(data[item] && data[item].FileUrl || "");
+                name = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+
+                if (name) {
+                    try {
+                        name = decodeURIComponent(name);
+                    } catch (ignoreDecode) {
+                        /* Ponecháme neupravený název souboru. */
+                    }
+                    names[name] = true;
+                }
+            }
+        }
+
+        if (Object.keys(names).length) {
             return names;
         }
 
