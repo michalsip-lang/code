@@ -591,13 +591,7 @@
 
         for (i = 0; i < items.length; i += 1) {
             item = items[i];
-            name = item.querySelector ? item.querySelector(
-                "a, .fileName, .file-name, [data-attachment-name]"
-            ) : null;
-            name = name ?
-                (name.textContent || name.innerText || "") :
-                (item.textContent || item.innerText || "");
-            name = String(name).replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+            name = getAttachmentFileName(item);
 
             if (name) {
                 names[name] = true;
@@ -605,6 +599,23 @@
         }
 
         return names;
+    }
+
+    function getAttachmentFileName(item) {
+        var text;
+        var match;
+
+        if (!item) {
+            return "";
+        }
+
+        text = String(item.textContent || item.innerText || "")
+            .replace(/\s+/g, " ")
+            .replace(/^\s+|\s+$/g, "");
+
+        match = text.match(/[\w().%+-]+\.(?:pdf|xls|xlsx|csv|doc|docx|zip|rar|txt|xml)(?=\s|$)/i);
+
+        return match ? match[0] : "";
     }
 
     function getAttachmentAuditName(container) {
