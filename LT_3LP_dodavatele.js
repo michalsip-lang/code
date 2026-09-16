@@ -8,6 +8,7 @@
         conditionFieldInternalNames: ["listace_jineho_dodavatele"],
         attachmentSourceFieldInternalNames: ["priloha_podklad", "priloha_podkald"],
         attachmentTargetFieldInternalNames: ["priloha_final"],
+        attachmentHint: "Vložte XLS soubor se seznamem zboží včetně cenotvorby / slevotvorby / kompenzace / forecastu / bere na sklad nebo trade / předpokládané datum odběru, pokud bere na sklad.",
         historyFieldInternalNames: ["historie"],
         siteUrl: "http://portal.samohyl.cz/nakup",
         listTitle: "Dodavatele",
@@ -1049,6 +1050,42 @@
         }
     }
 
+    function customizeAttachmentControls() {
+        var names = [
+            CONFIG.attachmentSourceFieldInternalNames,
+            CONFIG.attachmentTargetFieldInternalNames
+        ];
+        var i;
+        var container;
+        var buttons;
+        var hint;
+
+        for (i = 0; i < names.length; i += 1) {
+            container = findAttachmentFieldContainer(names[i]);
+
+            if (!container || !container.querySelectorAll) {
+                continue;
+            }
+
+            buttons = container.querySelectorAll("a.addNewAttachment");
+
+            Array.prototype.forEach.call(buttons, function (button) {
+                button.textContent = "Vložit přílohy";
+                button.className += " dodavatel-picker-attachment-button";
+                button.setAttribute("role", "button");
+            });
+
+            if (i === 0 && !container.querySelector(".dodavatel-picker-attachment-hint")) {
+                hint = createElement(
+                    "div",
+                    "dodavatel-picker-attachment-hint",
+                    CONFIG.attachmentHint
+                );
+                container.insertBefore(hint, container.firstChild);
+            }
+        }
+    }
+
     function injectStyles() {
         var style;
         var css =
@@ -1100,6 +1137,20 @@
             ".dodavatel-picker-button-primary{border-color:#292982;background:#292982;color:#ffffff;}" +
             ".dodavatel-picker-button:hover,.dodavatel-picker-button:focus{outline:1px solid #292982;outline-offset:1px;}" +
             ".dodavatel-picker-button-primary:hover,.dodavatel-picker-button-primary:focus{background:#1f1f63;}" +
+            ".dodavatel-picker-attachment-button{" +
+                "display:inline-block;padding:8px 14px;border:1px solid #292982;" +
+                "border-radius:3px;background:#292982;color:#ffffff !important;" +
+                "font-family:Segoe UI,Arial,sans-serif;font-size:14px;" +
+                "font-weight:600;text-decoration:none;cursor:pointer;" +
+            "}" +
+            ".dodavatel-picker-attachment-button:hover,.dodavatel-picker-attachment-button:focus{" +
+                "background:#1f1f63;color:#ffffff !important;outline:1px solid #292982;" +
+                "outline-offset:1px;" +
+            "}" +
+            ".dodavatel-picker-attachment-hint{" +
+                "margin:0 0 10px 0;padding:8px 10px;border-left:3px solid #808184;" +
+                "background:#f3f4f8;color:#808184;font-size:12px;line-height:1.5;" +
+            "}" +
             "@media screen and (max-width:520px){" +
                 ".dodavatel-picker-overlay{padding:8px;}" +
                 ".dodavatel-picker-dialog{margin:8px auto;}" +
@@ -1952,6 +2003,7 @@
         bindConditionField();
         bindAttachmentSourceChanges();
         updateAttachmentFieldAvailability();
+        customizeAttachmentControls();
         initializeAuditLogging();
 
         if (!observer && window.MutationObserver && document.body) {
@@ -1965,6 +2017,7 @@
                 bindConditionField();
                 bindAttachmentSourceChanges();
                 updateAttachmentFieldAvailability();
+                customizeAttachmentControls();
                 auditAttachmentChanges();
             });
 
@@ -1985,6 +2038,7 @@
                 bindConditionField();
                 bindAttachmentSourceChanges();
                 updateAttachmentFieldAvailability();
+                customizeAttachmentControls();
                 auditAttachmentChanges();
             }, 1000);
 
