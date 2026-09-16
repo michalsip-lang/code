@@ -644,6 +644,7 @@
             getAttribute(element, "data-field-internal-name") + " " +
             getAttribute(element, "data-field-name") + " " +
             getAttribute(element, "data-name") + " " +
+            getAttribute(element, "class") + " " +
             getAttribute(element, "title");
 
         for (i = 0; i < names.length; i += 1) {
@@ -690,11 +691,29 @@
         var fileInputs;
         var links;
         var attachmentMarkers;
+        var treeInfoItems;
+        var treeInfoValues;
         var value;
         var i;
 
         if (!container) {
             return false;
+        }
+
+        treeInfoItems = container.querySelectorAll ?
+            container.querySelectorAll(".tispMultipleUploadFT .containerItems > *") : [];
+
+        if (treeInfoItems.length) {
+            return true;
+        }
+
+        treeInfoValues = container.querySelectorAll ?
+            container.querySelectorAll("input[id^='tisa_controlvalue_']") : [];
+
+        for (i = 0; i < treeInfoValues.length; i += 1) {
+            if (String(treeInfoValues[i].value || "").replace(/\s+/g, "") !== "") {
+                return true;
+            }
         }
 
         if (hasFieldNameReference(
@@ -740,7 +759,7 @@
         }
 
         attachmentMarkers = container.querySelectorAll ?
-            container.querySelectorAll("[data-attachment-name], [data-attachment], .ms-fileField") : [];
+            container.querySelectorAll("[data-attachment-name], [data-attachment], .ms-fileField, .tispMultipleUploadFT .containerItems a") : [];
 
         if (attachmentMarkers.length) {
             return true;
@@ -784,6 +803,12 @@
 
         if (!sourceContainer || !sourceContainer.querySelectorAll) {
             return;
+        }
+
+        if (getAttribute(sourceContainer, "data-attachment-availability-bound") !== "true") {
+            addEvent(sourceContainer, "change", updateAttachmentFieldAvailability);
+            addEvent(sourceContainer, "input", updateAttachmentFieldAvailability);
+            sourceContainer.setAttribute("data-attachment-availability-bound", "true");
         }
 
         if (hasFieldNameReference(
