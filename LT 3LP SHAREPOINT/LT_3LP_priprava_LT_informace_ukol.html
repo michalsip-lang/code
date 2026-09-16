@@ -60,6 +60,15 @@
                         {item:zakaznik_3lp}
                     </td>
                 </tr>
+              
+                <tr>
+                    <td style="font-weight:bold;color:#808184;border-bottom:1px solid #E5E5E5;">
+                        Odkaz na položku
+                    </td>
+                    <td style="border-bottom:1px solid #E5E5E5;">
+                        <a href="http://portal.samohyl.cz/vo/Lists/evidence_lt_3pl/DispForm.aspx?ID={item:ID}">Otevřít položku</a>
+                    </td>
+                </tr>
 
                    
 
@@ -72,19 +81,18 @@
             <!-- TLAČÍTKO -->
 
             <div style="text-align:center;margin-top:35px;">
-
                 <a href="{Task:Url}"
-                   style="
-                   background:#292982;
-                   color:#FFFFFF;
-                   text-decoration:none;
-                   padding:14px 35px;
-                   border-radius:4px;
-            sledující odkaz:
+                         style="display:inline-block;background:#292982;color:#FFFFFF;text-decoration:none;padding:14px 35px;border-radius:4px;">
+                         Otevřít úkol
+                     </a>
+            </div>
+
+            <p style="margin:25px 0 5px 0;font-size:13px;color:#808184;">
+                Pokud tlačítko nefunguje, použijte následující odkaz:
             </p>
 
-            <p style="font-size:13px;color:#292982;word-break:break-all;">
-                {Task:Url}
+            <p style="margin:0;font-size:13px;color:#292982;word-break:break-all;">
+                <a href="{Task:Url}" style="color:#292982;">{Task:Url}</a>
             </p>
 
         </td>
