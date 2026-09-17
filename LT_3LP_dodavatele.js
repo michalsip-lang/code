@@ -6,9 +6,6 @@
         alternateFieldInternalNames: ["dodavatele_3lp"],
         purchaserTargetFieldInternalNames: ["nakupci_3lp"],
         conditionFieldInternalNames: ["listace_jineho_dodavatele"],
-        attachmentSourceFieldInternalNames: ["priloha_podklad", "priloha_podkald"],
-        attachmentTargetFieldInternalNames: ["priloha_final"],
-        attachmentHint: "Vložte XLS soubor se seznamem zboží včetně cenotvorby / slevotvorby / kompenzace / forecastu / bere na sklad nebo trade / předpokládané datum odběru, pokud bere na sklad.",
         historyFieldInternalNames: ["historie"],
         siteUrl: "http://portal.samohyl.cz/nakup",
         listTitle: "Dodavatele",
@@ -30,9 +27,6 @@
     var styleAdded = false;
     var delegatedClickBound = false;
     var currentUserName = "";
-    var auditBound = false;
-    var auditAttachmentCounts = {};
-    var writingHistory = false;
 
     function addEvent(element, eventName, handler) {
         if (!element) {
@@ -418,11 +412,9 @@
         var oldValue;
         var entry;
 
-        if (!historyField || !action || writingHistory) {
+        if (!historyField || !action) {
             return;
         }
-
-        writingHistory = true;
 
         oldValue = String(historyField.value || historyField.textContent || "");
         entry = getCurrentUserName() +
@@ -441,207 +433,6 @@
         if (dialogState && dialogState.historyElement) {
             renderHistoryTable(dialogState.historyElement, historyField.value);
         }
-
-        writingHistory = false;
-    }
-
-    function getAuditFieldName(field) {
-        var row;
-        var label;
-        var title;
-
-        if (!field) {
-            return "neznámé pole";
-        }
-
-        title = getAttribute(field, "title") ||
-            getAttribute(field, "data-field-name") ||
-            getAttribute(field, "name") ||
-            getAttribute(field, "id");
-
-        row = field.closest ? field.closest("tr") : field.parentNode;
-        label = row && row.querySelector ? row.querySelector("td.ms-formlabel, label") : null;
-
-        return String(label ? (label.innerText || label.textContent || "") : title)
-            .replace(/\s+/g, " ")
-            .replace(/^\s+|\s+$/g, "") || "neznámé pole";
-    }
-
-    function getAuditValue(field) {
-        var row;
-        var options;
-        var visibleFields;
-        var value;
-        var i;
-
-        if (!field) {
-            return "";
-        }
-
-        if (String(field.tagName).toLowerCase() === "select" &&
-            field.selectedIndex >= 0 && field.options[field.selectedIndex]) {
-            return String(field.options[field.selectedIndex].text || "")
-                .replace(/^\s+|\s+$/g, "");
-        }
-
-        row = field.closest ? field.closest("tr") : field.parentNode;
-        visibleFields = row && row.querySelectorAll ? row.querySelectorAll(
-            "input[type='text'], textarea, select, [contenteditable='true'], " +
-            "a.ms-entity-respicker, span.ms-entity-respicker, .ms-lookup, " +
-            ".sp-peoplepicker-topLevel"
-        ) : [];
-
-        for (i = 0; i < visibleFields.length; i += 1) {
-            if (visibleFields[i] === field ||
-                (visibleFields[i].offsetParent === null &&
-                    visibleFields[i].tagName.toLowerCase() !== "textarea")) {
-                continue;
-            }
-
-            if (String(visibleFields[i].tagName).toLowerCase() === "select" &&
-                visibleFields[i].selectedIndex >= 0 &&
-                visibleFields[i].options[visibleFields[i].selectedIndex]) {
-                value = visibleFields[i].options[
-                    visibleFields[i].selectedIndex
-                ].text;
-            } else {
-                value = typeof visibleFields[i].value === "string" ?
-                    visibleFields[i].value :
-                    (visibleFields[i].innerText || visibleFields[i].textContent || "");
-            }
-
-            if (String(value || "").replace(/\s+/g, "").length) {
-                return String(value);
-            }
-        }
-
-        value = typeof field.value === "string" ? field.value :
-            (field.textContent || field.innerHTML || "");
-
-        return String(value)
-            .replace(/<[^>]*>/g, " ")
-            .replace(/\s+/g, " ")
-            .replace(/^\s+|\s+$/g, "")
-            .substring(0, 160);
-    }
-
-    function isHistoryField(field) {
-        var reference = getAttribute(field, "id") + " " +
-            getAttribute(field, "name") + " " +
-            getAttribute(field, "title");
-
-        return CONFIG.historyFieldInternalNames.some(function (name) {
-            return containsIgnoreCase(reference, name);
-        });
-    }
-
-    function getAttachmentItemCount(container) {
-        if (!container || !container.querySelectorAll) {
-            return 0;
-        }
-
-        return container.querySelectorAll(
-            ".tispMultipleUploadFT .containerItems > *"
-        ).length;
-    }
-
-    function getAttachmentAuditName(container) {
-        var text = container && container.querySelector ?
-            container.querySelector(".ms-formlabel, h3, nobr") : null;
-
-        return String(text ? (text.innerText || text.textContent || "") : "přílohy")
-            .replace(/\s+/g, " ")
-            .replace(/^\s+|\s+$/g, "");
-    }
-
-    function auditAttachmentChanges() {
-        var names = [
-            CONFIG.attachmentSourceFieldInternalNames,
-            CONFIG.attachmentTargetFieldInternalNames
-        ];
-        var i;
-        var container;
-        var key;
-        var count;
-        var previous;
-
-        for (i = 0; i < names.length; i += 1) {
-            container = findAttachmentFieldContainer(names[i]);
-
-            if (!container) {
-                continue;
-            }
-
-            key = names[i].join("|");
-            count = getAttachmentItemCount(container);
-            previous = auditAttachmentCounts[key];
-            auditAttachmentCounts[key] = count;
-
-            if (typeof previous === "undefined" || previous === count) {
-                continue;
-            }
-
-            appendHistoryEntry(
-                (count > previous ? "Přidána příloha v poli " : "Odstraněna příloha v poli ") +
-                getAttachmentAuditName(container) + ". Počet: " + count
-            );
-        }
-    }
-
-    function handleAuditFieldChange(event) {
-        var field = event && (event.target || event.srcElement);
-
-        if (!field || writingHistory || isHistoryField(field) ||
-            !isTextField(field) && String(field.tagName).toLowerCase() !== "select") {
-            return;
-        }
-
-        appendHistoryEntry(
-            "Vyplněno/upraveno pole " + getAuditFieldName(field) +
-            (getAuditValue(field) ? ": " + getAuditValue(field) : " (vymazáno)")
-        );
-    }
-
-    function isSaveAction(element) {
-        var text = String(
-            element && (element.value || element.innerText || element.textContent || "")
-        ).replace(/^\s+|\s+$/g, "").toLowerCase();
-
-        return text === "uložit" || text === "ulozit" || text === "save" ||
-            containsIgnoreCase(getAttribute(element, "title"), "uložit") ||
-            containsIgnoreCase(getAttribute(element, "title"), "save");
-    }
-
-    function handleAuditClick(event) {
-        var target = event && (event.target || event.srcElement);
-        var current = target;
-
-        while (current && current !== document.body) {
-            if (isSaveAction(current)) {
-                appendHistoryEntry("Uživatel klikl na Uložit");
-                break;
-            }
-
-            if (containsIgnoreCase(getAttribute(current, "class"), "delete") ||
-                containsIgnoreCase(getAttribute(current, "class"), "remove") ||
-                containsIgnoreCase(getAttribute(current, "class"), "deleteall")) {
-                appendHistoryEntry("Uživatel odstranil přílohu nebo požádal o její odstranění");
-                break;
-            }
-
-            current = current.parentNode;
-        }
-    }
-
-    function initializeAuditLogging() {
-        if (auditBound) {
-            return;
-        }
-
-        addEvent(document, "change", handleAuditFieldChange);
-        addEvent(document, "click", handleAuditClick);
-        auditBound = true;
-        auditAttachmentChanges();
     }
 
     function escapeHtml(value) {
@@ -838,278 +629,6 @@
         updateConditionalFieldAvailability();
     }
 
-    function hasFieldNameReference(element, names) {
-        var reference;
-        var i;
-
-        if (!element || !names || !names.length) {
-            return false;
-        }
-
-        reference = getAttribute(element, "id") + " " +
-            getAttribute(element, "name") + " " +
-            getAttribute(element, "data-field-internal-name") + " " +
-            getAttribute(element, "data-field-name") + " " +
-            getAttribute(element, "data-name") + " " +
-            getAttribute(element, "class") + " " +
-            getAttribute(element, "title");
-
-        for (i = 0; i < names.length; i += 1) {
-            if (containsIgnoreCase(reference, names[i])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    function findAttachmentFieldContainer(names) {
-        var elements = document.getElementsByTagName("*");
-        var element;
-        var parent;
-        var i;
-
-        for (i = 0; i < elements.length; i += 1) {
-            element = elements[i];
-
-            if (!hasFieldNameReference(element, names)) {
-                continue;
-            }
-
-            parent = element;
-
-            while (parent && parent !== document.body) {
-                if (String(parent.tagName).toLowerCase() === "tr" ||
-                    containsIgnoreCase(getAttribute(parent, "class"), "ms-formfield")) {
-                    return parent;
-                }
-
-                parent = parent.parentNode;
-            }
-
-            return element;
-        }
-
-        return null;
-    }
-
-    function hasAttachmentContent(container) {
-        var fieldElements;
-        var fileInputs;
-        var links;
-        var attachmentMarkers;
-        var treeInfoItems;
-        var treeInfoValues;
-        var value;
-        var i;
-
-        if (!container) {
-            return false;
-        }
-
-        treeInfoItems = container.querySelectorAll ?
-            container.querySelectorAll(".tispMultipleUploadFT .containerItems > *") : [];
-
-        if (treeInfoItems.length) {
-            return true;
-        }
-
-        treeInfoValues = container.querySelectorAll ?
-            container.querySelectorAll("input[id^='tisa_controlvalue_']") : [];
-
-        for (i = 0; i < treeInfoValues.length; i += 1) {
-            if (String(treeInfoValues[i].value || "").replace(/\s+/g, "") !== "") {
-                return true;
-            }
-        }
-
-        if (hasFieldNameReference(
-            container,
-            CONFIG.attachmentSourceFieldInternalNames
-        ) && typeof container.value === "string" &&
-            container.value.replace(/\s+/g, "") !== "") {
-            return true;
-        }
-
-        fieldElements = container.querySelectorAll ?
-            container.querySelectorAll("textarea, input, [contenteditable='true'], [data-field-internal-name], [data-field-name]") : [];
-
-        for (i = 0; i < fieldElements.length; i += 1) {
-            if (!hasFieldNameReference(
-                fieldElements[i],
-                CONFIG.attachmentSourceFieldInternalNames
-            )) {
-                continue;
-            }
-
-            value = typeof fieldElements[i].value === "string" ?
-                fieldElements[i].value :
-                (fieldElements[i].textContent || fieldElements[i].innerHTML || "");
-
-            if (String(value)
-                .replace(/&nbsp;|<br\s*\/?>(\s*)/gi, " ")
-                .replace(/<[^>]*>/g, "")
-                .replace(/\s+/g, "") !== "") {
-                return true;
-            }
-        }
-
-        fileInputs = container.querySelectorAll ?
-            container.querySelectorAll("input[type='file']") : [];
-
-        for (i = 0; i < fileInputs.length; i += 1) {
-            if ((fileInputs[i].files && fileInputs[i].files.length) ||
-                fileInputs[i].value ||
-                getAttribute(fileInputs[i], "value")) {
-                return true;
-            }
-        }
-
-        attachmentMarkers = container.querySelectorAll ?
-            container.querySelectorAll("[data-attachment-name], [data-attachment], .ms-fileField, .tispMultipleUploadFT .containerItems a") : [];
-
-        if (attachmentMarkers.length) {
-            return true;
-        }
-
-        links = container.getElementsByTagName ? container.getElementsByTagName("a") : [];
-
-        for (i = 0; i < links.length; i += 1) {
-            if (containsIgnoreCase(getAttribute(links[i], "href"), "/attachments/")) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    function updateAttachmentFieldAvailability() {
-        var sourceContainer = findAttachmentFieldContainer(
-            CONFIG.attachmentSourceFieldInternalNames
-        );
-        var targetContainer = findAttachmentFieldContainer(
-            CONFIG.attachmentTargetFieldInternalNames
-        );
-        var available = hasAttachmentContent(sourceContainer);
-
-        if (!targetContainer) {
-            return;
-        }
-
-        targetContainer.style.display = available ? "" : "none";
-        targetContainer.hidden = !available;
-        targetContainer.setAttribute("aria-hidden", available ? "false" : "true");
-    }
-
-    function bindAttachmentSourceChanges() {
-        var sourceContainer = findAttachmentFieldContainer(
-            CONFIG.attachmentSourceFieldInternalNames
-        );
-        var fileInputs;
-        var i;
-
-        if (!sourceContainer || !sourceContainer.querySelectorAll) {
-            return;
-        }
-
-        if (getAttribute(sourceContainer, "data-attachment-availability-bound") !== "true") {
-            addEvent(sourceContainer, "change", updateAttachmentFieldAvailability);
-            addEvent(sourceContainer, "input", updateAttachmentFieldAvailability);
-            sourceContainer.setAttribute("data-attachment-availability-bound", "true");
-        }
-
-        if (hasFieldNameReference(
-            sourceContainer,
-            CONFIG.attachmentSourceFieldInternalNames
-        ) && typeof sourceContainer.value === "string" &&
-            getAttribute(sourceContainer, "data-attachment-availability-bound") !== "true") {
-            addEvent(sourceContainer, "change", updateAttachmentFieldAvailability);
-            addEvent(sourceContainer, "input", updateAttachmentFieldAvailability);
-            sourceContainer.setAttribute("data-attachment-availability-bound", "true");
-        }
-
-        fileInputs = sourceContainer.querySelectorAll(
-            "textarea, input, [contenteditable='true']"
-        );
-
-        for (i = 0; i < fileInputs.length; i += 1) {
-            if (!hasFieldNameReference(
-                fileInputs[i],
-                CONFIG.attachmentSourceFieldInternalNames
-            )) {
-                continue;
-            }
-
-            if (getAttribute(fileInputs[i], "data-attachment-availability-bound") === "true") {
-                continue;
-            }
-
-            addEvent(fileInputs[i], "change", updateAttachmentFieldAvailability);
-            addEvent(fileInputs[i], "input", updateAttachmentFieldAvailability);
-            fileInputs[i].setAttribute("data-attachment-availability-bound", "true");
-        }
-    }
-
-    function customizeAttachmentControls() {
-        var names = [
-            CONFIG.attachmentSourceFieldInternalNames,
-            CONFIG.attachmentTargetFieldInternalNames
-        ];
-        var i;
-        var container;
-        var fieldBody;
-        var buttons;
-        var removeButtons;
-        var hint;
-
-        for (i = 0; i < names.length; i += 1) {
-            container = findAttachmentFieldContainer(names[i]);
-
-            if (!container || !container.querySelectorAll) {
-                continue;
-            }
-
-            fieldBody = container.querySelector("td.ms-formbody") || container;
-            buttons = container.querySelectorAll("a.addNewAttachment");
-            removeButtons = container.querySelectorAll(
-                "a.deleteAll, .deleteAll"
-            );
-
-            Array.prototype.forEach.call(buttons, function (button) {
-                if (button.textContent !== "Vložit přílohy") {
-                    button.textContent = "Vložit přílohy";
-                }
-
-                if (String(button.className).indexOf(
-                    "dodavatel-picker-attachment-button"
-                ) === -1) {
-                    button.className += " dodavatel-picker-attachment-button";
-                }
-
-                if (getAttribute(button, "role") !== "button") {
-                    button.setAttribute("role", "button");
-                }
-            });
-
-            Array.prototype.forEach.call(removeButtons, function (button) {
-                button.style.display = "none";
-                button.style.visibility = "hidden";
-                button.setAttribute("aria-hidden", "true");
-            });
-
-            if (i === 0 && !fieldBody.querySelector(
-                ".dodavatel-picker-attachment-hint"
-            )) {
-                hint = createElement(
-                    "div",
-                    "dodavatel-picker-attachment-hint",
-                    CONFIG.attachmentHint
-                );
-                fieldBody.insertBefore(hint, fieldBody.firstChild);
-            }
-        }
-    }
-
     function injectStyles() {
         var style;
         var css =
@@ -1161,28 +680,6 @@
             ".dodavatel-picker-button-primary{border-color:#292982;background:#292982;color:#ffffff;}" +
             ".dodavatel-picker-button:hover,.dodavatel-picker-button:focus{outline:1px solid #292982;outline-offset:1px;}" +
             ".dodavatel-picker-button-primary:hover,.dodavatel-picker-button-primary:focus{background:#1f1f63;}" +
-            ".dodavatel-picker-attachment-button{" +
-                "display:inline-block;min-width:120px;height:34px;padding:0 14px;" +
-                "box-sizing:border-box;border:1px solid #292982;background:#292982;" +
-                "color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;" +
-                "font-family:Segoe UI,Arial,sans-serif;" +
-                "font-size:14px;font-weight:400;line-height:32px;" +
-                "text-align:center;text-decoration:none;cursor:pointer;" +
-            "}" +
-            ".dodavatel-picker-attachment-button:visited,.dodavatel-picker-attachment-button:hover," +
-            ".dodavatel-picker-attachment-button:focus,.dodavatel-picker-attachment-button:active{" +
-                "background:#1f1f63;color:#ffffff !important;" +
-                "-webkit-text-fill-color:#ffffff !important;outline:1px solid #292982;" +
-                "outline-offset:1px;" +
-            "}" +
-            ".dodavatel-picker-attachment-button *{" +
-                "color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;" +
-            "}" +
-            ".dodavatel-picker-attachment-hint{" +
-                "margin:0 0 10px 0;padding:8px 10px;border-left:3px solid #808184;" +
-                "background:#f3f4f8;color:#808184;font-size:12px;line-height:1.5;" +
-            "}" +
-            ".dodavatel-picker-attachment-button{display:inline-block !important;visibility:visible !important;}" +
             "@media screen and (max-width:520px){" +
                 ".dodavatel-picker-overlay{padding:8px;}" +
                 ".dodavatel-picker-dialog{margin:8px auto;}" +
@@ -2008,7 +1505,7 @@
         var path = String(window.location.pathname || "").toLowerCase();
         var query = String(window.location.search || "").toLowerCase();
 
-        return /\/(newform|editform|dispform)\.aspx$/.test(path) ||
+        return /\/(newform|editform)\.aspx$/.test(path) ||
             (/\/listform\.aspx$/.test(path) &&
                 /(?:^|[?&])pagetype=(?:6|8)(?:&|$)/.test(query));
     }
@@ -2032,12 +1529,7 @@
             bindTargetField(field);
         }
 
-        injectStyles();
         bindConditionField();
-        bindAttachmentSourceChanges();
-        updateAttachmentFieldAvailability();
-        customizeAttachmentControls();
-        initializeAuditLogging();
 
         if (!observer && window.MutationObserver && document.body) {
             observer = new MutationObserver(function () {
@@ -2048,10 +1540,6 @@
                 }
 
                 bindConditionField();
-                bindAttachmentSourceChanges();
-                updateAttachmentFieldAvailability();
-                customizeAttachmentControls();
-                auditAttachmentChanges();
             });
 
             observer.observe(document.body, {
@@ -2069,10 +1557,6 @@
                 }
 
                 bindConditionField();
-                bindAttachmentSourceChanges();
-                updateAttachmentFieldAvailability();
-                customizeAttachmentControls();
-                auditAttachmentChanges();
             }, 1000);
 
             window.setTimeout(function () {

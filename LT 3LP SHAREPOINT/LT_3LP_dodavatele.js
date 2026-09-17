@@ -38,6 +38,8 @@
     var auditBound = false;
     var auditAttachmentCounts = {};
     var auditAttachmentNames = {};
+    var auditFieldSnapshots = {};
+    var auditFieldId = 0;
     var writingHistory = false;
 
     function addEvent(element, eventName, handler) {
@@ -646,11 +648,142 @@
     function isHistoryField(field) {
         var reference = getAttribute(field, "id") + " " +
             getAttribute(field, "name") + " " +
+            getAttribute(field, "data-field-internal-name") + " " +
+            getAttribute(field, "data-field-name") + " " +
             getAttribute(field, "title");
 
         return CONFIG.historyFieldInternalNames.some(function (name) {
             return containsIgnoreCase(reference, name);
+        }) || CONFIG.workflowHistoryFieldInternalNames.some(function (name) {
+            return containsIgnoreCase(reference, name);
         });
+    }
+
+    function isInternalAuditUi(element) {
+        var current = element;
+
+        while (current && current !== document.body) {
+            if (containsIgnoreCase(getAttribute(current, "class"), "dodavatel-picker-")) {
+                return true;
+            }
+
+            current = current.parentNode;
+        }
+
+        return false;
+    }
+
+    function isAuditableField(field) {
+        var tagName;
+        var type;
+
+        if (!field || !field.tagName || isHistoryField(field) || isInternalAuditUi(field)) {
+            return false;
+        }
+
+        tagName = field.tagName.toLowerCase();
+
+        if (tagName === "textarea" || tagName === "select") {
+            return true;
+        }
+
+        if (tagName === "input") {
+            type = (getAttribute(field, "type") || "text").toLowerCase();
+
+            return type === "text" ||
+                type === "search" ||
+                type === "checkbox";
+        }
+
+        return getAttribute(field, "contenteditable").toLowerCase() === "true" ||
+            getAttribute(field, "role").toLowerCase() === "textbox";
+    }
+
+    function getAuditFieldKey(field) {
+        var key;
+
+        key = getAttribute(field, "data-dodavatel-audit-key") ||
+            getAttribute(field, "data-field-internal-name") ||
+            getAttribute(field, "data-field-name") ||
+            getAttribute(field, "name") ||
+            getAttribute(field, "id") ||
+            getAttribute(field, "title");
+
+        if (!key) {
+            auditFieldId += 1;
+            key = "dodavatel-audit-field-" + auditFieldId;
+            field.setAttribute("data-dodavatel-audit-key", key);
+        }
+
+        return key;
+    }
+
+    function getAuditComparableValue(field) {
+        var tagName;
+        var type;
+
+        if (!field) {
+            return "";
+        }
+
+        tagName = String(field.tagName || "").toLowerCase();
+
+        if (tagName === "input") {
+            type = (getAttribute(field, "type") || "text").toLowerCase();
+
+            if (type === "checkbox") {
+                return field.checked ? "zaškrtnuto" : "nezaškrtnuto";
+            }
+        }
+
+        return getAuditValue(field);
+    }
+
+    function updateAuditFieldSnapshot(field) {
+        if (!isAuditableField(field)) {
+            return;
+        }
+
+        auditFieldSnapshots[getAuditFieldKey(field)] = getAuditComparableValue(field);
+    }
+
+    function auditFieldValueChanges() {
+        var fields;
+        var field;
+        var key;
+        var value;
+        var previous;
+        var i;
+
+        if (writingHistory || !document.querySelectorAll) {
+            return;
+        }
+
+        fields = document.querySelectorAll(
+            "input, textarea, select, [contenteditable='true'], [role='textbox']"
+        );
+
+        for (i = 0; i < fields.length; i += 1) {
+            field = fields[i];
+
+            if (!isAuditableField(field)) {
+                continue;
+            }
+
+            key = getAuditFieldKey(field);
+            value = getAuditComparableValue(field);
+            previous = auditFieldSnapshots[key];
+            auditFieldSnapshots[key] = value;
+
+            if (typeof previous === "undefined" || previous === value) {
+                continue;
+            }
+
+            appendHistoryEntry(
+                "Automaticky změněno pole " + getAuditFieldName(field) +
+                (value ? ": " + value : " (vymazáno)")
+            );
+        }
     }
 
     function getAttachmentItemCount(container) {
@@ -810,18 +943,24 @@
         });
     }
 
+    function scheduleFieldAudit() {
+        [250, 1000, 2500, 5000].forEach(function (delay) {
+            window.setTimeout(auditFieldValueChanges, delay);
+        });
+    }
+
     function handleAuditFieldChange(event) {
         var field = event && (event.target || event.srcElement);
 
-        if (!field || writingHistory || isHistoryField(field) ||
-            !isTextField(field) && String(field.tagName).toLowerCase() !== "select") {
+        if (!field || writingHistory || !isAuditableField(field)) {
             return;
         }
 
         appendHistoryEntry(
             "Vyplněno/upraveno pole " + getAuditFieldName(field) +
-            (getAuditValue(field) ? ": " + getAuditValue(field) : " (vymazáno)")
+            (getAuditComparableValue(field) ? ": " + getAuditComparableValue(field) : " (vymazáno)")
         );
+        updateAuditFieldSnapshot(field);
     }
 
     function isSaveAction(element) {
@@ -845,6 +984,7 @@
             }
 
             if (isSaveAction(current)) {
+                auditFieldValueChanges();
                 appendHistoryEntry("Uživatel klikl na Uložit");
                 break;
             }
@@ -868,6 +1008,8 @@
         addEvent(document, "change", handleAuditFieldChange);
         addEvent(document, "click", handleAuditClick);
         auditBound = true;
+        auditFieldValueChanges();
+        scheduleFieldAudit();
         auditAttachmentChanges();
     }
 
@@ -2367,6 +2509,7 @@
                 updateAttachmentFieldAvailability();
                 customizeAttachmentControls();
                 moveTaskAttachmentsAboveOutcome();
+                auditFieldValueChanges();
                 auditAttachmentChanges();
             });
 
@@ -2389,6 +2532,7 @@
                 updateAttachmentFieldAvailability();
                 customizeAttachmentControls();
                 moveTaskAttachmentsAboveOutcome();
+                auditFieldValueChanges();
                 auditAttachmentChanges();
             }, 1000);
 
