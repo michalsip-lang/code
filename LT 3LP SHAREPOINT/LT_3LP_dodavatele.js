@@ -13,6 +13,8 @@
             "Příprava LT pro Alza",
             "Příprava LT pro Dr. Max"
         ],
+        blockedDoneOutcomeLabels: ["hotovo", "done", "complete", "completed"],
+        missingFinalAttachmentMessage: "Nejprve vložte finální přílohu. Bez přílohy nelze zvolit Hotovo.",
         attachmentHint: "Vložte XLS soubor se seznamem zboží včetně cenotvorby / slevotvorby / kompenzace / forecastu / bere na sklad nebo trade / předpokládané datum odběru, pokud bere na sklad.",
         historyFieldInternalNames: ["historie"],
         workflowHistoryFieldInternalNames: ["historie_workflow"],
@@ -40,6 +42,7 @@
     var auditArmBound = false;
     var auditAttachmentCounts = {};
     var auditAttachmentNames = {};
+    var missingFinalAttachmentAlertedAt = 0;
     var writingHistory = false;
 
     function addEvent(element, eventName, handler) {
@@ -1547,6 +1550,182 @@
         }
     }
 
+    function hasFinalTaskAttachment() {
+        return hasAttachmentContent(findAttachmentFieldContainer(
+            CONFIG.attachmentTargetFieldInternalNames
+        ));
+    }
+
+    function normalizeOutcomeText(value) {
+        return String(value || "")
+            .replace(/\s+/g, " ")
+            .replace(/^\s+|\s+$/g, "")
+            .toLowerCase();
+    }
+
+    function containsDoneOutcomeText(value) {
+        var text = normalizeOutcomeText(value);
+        var i;
+
+        for (i = 0; i < CONFIG.blockedDoneOutcomeLabels.length; i += 1) {
+            if (text === CONFIG.blockedDoneOutcomeLabels[i] ||
+                text.indexOf(CONFIG.blockedDoneOutcomeLabels[i]) !== -1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function getLabelTextForInput(input) {
+        var label;
+        var labels;
+        var i;
+
+        if (!input) {
+            return "";
+        }
+
+        if (input.id && document.querySelector) {
+            label = document.querySelector("label[for='" + input.id + "']");
+
+            if (label) {
+                return label.innerText || label.textContent || "";
+            }
+        }
+
+        labels = document.getElementsByTagName("label");
+
+        for (i = 0; i < labels.length; i += 1) {
+            if (labels[i].htmlFor === input.id || labels[i].contains && labels[i].contains(input)) {
+                return labels[i].innerText || labels[i].textContent || "";
+            }
+        }
+
+        return "";
+    }
+
+    function isDoneOutcomeTarget(target) {
+        var outcomeRow = document.getElementById("TaskFormTrOutcomes");
+        var current = target;
+        var reference;
+
+        if (!outcomeRow || !target) {
+            return false;
+        }
+
+        while (current && current !== document.body) {
+            if (current === outcomeRow) {
+                return false;
+            }
+
+            reference = getAttribute(current, "value") + " " +
+                getAttribute(current, "title") + " " +
+                getAttribute(current, "aria-label") + " " +
+                (current.innerText || current.textContent || "");
+
+            if (String(current.tagName).toLowerCase() === "select" &&
+                current.selectedIndex >= 0 && current.options[current.selectedIndex]) {
+                reference += " " + current.options[current.selectedIndex].text;
+            }
+
+            if (String(current.tagName).toLowerCase() === "input") {
+                reference += " " + getLabelTextForInput(current);
+            }
+
+            if (containsDoneOutcomeText(reference)) {
+                return true;
+            }
+
+            if (current.parentNode === outcomeRow) {
+                break;
+            }
+
+            current = current.parentNode;
+        }
+
+        return false;
+    }
+
+    function cancelTaskOutcomeEvent(event) {
+        event = event || window.event;
+
+        if (event.preventDefault) {
+            event.preventDefault();
+        }
+
+        if (event.stopPropagation) {
+            event.stopPropagation();
+        }
+
+        event.cancelBubble = true;
+        event.returnValue = false;
+
+        return false;
+    }
+
+    function showMissingFinalAttachmentMessage() {
+        var now = new Date().getTime();
+
+        if (now - missingFinalAttachmentAlertedAt < 1000) {
+            return;
+        }
+
+        missingFinalAttachmentAlertedAt = now;
+        window.alert(CONFIG.missingFinalAttachmentMessage);
+    }
+
+    function handleTaskOutcomeAttempt(event) {
+        var target;
+
+        if (!isTargetTaskForAttachmentMove()) {
+            return true;
+        }
+
+        event = event || window.event;
+        target = event.target || event.srcElement;
+
+        if (!isDoneOutcomeTarget(target) || hasFinalTaskAttachment()) {
+            return true;
+        }
+
+        if (String(target.tagName).toLowerCase() === "input") {
+            target.checked = false;
+        }
+
+        showMissingFinalAttachmentMessage();
+
+        return cancelTaskOutcomeEvent(event);
+    }
+
+    function bindTaskOutcomeAttachmentRequirement() {
+        var outcomeRow;
+
+        if (!isTargetTaskForAttachmentMove()) {
+            return;
+        }
+
+        outcomeRow = document.getElementById("TaskFormTrOutcomes");
+
+        if (!outcomeRow || getAttribute(outcomeRow, "data-dodavatel-outcome-bound") === "true") {
+            return;
+        }
+
+        addEvent(outcomeRow, "click", handleTaskOutcomeAttempt);
+    addEvent(outcomeRow, "mousedown", handleTaskOutcomeAttempt);
+        addEvent(outcomeRow, "change", handleTaskOutcomeAttempt);
+        addEvent(outcomeRow, "keydown", function (event) {
+            event = event || window.event;
+
+            if (event.keyCode === 13 || event.keyCode === 32) {
+                return handleTaskOutcomeAttempt(event);
+            }
+
+            return true;
+        });
+        outcomeRow.setAttribute("data-dodavatel-outcome-bound", "true");
+    }
+
     function injectStyles() {
         var style;
         var css =
@@ -1642,6 +1821,12 @@
             ".dodavatel-picker-task-attachment-row .tispMultipleUploadFT .buttons{" +
                 "margin-top:8px;text-align:left;" +
             "}" +
+            ".dodavatel-picker-ribbon-reset .ms-cui-menu," +
+            ".dodavatel-picker-ribbon-reset .ms-cui-smenu-inner," +
+            ".dodavatel-picker-ribbon-reset .ms-cui-tooltip," +
+            ".dodavatel-picker-ribbon-reset .ms-cui-gallery{" +
+                "display:none !important;visibility:hidden !important;" +
+            "}" +
             "@media screen and (max-width:520px){" +
                 ".dodavatel-picker-overlay{padding:8px;}" +
                 ".dodavatel-picker-dialog{margin:8px auto;}" +
@@ -1668,6 +1853,79 @@
 
         document.getElementsByTagName("head")[0].appendChild(style);
         styleAdded = true;
+    }
+
+    function isSharePointRibbonElement(element) {
+        var current = element;
+        var reference;
+
+        while (current && current !== document.body) {
+            reference = getAttribute(current, "id") + " " +
+                getAttribute(current, "class") + " " +
+                getAttribute(current, "role") + " " +
+                getAttribute(current, "title");
+
+            if (containsIgnoreCase(reference, "Ribbon") ||
+                containsIgnoreCase(reference, "ms-cui") ||
+                containsIgnoreCase(reference, "ms-rte-toolbar")) {
+                return true;
+            }
+
+            current = current.parentNode;
+        }
+
+        return false;
+    }
+
+    function closeSharePointRibbonChrome() {
+        var activeElement = document.activeElement;
+        var menus;
+        var pageManager;
+        var ribbon;
+        var i;
+
+        if (document.body && String(document.body.className).indexOf(
+            "dodavatel-picker-ribbon-reset"
+        ) === -1) {
+            document.body.className += " dodavatel-picker-ribbon-reset";
+        }
+
+        if (activeElement && isSharePointRibbonElement(activeElement) && activeElement.blur) {
+            try {
+                activeElement.blur();
+            } catch (ignoreBlur) {
+                /* Ribbon nesmí držet fokus po načtení formuláře. */
+            }
+        }
+
+        try {
+            if (window.SP && SP.Ribbon && SP.Ribbon.PageManager) {
+                pageManager = SP.Ribbon.PageManager.get_instance();
+                ribbon = pageManager && pageManager.get_ribbon ? pageManager.get_ribbon() : null;
+
+                if (ribbon && ribbon.set_minimized) {
+                    ribbon.set_minimized(true);
+                }
+            }
+        } catch (ignoreRibbonApi) {
+            /* Některé buildy SharePointu nemají ribbon API dostupné hned při startu. */
+        }
+
+        menus = document.querySelectorAll ? document.querySelectorAll(
+            ".ms-cui-menu, .ms-cui-smenu-inner, .ms-cui-tooltip, .ms-cui-gallery"
+        ) : [];
+
+        for (i = 0; i < menus.length; i += 1) {
+            menus[i].style.display = "none";
+            menus[i].style.visibility = "hidden";
+            menus[i].setAttribute("aria-hidden", "true");
+        }
+    }
+
+    function scheduleSharePointRibbonReset() {
+        [0, 100, 500, 1200, 2500].forEach(function (delay) {
+            window.setTimeout(closeSharePointRibbonChrome, delay);
+        });
     }
 
     function normalizeSearchValue(value) {
@@ -2492,11 +2750,13 @@
         }
 
         injectStyles();
+        scheduleSharePointRibbonReset();
         bindConditionField();
         bindAttachmentSourceChanges();
         updateAttachmentFieldAvailability();
         customizeAttachmentControls();
         moveTaskAttachmentsAboveOutcome();
+        bindTaskOutcomeAttachmentRequirement();
         initializeAuditLogging();
 
         if (!observer && window.MutationObserver && document.body) {
@@ -2512,6 +2772,7 @@
                 updateAttachmentFieldAvailability();
                 customizeAttachmentControls();
                 moveTaskAttachmentsAboveOutcome();
+                bindTaskOutcomeAttachmentRequirement();
                 auditAttachmentChanges();
             });
 
@@ -2534,6 +2795,7 @@
                 updateAttachmentFieldAvailability();
                 customizeAttachmentControls();
                 moveTaskAttachmentsAboveOutcome();
+                bindTaskOutcomeAttachmentRequirement();
                 auditAttachmentChanges();
             }, 1000);
 
