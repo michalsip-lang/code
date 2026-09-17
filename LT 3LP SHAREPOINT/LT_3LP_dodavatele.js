@@ -14,6 +14,7 @@
         ],
         attachmentHint: "Vložte XLS soubor se seznamem zboží včetně cenotvorby / slevotvorby / kompenzace / forecastu / bere na sklad nebo trade / předpokládané datum odběru, pokud bere na sklad.",
         historyFieldInternalNames: ["historie"],
+        workflowHistoryFieldInternalNames: ["historie_workflow"],
         siteUrl: "http://portal.samohyl.cz/nakup",
         listTitle: "Dodavatele",
         listRelativeUrl: "/nakup/Lists/Dodavatele",
@@ -366,6 +367,91 @@
         }
 
         return null;
+    }
+
+    /* Volitelné pole, do ktereho zapisuje pouze workflow; drží historii oddelene od pole "historie". */
+    function findWorkflowHistoryField() {
+        var elements = document.getElementsByTagName("*");
+        var names = CONFIG.workflowHistoryFieldInternalNames || [];
+        var i;
+        var j;
+        var reference;
+        var tagName;
+
+        for (i = 0; i < elements.length; i += 1) {
+            reference = getAttribute(elements[i], "id") + " " +
+                getAttribute(elements[i], "name") + " " +
+                getAttribute(elements[i], "data-field-internal-name") + " " +
+                getAttribute(elements[i], "data-field-name") + " " +
+                getAttribute(elements[i], "title");
+
+            for (j = 0; j < names.length; j += 1) {
+                if (containsIgnoreCase(reference, names[j]) &&
+                    elements[i].tagName.toLowerCase() !== "label") {
+                    tagName = elements[i].tagName.toLowerCase();
+
+                    if (tagName === "textarea" ||
+                        (tagName === "input" &&
+                            String(getAttribute(elements[i], "type")).toLowerCase() !== "hidden")) {
+                        return elements[i];
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function parseCzTimestamp(value) {
+        var match = String(value || "").match(
+            /(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/
+        );
+
+        if (!match) {
+            return null;
+        }
+
+        return new Date(
+            parseInt(match[3], 10),
+            parseInt(match[2], 10) - 1,
+            parseInt(match[1], 10),
+            parseInt(match[4], 10),
+            parseInt(match[5], 10),
+            parseInt(match[6], 10)
+        );
+    }
+
+    /* Slouci hlavni historii se zaznamy z odděleneho pole workflow, seřazeno chronologicky. */
+    function mergeHistoryValues(primaryValue, workflowValue) {
+        var lines = [];
+
+        function collect(value) {
+            String(value || "").split(/\r?\n/).forEach(function (line) {
+                var trimmed = line.replace(/^\s+|\s+$/g, "");
+
+                if (trimmed) {
+                    lines.push({
+                        text: trimmed,
+                        date: parseCzTimestamp(parseHistoryLine(trimmed).when)
+                    });
+                }
+            });
+        }
+
+        collect(primaryValue);
+        collect(workflowValue);
+
+        lines.sort(function (a, b) {
+            if (a.date && b.date) {
+                return a.date - b.date;
+            }
+
+            return 0;
+        });
+
+        return lines.map(function (line) {
+            return line.text;
+        }).join("\n");
     }
 
     function getCurrentUserName() {
@@ -878,7 +964,9 @@
 
     function initializeHistoryDisplay() {
         var historyElement = findHistoryDisplayElement();
+        var workflowField = findWorkflowHistoryField();
         var sourceValue;
+        var workflowValue;
 
         if (!historyElement ||
             getAttribute(historyElement, "data-dodavatel-history-rendered") === "true") {
@@ -886,6 +974,12 @@
         }
 
         sourceValue = historyElement.value || historyElement.innerHTML || historyElement.textContent || "";
+
+        if (workflowField) {
+            workflowValue = workflowField.value || workflowField.textContent || "";
+            sourceValue = mergeHistoryValues(sourceValue, workflowValue);
+        }
+
         injectStyles();
         renderHistoryTable(historyElement, sourceValue);
         historyElement.setAttribute("data-dodavatel-history-rendered", "true");
