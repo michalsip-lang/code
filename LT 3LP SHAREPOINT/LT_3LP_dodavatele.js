@@ -6,6 +6,7 @@
         alternateFieldInternalNames: ["dodavatele_3lp"],
         purchaserTargetFieldInternalNames: ["nakupci_3lp"],
         conditionFieldInternalNames: ["listace_jineho_dodavatele"],
+        processStateFieldInternalNames: ["stav_procesu"],
         attachmentSourceFieldInternalNames: ["priloha_podklad", "priloha_podkald"],
         attachmentTargetFieldInternalNames: ["priloha_final"],
         taskTitlesForAttachmentMove: [
@@ -596,6 +597,16 @@
             return "";
         }
 
+        if (String(field.tagName).toLowerCase() === "input" &&
+            String(getAttribute(field, "type")).toLowerCase() === "checkbox") {
+            return field.checked ? "zaškrtnuto" : "nezaškrtnuto";
+        }
+
+        if (String(field.tagName).toLowerCase() === "input" &&
+            String(getAttribute(field, "type")).toLowerCase() === "radio") {
+            return field.checked ? "vybráno" : "nevybráno";
+        }
+
         if (String(field.tagName).toLowerCase() === "select" &&
             field.selectedIndex >= 0 && field.options[field.selectedIndex]) {
             return String(field.options[field.selectedIndex].text || "")
@@ -651,6 +662,57 @@
         return CONFIG.historyFieldInternalNames.some(function (name) {
             return containsIgnoreCase(reference, name);
         });
+    }
+
+    function isConditionField(field) {
+        var reference = getAttribute(field, "id") + " " +
+            getAttribute(field, "name") + " " +
+            getAttribute(field, "data-field-internal-name") + " " +
+            getAttribute(field, "data-field-name") + " " +
+            getAttribute(field, "title");
+
+        return CONFIG.conditionFieldInternalNames.some(function (name) {
+            return containsIgnoreCase(reference, name);
+        });
+    }
+
+    function isProcessStateField(field) {
+        var reference = getAttribute(field, "id") + " " +
+            getAttribute(field, "name") + " " +
+            getAttribute(field, "data-field-internal-name") + " " +
+            getAttribute(field, "data-field-name") + " " +
+            getAttribute(field, "title");
+
+        return CONFIG.processStateFieldInternalNames.some(function (name) {
+            return containsIgnoreCase(reference, name);
+        });
+    }
+
+    function isAuditableChangeField(field) {
+        var tagName;
+        var type;
+
+        if (!field || !field.tagName || isHistoryField(field)) {
+            return false;
+        }
+
+        if (isProcessStateField(field)) {
+            return true;
+        }
+
+        tagName = String(field.tagName).toLowerCase();
+
+        if (tagName === "select" || isTextField(field)) {
+            return true;
+        }
+
+        if (tagName !== "input") {
+            return false;
+        }
+
+        type = String(getAttribute(field, "type") || "text").toLowerCase();
+
+        return type === "checkbox" || type === "radio";
     }
 
     function getAttachmentItemCount(container) {
@@ -813,8 +875,8 @@
     function handleAuditFieldChange(event) {
         var field = event && (event.target || event.srcElement);
 
-        if (!field || writingHistory || isHistoryField(field) ||
-            !isTextField(field) && String(field.tagName).toLowerCase() !== "select") {
+        if (!field || writingHistory || !isAuditableChangeField(field) ||
+            isConditionField(field)) {
             return;
         }
 
@@ -1052,6 +1114,10 @@
             setTargetFieldValue(purchaserField, "");
             appendHistoryEntry(
                 "Vypnuta evidence jiného dodavatele; vymazána pole dodavatelů a nákupčích"
+            );
+        } else if (conditionField && conditionField.checked === true) {
+            appendHistoryEntry(
+                "Zapnuta evidence jiného dodavatele"
             );
         }
 
