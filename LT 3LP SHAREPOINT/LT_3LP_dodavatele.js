@@ -37,6 +37,7 @@
     var delegatedClickBound = false;
     var currentUserName = "";
     var auditBound = false;
+    var auditArmBound = false;
     var auditAttachmentCounts = {};
     var auditAttachmentNames = {};
     var writingHistory = false;
@@ -688,6 +689,59 @@
         });
     }
 
+    function isIgnoredAuditUi(field) {
+        var current;
+        var reference;
+
+        reference = getAttribute(field, "id") + " " +
+            getAttribute(field, "name") + " " +
+            getAttribute(field, "title") + " " +
+            getAttribute(field, "class");
+
+        if (containsIgnoreCase(reference, "FontFamilyStyleValue") ||
+            containsIgnoreCase(reference, "FontSizeStyleValue") ||
+            containsIgnoreCase(reference, "Ribbon.") ||
+            containsIgnoreCase(reference, "ms-cui") ||
+            containsIgnoreCase(reference, "ms-rte") ||
+            containsIgnoreCase(reference, "rteStyle")) {
+            return true;
+        }
+
+        current = field;
+
+        while (current && current !== document.body) {
+            reference = getAttribute(current, "id") + " " +
+                getAttribute(current, "class") + " " +
+                getAttribute(current, "role");
+
+            if (containsIgnoreCase(reference, "Ribbon") ||
+                containsIgnoreCase(reference, "ms-cui") ||
+                containsIgnoreCase(reference, "ms-rte-toolbar") ||
+                containsIgnoreCase(reference, "dodavatel-picker-")) {
+                return true;
+            }
+
+            current = current.parentNode;
+        }
+
+        return false;
+    }
+
+    function hasAuditFormContext(field) {
+        var row;
+
+        if (getAttribute(field, "data-field-internal-name") ||
+            getAttribute(field, "data-field-name")) {
+            return true;
+        }
+
+        row = field.closest ? field.closest("tr") : null;
+
+        return !!(row && row.querySelector && row.querySelector(
+            "td.ms-formlabel, th.ms-formlabel, label, nobr"
+        ));
+    }
+
     function isAuditableChangeField(field) {
         var tagName;
         var type;
@@ -696,8 +750,16 @@
             return false;
         }
 
+        if (isIgnoredAuditUi(field)) {
+            return false;
+        }
+
         if (isProcessStateField(field)) {
             return true;
+        }
+
+        if (!hasAuditFormContext(field)) {
+            return false;
         }
 
         tagName = String(field.tagName).toLowerCase();
@@ -922,7 +984,7 @@
         }
     }
 
-    function initializeAuditLogging() {
+    function bindAuditListeners() {
         if (auditBound) {
             return;
         }
@@ -931,6 +993,23 @@
         addEvent(document, "click", handleAuditClick);
         auditBound = true;
         auditAttachmentChanges();
+    }
+
+    function armAuditLogging() {
+        bindAuditListeners();
+
+        removeEvent(document, "mousedown", armAuditLogging);
+        removeEvent(document, "keydown", armAuditLogging);
+    }
+
+    function initializeAuditLogging() {
+        if (auditBound || auditArmBound) {
+            return;
+        }
+
+        addEvent(document, "mousedown", armAuditLogging);
+        addEvent(document, "keydown", armAuditLogging);
+        auditArmBound = true;
     }
 
     function escapeHtml(value) {
