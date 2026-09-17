@@ -8,7 +8,10 @@
         conditionFieldInternalNames: ["listace_jineho_dodavatele"],
         attachmentSourceFieldInternalNames: ["priloha_podklad", "priloha_podkald"],
         attachmentTargetFieldInternalNames: ["priloha_final"],
-        taskTitleForAttachmentMove: "Příprava LT pro Alza",
+        taskTitlesForAttachmentMove: [
+            "Příprava LT pro Alza",
+            "Příprava LT pro Dr. Max"
+        ],
         attachmentHint: "Vložte XLS soubor se seznamem zboží včetně cenotvorby / slevotvorby / kompenzace / forecastu / bere na sklad nebo trade / předpokládané datum odběru, pokud bere na sklad.",
         historyFieldInternalNames: ["historie"],
         siteUrl: "http://portal.samohyl.cz/nakup",
@@ -1250,11 +1253,17 @@
 
     function isTargetTaskForAttachmentMove() {
         var taskTitle = document.getElementById("lblTaskName");
+        var currentTitle;
 
-        return taskTitle &&
-            String(taskTitle.textContent || taskTitle.innerText || "")
+        if (!taskTitle) {
+            return false;
+        }
+
+        currentTitle = String(taskTitle.textContent || taskTitle.innerText || "")
                 .replace(/\s+/g, " ")
-                .replace(/^\s+|\s+$/g, "") === CONFIG.taskTitleForAttachmentMove;
+                .replace(/^\s+|\s+$/g, "");
+
+        return CONFIG.taskTitlesForAttachmentMove.indexOf(currentTitle) !== -1;
     }
 
     function moveTaskAttachmentsAboveOutcome() {
