@@ -673,11 +673,41 @@
         return false;
     }
 
+    function isEditorChromeField(field) {
+        var reference = getAttribute(field, "id") + " " +
+            getAttribute(field, "name") + " " +
+            getAttribute(field, "title") + " " +
+            getAttribute(field, "class");
+
+        return containsIgnoreCase(reference, "FontFamilyStyleValue") ||
+            containsIgnoreCase(reference, "FontSizeStyleValue") ||
+            containsIgnoreCase(reference, "Ribbon.") ||
+            containsIgnoreCase(reference, "ms-rte") ||
+            containsIgnoreCase(reference, "rteStyle");
+    }
+
+    function hasAuditFormContext(field) {
+        var row;
+
+        if (getAttribute(field, "data-field-internal-name") ||
+            getAttribute(field, "data-field-name")) {
+            return true;
+        }
+
+        row = field.closest ? field.closest("tr") : null;
+
+        return !!(row && row.querySelector && row.querySelector(
+            "td.ms-formlabel, th.ms-formlabel, label, nobr"
+        ));
+    }
+
     function isAuditableField(field) {
         var tagName;
         var type;
 
-        if (!field || !field.tagName || isHistoryField(field) || isInternalAuditUi(field)) {
+        if (!field || !field.tagName || isHistoryField(field) ||
+            isInternalAuditUi(field) || isEditorChromeField(field) ||
+            !hasAuditFormContext(field)) {
             return false;
         }
 
