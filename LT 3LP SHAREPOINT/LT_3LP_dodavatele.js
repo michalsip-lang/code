@@ -2499,9 +2499,20 @@
                 /(?:^|[?&])pagetype=(?:6|8)(?:&|$)/.test(query));
     }
 
+    function isDisplayFormPage() {
+        return /\/dispform\.aspx$/.test(
+            String(window.location.pathname || "").toLowerCase()
+        );
+    }
+
     function initializeSupplierPicker() {
         // Picker se aktivuje pouze na formulářích pro nový nebo upravovaný záznam.
         if (!isSupportedFormPage()) {
+            return;
+        }
+
+        if (isDisplayFormPage()) {
+            initializeHistoryDisplay();
             return;
         }
 
