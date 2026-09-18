@@ -55,6 +55,13 @@ Uživatelská část bude vložitelná Treeinfo aplikace s jedním HTML blokem, 
 - Jedno hlavní hlášení odchylky může mít více opatření.
 - Vazba na odchylku, typ (okamžitá oprava / nápravné / preventivní), popis, vlastník, termín, stav, důkaz provedení, výsledek ověření účinnosti a schvalovatel.
 
+2a. Seznam `ODCH_PosouzeniRizika` — samostatné posouzení rizika
+- Jeden záznam posouzení patří k jedné odchylce; nové posouzení se zakládá při přehodnocení rizika a původní zůstává v auditu.
+- Formulář vyplňuje QA/odpovědná osoba, nikoliv běžný hlasitel. Předvyplní se z něj popis podnětu, zdroj, rozsah, produkt/proces, šarže, lokalita, prvotní odhad dopadu a dosavadní zajištění.
+- Povinné údaje: posuzující, datum/čas, produktový režim, dopad na jakost/bezpečnost/shodu, závažnost, pravděpodobnost, odhalitelnost, výsledná klasifikace, zdůvodnění, rozsah dotčených zásob a distribučních cest, rozhodnutí o blokaci/uvolnění a potřeba oznámení či stažení.
+- Formulář umožní vybrat související položku FMEA z `FMEA_Analyza`; při uložení vytvoří neměnný snímek S/O/D/RPN do `ODCH_FMEA_Vazby`.
+- Výsledek posouzení určí další workflow: pokračovat do vyšetřování, pouze opravit a sledovat, blokovat zásobu, eskalovat QA/managementu, zahájit stažení či jiný postup podle SOP. WFE Sapiens nepovolí přechod bez schváleného rozhodnutí.
+
 3. Seznam `ODCH_FMEA_Vazby` — vazba na FMEA
 - Vazba na odchylku a na ID položky v `FMEA_Analyza`.
 - Snímek: proces, FM, S/O/D, RPN, klasifikace a existující kontroly v okamžiku posouzení odchylky.
@@ -90,6 +97,7 @@ Stránky aplikace
 - Přehled: filtrování podle stavu, produktu, lokality, závažnosti, lhůty a vlastníka; upozornění na zpožděné CAPA a neuzavřené vysoké riziko.
 - Nová odchylka: krátký, rychlý záznam a okamžité zajištění.
 - Detail odchylky: rozdělený do záložek Záznam, Riziko a FMEA, Zajištění, Vyšetřování, CAPA, Audit a Přílohy.
+- Posouzení rizika: samostatný Treeinfo formulář otevřený z detailu odchylky pro roli QA. Klientský ES5 kód načte údaje z `ODCH_Odchylky`, zapíše posouzení do `ODCH_PosouzeniRizika`, vytvoří FMEA vazbu a předá výsledek WFE Sapiens.
 - Moje úkoly: CAPA a schválení přidělená přihlášenému uživateli.
 - Reporty: trend odchylek, příčin, RPN, CAPA po termínu, opakovaných odchylek a stavu podle produktového režimu.
 
