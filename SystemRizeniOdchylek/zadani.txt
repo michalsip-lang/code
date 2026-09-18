@@ -6,6 +6,36 @@ Tento soubor je pracovní zadání pro implementaci formulářů a související
 Účel systému
 Systém eviduje a řídí odchylky od stanovených standardů. Musí umožnit jejich zaznamenání, sledování, řešení a uzavření podle definovaného procesu.
 
+Regulatorní kontext a zásady návrhu
+- Firma distribuuje léčiva, krmiva a chovatelské potřeby. Systém musí umožnit rozlišit režim produktu a použít odpovídající proces a rozsah dokumentace.
+- Řízení rizik se provádí metodou FMEA. Systém odchylek má umožnit odkaz na příslušnou FMEA analýzu a její položku; při vyšetřování a CAPA se mají zohlednit zjištěné příčiny, stávající preventivní opatření a výsledné hodnocení rizika.
+- Pro léčiva je základním režimem správná distribuční praxe (GDP). Návrh podporuje požadavky na bezodkladný, úplný a dohledatelný záznam odchylky, její vyšetření, řízení rizik, CAPA a přezkoumání účinnosti. Pokud se systém použije v činnostech podléhajících výrobě, musí podporovat rovněž principy správné výrobní praxe (GMP), zejména farmaceutický systém jakosti, řízenou dokumentaci a řízení změn.
+- Pro krmiva systém podporuje dohledatelnost šarže, evidenci a vyřízení reklamací, rozhodnutí o uvolnění či blokaci a případné stažení výrobku z distribuce. Potřeba a konkrétní interpretace požadavků se před nasazením ověří proti platným českým předpisům, povolením firmy a interním SOP.
+- Chovatelské potřeby mohou podléhat odlišnému, obvykle nižšímu regulatornímu režimu. Systém u nich zachová přiměřené řízení kvality a dohledatelnost, aniž by automaticky zaměňoval jejich požadavky s GDP/GMP.
+
+Proces řízení odchylky
+Proces vychází z osvědčené automotive disciplíny řešení neshod (8D/PDCA), přenesené do regulovaného distribučního prostředí:
+1. Záznam: evidovat co se stalo, kdy, kde, kdo odchylku zjistil, dotčený proces, produkt, šarži, množství a přiložené důkazy.
+2. Posouzení rizika a klasifikace: určit produktový režim, závažnost, možné dopady na jakost, bezpečnost, integritu produktu, pacienta/zvíře/zákazníka a regulatorní povinnosti.
+3. Okamžité zajištění (containment): rozhodnout o karanténě/blokaci zásoby a šarže, zastavení expedice, kontrole dalších dotčených zásilek nebo jiném dočasném opatření. Rozhodnutí, odpovědnou osobu a čas zaznamenat.
+4. Vyšetřování: určit kořenovou příčinu, rozsah dopadu a propojené odchylky; rozlišit přímou opravu, nápravné opatření a preventivní opatření.
+5. CAPA: naplánovat opatření s vlastníkem, termínem, důkazem provedení a dopadem na podobné produkty či procesy.
+6. Ověření účinnosti: nezávisle či oprávněnou rolí ověřit, zda CAPA skutečně zabránilo opakování; neúčinné opatření vrátit k řešení.
+7. Schválení a uzavření: uzavřít pouze po kompletním záznamu, schválení oprávněnou rolí a splnění kritérií uzavření.
+8. Trendování a přezkoumání: poskytovat přehledy odchylek, CAPA, prodlení, opakovaných příčin a závažnosti pro management review.
+
+Minimální datové a auditní požadavky
+- Každá odchylka musí mít jedinečné číslo, neměnnou historii stavů, času, autora, rozhodnutí a změn klíčových údajů.
+- U dotčeného produktu evidovat alespoň název/kód, šarži, expiraci, množství, skladovou či distribuční lokalitu, dodavatele a odběratele, pokud jsou pro daný režim relevantní.
+- Rozhodnutí o blokaci, uvolnění, likvidaci, stažení nebo oznámení musí mít odpovědnou osobu, datum/čas, odůvodnění a schvalovací stopu.
+- Záznamy, přílohy a přístupy musí odpovídat rolím, být dohledatelné a chráněné před neautorizovanou změnou.
+
+Referenční zdroje pro návrh
+- EU GDP Guidelines 2013/C 343/01: dokumentace a vyšetření odchylek, CAPA založené na řízení rizik, přezkoumání ukazatelů kvality a hlášení odchylek při přepravě.
+- EudraLex Volume 4, GMP Chapter 1: Pharmaceutical Quality System, včetně řízení kvality a dokumentace.
+- Nařízení (ES) č. 183/2005: hygiena krmiv, dohledatelnost, evidence reklamací a postupy pro stažení výrobků.
+- IATF 16949, bod 10.2.3: zajištění neshody, analýza kořenové příčiny, systémové nápravné opatření a ověření účinnosti.
+
 Provozní a technické prostředí
 - Platforma: on-premises SharePoint 2013 provozovaný ve firemní síti.
 - Workflow: procesní workflow běží v systému WFE Sapiens. Formuláře a datový model musí být navrženy s ohledem na jeho napojení a předávání potřebných údajů.
@@ -29,5 +59,8 @@ K rozhodnutí
 - Jaké typy formulářů systém obsahuje?
 - Kdo bude jednotlivé formuláře vyplňovat, schvalovat a spravovat?
 - Jaký je očekávaný životní cyklus odchylky?
+- Jaké údaje, škála hodnocení a prahové hodnoty se používají ve stávající FMEA aplikaci (např. závažnost, výskyt, odhalitelnost a výsledné skóre)?
+- Které role smí odchylku klasifikovat, nařídit blokaci či uvolnění zásoby, schválit CAPA a odchylku uzavřít?
+- Které produktové režimy a závažnosti firma zavede a jaké budou jejich lhůty a eskalace?
 - Jaká data, přílohy, notifikace a přehledy systém potřebuje?
 - Jaké jsou technické a bezpečnostní požadavky?
