@@ -1,0 +1,33 @@
+ŽIVÉ ZADÁNÍ – Systém řízení odchylek
+
+Účel tohoto dokumentu
+Tento soubor je pracovní zadání pro implementaci formulářů a souvisejícího systému. Průběžně jej aktualizujeme podle rozhodnutí v tomto chatu. Text má být dostatečně konkrétní, aby mohl sloužit jako prompt pro naprogramování řešení.
+
+Účel systému
+Systém eviduje a řídí odchylky od stanovených standardů. Musí umožnit jejich zaznamenání, sledování, řešení a uzavření podle definovaného procesu.
+
+Provozní a technické prostředí
+- Platforma: on-premises SharePoint 2013 provozovaný ve firemní síti.
+- Workflow: procesní workflow běží v systému WFE Sapiens. Formuláře a datový model musí být navrženy s ohledem na jeho napojení a předávání potřebných údajů.
+- Uživatelské stránky používají nadstavbu Treeinfo. Ta dovoluje vložit vlastní JavaScript a CSS styly přímo do stránky či její konfigurace.
+- Omezení nasazení: SharePoint neumožňuje nahrávat samostatné soubory `.js` do své struktury. Klientský kód proto dodat jako samostatně vložitelný skriptový blok určený pro Treeinfo; stylování dodat jako vložitelný CSS blok. Nepředpokládat vlastní externí JavaScriptové soubory ani jejich dynamické nahrávání.
+- Technologie klientské části: čistý JavaScript v syntaxi ES5, HTML a CSS. Pro práci s daty používat kompatibilní rozhraní SharePoint 2013 (JSOM nebo REST API podle konkrétního scénáře).
+- Nepoužívat TypeScript, React, syntaxi ES6+ ani závislosti načítané z CDN. Řešení musí fungovat bez externích knihoven.
+- Implementace musí být kompatibilní se SharePointem 2013; nepoužívat závislosti vyžadující SharePoint Online, Microsoft 365 ani externí cloudové služby.
+- Skripty a řešení musí být bezpečné pro interní firemní prostředí: respektovat oprávnění SharePointu, ověřovat vstupy, bezpečně pracovat s daty a nevystavovat citlivé informace.
+- Preferovat standardní a podporované možnosti SharePointu 2013 a minimalizovat externí závislosti.
+
+Aktuální stav
+Zatím definujeme požadavky. Konkrétní formuláře, role, procesy, data a technické požadavky budou doplněny po jejich upřesnění.
+
+Pravidla aktualizace
+- Každé potvrzené rozhodnutí z chatu se promítne do tohoto souboru.
+- Nejasnosti zůstanou označené jako „K rozhodnutí“.
+- Při změně dříve schváleného požadavku se nahradí aktuální verzí; historie chatu zůstává zdrojem kontextu.
+
+K rozhodnutí
+- Jaké typy formulářů systém obsahuje?
+- Kdo bude jednotlivé formuláře vyplňovat, schvalovat a spravovat?
+- Jaký je očekávaný životní cyklus odchylky?
+- Jaká data, přílohy, notifikace a přehledy systém potřebuje?
+- Jaké jsou technické a bezpečnostní požadavky?
