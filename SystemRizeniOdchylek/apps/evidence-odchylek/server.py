@@ -87,8 +87,12 @@ class App(SimpleHTTPRequestHandler):
       if next_status=="Uzavřena" and d["fmea_required"] and not d["fmea_decision"]: return self.send_json({"error":"Nelze uzavřít: čeká se na povinné rozhodnutí o revizi FMEA."},409)
       write("UPDATE deviations SET status=? WHERE id=?",(next_status,did)); audit(did,"Workflow",d["status"]+" → "+next_status); return self.send_json({"message":"Případ posunut do stavu: "+next_status,"status":next_status})
     if self.path.startswith("/api/deviations/") and self.path.endswith("/capa"):
-      did=int(self.path.split("/")[3]); cid=write("INSERT INTO capa(deviation_id,type,description,owner,deadline,status,evidence,effectiveness,created_at) VALUES(?,?,?,?,?,?,?,?,?)",(did,data.get("type","Nápravné"),data["description"],data["owner"],data.get("deadline",""),"Otevřené","","",now()))
-      audit(did,"CAPA založeno","Opatření #"+str(cid)+": "+data["description"]); self.send_json({"id":cid},201); return
+      did=int(self.path.split("/")[3]); cid=write("INSERT INTO capa(deviation_id,type,description,owner,deadline,status,evidence,effectiveness,created_at) VALUES(?,?,?,?,?,?,?,?,?)",(did,data.get("type","Nápravné"),data["description"],data["owner"],data.get("deadline",""),"Provedeno","Potvrzeno při založení","",now()))
+      audit(did,"CAPA provedeno","Opatření #"+str(cid)+": "+data["description"])
+      current=deviation(did)
+      if current and current["status"] == "CAPA":
+        write("UPDATE deviations SET status=? WHERE id=?",("Ověření účinnosti",did)); audit(did,"Workflow","CAPA → Ověření účinnosti (automaticky po potvrzení CAPA)")
+      self.send_json({"id":cid},201); return
     self.send_json({"error":"Nenalezeno"},404)
 if __name__=="__main__":
   setup(); print("Demonstrátor běží na http://localhost:8765"); ThreadingHTTPServer(("127.0.0.1",8765),App).serve_forever()
