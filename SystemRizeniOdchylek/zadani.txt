@@ -159,3 +159,10 @@ K rozhodnutí
 - Které produktové režimy a závažnosti firma zavede a jaké budou jejich lhůty a eskalace?
 - Jaká data, přílohy, notifikace a přehledy systém potřebuje?
 - Jaké jsou technické a bezpečnostní požadavky?
+
+Statistiky a přehledy
+- Systém obsahuje samostatnou stránku „Statistiky a trendy odchylek“ pro vedení a QA.
+- Musí umožnit filtrování nejméně podle období, oblasti, lokality a zdroje podnětu.
+- Zobrazí počet založených a otevřených odchylek, plnění termínů, otevřené vysoké/kritické riziko a stav ověřování účinnosti CAPA.
+- Přehled obsahuje vývoj založených a uzavřených odchylek, rozložení rizikovosti, stav workflow, zdroje podnětů, termíny/eskalace a opakované příčiny navázané na FMEA.
+- Zdroj dat: hlavní seznam Odchylky a navázané seznamy posouzení rizika, vyšetřování, CAPA, ověření účinnosti a vazby FMEA. Kritické případy, případy po termínu a neúčinné CAPA se eskalují do fronty QA.
