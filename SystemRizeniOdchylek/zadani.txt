@@ -86,6 +86,7 @@ Stránky aplikace
 - Reporty: trend odchylek, příčin, RPN, CAPA po termínu, opakovaných odchylek a stavu podle produktového režimu.
 
 Příjem podnětů z kontrol, inspekcí a nehod (k potvrzení)
+- Z pohledu běžného uživatele existuje jediný vstupní formulář „Nový podnět“. Uživatel nejprve zvolí zdroj a základní naléhavost; formulář dynamicky zobrazí jen relevantní doplňující pole. Uživatel nevolí workflow ani technické seznamy.
 - Všechny případy vstupují do společného registru `ODCH_Odchylky`, aby měly jednotnou auditní stopu, rizikové posouzení, CAPA a ověření účinnosti. Původ se povinně eviduje v poli `ZdrojPodnetu`: státní správa, interní kontrola, vnitřní inspekce, nehoda/incident, reklamace nebo jiný zdroj.
 - Karta případu bude mít navíc pole: externí číslo protokolu či spisu, kontrolní orgán, datum kontroly/nehody, zjištění, porušený požadavek/SOP, právní nebo interní lhůta, osoba pro komunikaci, stupeň důvěrnosti a odkaz na původní dokumenty.
 - Při založení proběhne triáž: 1) vyžaduje událost okamžité zajištění produktu nebo bezpečnosti, 2) jde o závazný nález státní správy s pevnou lhůtou, 3) jde o nález interní kontroly/inspekce, nebo 4) jde o nehodu/incident. Podle výsledku WFE Sapiens automaticky přidělí vlastníka, QA a případně management.

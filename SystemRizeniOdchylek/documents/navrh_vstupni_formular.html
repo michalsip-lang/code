@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Návrh vstupního formuláře</title>
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; background:#eef2f6; color:#1d2b39; font:15px/1.45 Arial, Helvetica, sans-serif; }
+    .app { max-width:1120px; margin:28px auto; background:#fff; box-shadow:0 2px 16px rgba(24,44,67,.14); }
+    header { background:#12324d; color:#fff; padding:25px 34px; }
+    h1 { margin:0 0 5px; font-size:25px; }
+    header p { margin:0; opacity:.85; }
+    main { padding:28px 34px 35px; }
+    .hint { background:#edf7fc; border-left:4px solid #1886bc; padding:12px 14px; margin-bottom:24px; color:#25425a; }
+    .section { border:1px solid #d4e0e8; border-radius:5px; margin:18px 0; overflow:hidden; }
+    .section h2 { background:#f4f8fb; color:#163b5a; font-size:17px; margin:0; padding:12px 16px; border-bottom:1px solid #d4e0e8; }
+    .section-content { padding:18px 16px; }
+    .grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; }
+    .grid-3 { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+    .full { grid-column:1 / -1; }
+    label { display:block; color:#30485c; font-weight:bold; margin-bottom:5px; }
+    .required { color:#bb251d; }
+    input, select, textarea { width:100%; min-height:38px; border:1px solid #aebdca; border-radius:3px; padding:8px 9px; background:#fff; color:#182a38; font:inherit; }
+    textarea { min-height:90px; resize:vertical; }
+    input:focus, select:focus, textarea:focus { border-color:#1673ac; outline:2px solid rgba(22,115,172,.15); }
+    .small { color:#687887; font-size:12px; margin:4px 0 0; }
+    .urgency { display:flex; gap:10px; flex-wrap:wrap; }
+    .urgency label { border:1px solid #bdcad4; border-radius:4px; padding:9px 12px; margin:0; font-weight:normal; cursor:pointer; }
+    .urgency input { width:auto; min-height:0; margin-right:6px; vertical-align:middle; }
+    .urgency .critical { border-color:#cc544d; background:#fff3f2; }
+    .conditional { display:none; margin-top:16px; padding:16px; border:1px dashed #9eb4c5; background:#fbfdfe; }
+    .conditional.visible { display:block; }
+    .check { display:flex; gap:9px; align-items:flex-start; margin:10px 0; }
+    .check input { width:auto; min-height:0; margin-top:4px; }
+    .actions { display:flex; gap:10px; justify-content:flex-end; padding-top:8px; }
+    button { border:0; border-radius:3px; padding:10px 16px; font-weight:bold; cursor:pointer; font-size:14px; }
+    .secondary { background:#e7edf1; color:#254258; }
+    .primary { background:#1673ac; color:#fff; }
+    .status { display:none; margin-top:16px; padding:12px 14px; background:#eaf8ef; border-left:4px solid #2a8251; color:#1c5d38; }
+    .status.visible { display:block; }
+    @media (max-width:700px) { .app { margin:0; } header, main { padding-left:18px; padding-right:18px; } .grid, .grid-3 { grid-template-columns:1fr; } }
+    @media print { body { background:#fff; } .app { box-shadow:none; margin:0; } .actions,.hint,.status { display:none; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Nový podnět</h1>
+      <p>Centrální vstup pro odchylky, kontrolní nálezy, inspekce a nehody</p>
+    </header>
+    <main>
+      <div class="hint">Vyplňte, co nyní víte. Pokud je ohrožena bezpečnost, jakost produktu nebo pokračuje expedice, zvolte <strong>Kritická</strong> — systém po odeslání zahájí okamžité zajištění.</div>
+
+      <form id="intakeForm" novalidate>
+        <div class="section">
+          <h2>1. Původ podnětu</h2>
+          <div class="section-content grid grid-3">
+            <div>
+              <label for="source">Zdroj <span class="required">*</span></label>
+              <select id="source" required>
+                <option value="">Vyberte zdroj</option>
+                <option value="authority">Kontrola státní správy</option>
+                <option value="internal-control">Interní kontrola</option>
+                <option value="internal-inspection">Vnitřní inspekce</option>
+                <option value="incident">Nehoda / incident</option>
+                <option value="complaint">Reklamace</option>
+                <option value="other">Jiný podnět</option>
+              </select>
+            </div>
+            <div>
+              <label for="foundAt">Datum a čas zjištění <span class="required">*</span></label>
+              <input id="foundAt" type="datetime-local" required>
+            </div>
+            <div>
+              <label for="reporter">Zaznamenal/a <span class="required">*</span></label>
+              <input id="reporter" type="text" placeholder="Jméno nebo uživatel" required>
+            </div>
+          </div>
+
+          <div class="section-content" style="padding-top:0">
+            <label>Naléhavost <span class="required">*</span></label>
+            <div class="urgency">
+              <label><input type="radio" name="urgency" value="normal" checked> Běžná</label>
+              <label><input type="radio" name="urgency" value="high"> Vysoká</label>
+              <label class="critical"><input type="radio" name="urgency" value="critical"> Kritická — nutné okamžité zajištění</label>
+            </div>
+          </div>
+        </div>
+
+        <div id="authorityFields" class="conditional">
+          <strong>Údaje z kontroly státní správy</strong>
+          <div class="grid" style="margin-top:14px">
+            <div><label for="authorityName">Kontrolní orgán <span class="required">*</span></label><input id="authorityName" type="text" placeholder="Např. příslušný dozorový orgán"></div>
+            <div><label for="protocolNo">Číslo protokolu / spisu <span class="required">*</span></label><input id="protocolNo" type="text"></div>
+            <div><label for="inspectionDate">Datum kontroly</label><input id="inspectionDate" type="date"></div>
+            <div><label for="legalDeadline">Závazná lhůta odpovědi</label><input id="legalDeadline" type="date"></div>
+          </div>
+        </div>
+
+        <div id="inspectionFields" class="conditional">
+          <strong>Údaje z interní kontroly / vnitřní inspekce</strong>
+          <div class="grid" style="margin-top:14px">
+            <div><label for="auditRef">Číslo kontroly nebo inspekce</label><input id="auditRef" type="text"></div>
+            <div><label for="auditor">Kontrolující / auditor</label><input id="auditor" type="text"></div>
+          </div>
+        </div>
+
+        <div id="incidentFields" class="conditional">
+          <strong>Bezpečnostní informace o nehodě / incidentu</strong>
+          <div class="grid" style="margin-top:14px">
+            <div><label for="incidentLocation">Místo události <span class="required">*</span></label><input id="incidentLocation" type="text"></div>
+            <div><label for="immediateAction">Okamžité zajištění <span class="required">*</span></label><input id="immediateAction" type="text" placeholder="Co již bylo provedeno"></div>
+            <div class="full check"><input id="personalData" type="checkbox"><label for="personalData" style="font-weight:normal">Případ obsahuje údaje o zraněné osobě. Detail se bude řídit omezeným přístupem.</label></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>2. Co se stalo</h2>
+          <div class="section-content grid">
+            <div class="full"><label for="title">Stručný název podnětu <span class="required">*</span></label><input id="title" type="text" placeholder="Např. Překročení teploty při skladování šarže"></div>
+            <div class="full"><label for="description">Popis zjištění <span class="required">*</span></label><textarea id="description" required placeholder="Popište skutečnosti, ne domněnky. Uveďte, co bylo zjištěno a jaký může být dopad."></textarea></div>
+            <div><label for="location">Lokalita / sklad <span class="required">*</span></label><select id="location" required><option value="">Vyberte lokalitu</option><option>Centrální sklad</option><option>Distribuční sklad</option><option>Přeprava</option><option>Jiná lokalita</option></select></div>
+            <div><label for="process">Dotčený proces</label><input id="process" type="text" placeholder="Např. příjem, skladování, expedice"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>3. Dotčený produkt a okamžité rozhodnutí</h2>
+          <div class="section-content grid grid-3">
+            <div><label for="productRegime">Produktový režim <span class="required">*</span></label><select id="productRegime" required><option value="">Vyberte režim</option><option>Léčiva</option><option>Krmiva</option><option>Chovatelské potřeby</option><option>Neurčeno</option></select></div>
+            <div><label for="product">Název / kód produktu</label><input id="product" type="text"></div>
+            <div><label for="batch">Šarže</label><input id="batch" type="text"></div>
+            <div><label for="expiry">Expirace</label><input id="expiry" type="date"></div>
+            <div><label for="quantity">Dotčené množství</label><input id="quantity" type="text" placeholder="Např. 24 ks"></div>
+            <div><label for="stockDecision">Stav zásoby <span class="required">*</span></label><select id="stockDecision" required><option value="">Rozhodněte</option><option>Blokováno / karanténa</option><option>Neblokováno — vyžaduje odůvodnění</option><option>Produkt není dotčen</option><option>Nelze zatím určit</option></select></div>
+            <div id="stockReasonRow" class="full" style="display:none"><label for="stockReason">Odůvodnění, proč zásoba není blokována <span class="required">*</span></label><textarea id="stockReason"></textarea></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>4. Přílohy a odeslání</h2>
+          <div class="section-content">
+            <label for="attachments">Přílohy</label>
+            <input id="attachments" type="file" multiple>
+            <p class="small">Např. protokol, fotografie, zápis, teplotní záznam nebo oznámení. V produkci se soubory uloží do SharePointu s vazbou na případ.</p>
+            <div class="check"><input id="confirmation" type="checkbox" required><label for="confirmation" style="font-weight:normal">Potvrzuji, že uvedené údaje jsou podle mých současných znalostí správné a že jsem nahlásil/a nutná okamžitá opatření.</label></div>
+            <div class="actions"><button class="secondary" type="reset">Vyčistit</button><button class="primary" type="submit">Založit podnět</button></div>
+            <div id="status" class="status" role="status">Návrh: podnět by byl uložen a WFE Sapiens by podle zdroje, naléhavosti a stavu zásoby založil odpovídající úkoly.</div>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+  <script>
+    (function () {
+      var source = document.getElementById('source');
+      var authority = document.getElementById('authorityFields');
+      var inspection = document.getElementById('inspectionFields');
+      var incident = document.getElementById('incidentFields');
+      var stockDecision = document.getElementById('stockDecision');
+      var stockReason = document.getElementById('stockReasonRow');
+      var form = document.getElementById('intakeForm');
+      var status = document.getElementById('status');
+
+      function setVisibility(element, visible) {
+        element.className = visible ? 'conditional visible' : 'conditional';
+      }
+      function updateSourceFields() {
+        setVisibility(authority, source.value === 'authority');
+        setVisibility(inspection, source.value === 'internal-control' || source.value === 'internal-inspection');
+        setVisibility(incident, source.value === 'incident');
+      }
+      function updateStockReason() {
+        stockReason.style.display = stockDecision.value === 'Neblokováno — vyžaduje odůvodnění' ? 'block' : 'none';
+      }
+      source.onchange = updateSourceFields;
+      stockDecision.onchange = updateStockReason;
+      form.onreset = function () { window.setTimeout(function () { updateSourceFields(); updateStockReason(); status.className = 'status'; }, 0); };
+      form.onsubmit = function (event) {
+        event.preventDefault();
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+        if (stockDecision.value === 'Neblokováno — vyžaduje odůvodnění' && !document.getElementById('stockReason').value) {
+          document.getElementById('stockReason').focus();
+          return;
+        }
+        status.className = 'status visible';
+      };
+    }());
+  </script>
+</body>
+</html>
