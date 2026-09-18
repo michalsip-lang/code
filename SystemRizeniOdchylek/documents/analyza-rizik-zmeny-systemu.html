@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analýza rizik změny – systém řízení odchylek</title>
+  <style>
+    :root { --navy:#13263d; --blue:#1769aa; --ink:#1e2934; --muted:#5e6a77; --line:#d7dfe7; --paper:#fff; --page:#edf2f6; --high:#b42318; --high-bg:#fff0ef; --medium:#a15c00; --medium-bg:#fff7e6; --low:#287344; --low-bg:#ebf8f0; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--page); color:var(--ink); font:15px/1.5 Arial, Helvetica, sans-serif; }
+    main { max-width:1180px; margin:28px auto; background:var(--paper); padding:42px 52px 58px; box-shadow:0 2px 12px rgba(19,38,61,.12); }
+    h1,h2,h3 { color:var(--navy); line-height:1.2; }
+    h1 { margin:0 0 8px; font-size:30px; }
+    h2 { margin:38px 0 14px; border-bottom:2px solid #dbe8f2; padding-bottom:8px; font-size:21px; }
+    h3 { margin:20px 0 8px; font-size:16px; }
+    .meta { color:var(--muted); margin:0; }
+    .notice { margin:24px 0; padding:16px 18px; border-left:5px solid var(--blue); background:#f1f7fb; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:18px 0; }
+    .metric { border:1px solid var(--line); padding:15px; border-radius:5px; }
+    .metric strong { display:block; color:var(--navy); font-size:27px; }
+    .metric span { color:var(--muted); font-size:13px; }
+    table { width:100%; border-collapse:collapse; margin:14px 0 26px; font-size:13px; }
+    th { background:var(--navy); color:#fff; text-align:left; padding:10px 9px; vertical-align:bottom; }
+    td { border:1px solid var(--line); padding:10px 9px; vertical-align:top; }
+    tr:nth-child(even) td { background:#f9fbfc; }
+    .rank { font-weight:bold; white-space:nowrap; }
+    .high { color:var(--high); background:var(--high-bg); font-weight:bold; }
+    .medium { color:var(--medium); background:var(--medium-bg); font-weight:bold; }
+    .low { color:var(--low); background:var(--low-bg); font-weight:bold; }
+    .tag { display:inline-block; border-radius:12px; padding:2px 8px; font-size:12px; font-weight:bold; white-space:nowrap; }
+    ul { padding-left:21px; }
+    li { margin:5px 0; }
+    .flow { display:flex; align-items:stretch; gap:0; margin:15px 0 22px; flex-wrap:wrap; }
+    .step { flex:1 1 140px; min-height:70px; padding:12px; border:1px solid var(--line); background:#f8fbfd; font-weight:bold; color:var(--navy); }
+    .step small { display:block; margin-top:5px; color:var(--muted); font-weight:normal; }
+    .footer { margin-top:42px; border-top:1px solid var(--line); padding-top:14px; color:var(--muted); font-size:12px; }
+    @media print { body { background:#fff; } main { margin:0; max-width:none; box-shadow:none; padding:15mm; } h2 { break-after:avoid; } table { break-inside:auto; } tr { break-inside:avoid; } }
+    @media (max-width:720px) { main { margin:0; padding:26px 18px; } .grid { grid-template-columns:1fr; } table { display:block; overflow-x:auto; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Analýza rizik změny systému řízení odchylek</h1>
+    <p class="meta">Pracovní verze · SharePoint 2013 on-premises · Treeinfo · WFE Sapiens · vazba na FMEA</p>
+
+    <div class="notice">
+      <strong>Účel:</strong> identifikovat rizika zavedení nového systému pro evidenci, vyšetřování a uzavírání odchylek v distribuci léčiv, krmiv a chovatelských potřeb. Dokument je podkladem pro návrh, testování, validaci a řízení změny; nenahrazuje schválení QA ani posouzení platných interních SOP a právních požadavků.
+    </div>
+
+    <h2>Hranice posuzované změny</h2>
+    <ul>
+      <li>Nový formulář a přehled odchylek vložený do stránek Treeinfo.</li>
+      <li>Datové seznamy SharePoint 2013 pro odchylky, CAPA, vazby na FMEA, audit a číselníky.</li>
+      <li>Workflow a schvalování vedené ve WFE Sapiens.</li>
+      <li>Napojení na existující aplikaci <code>FMEA_Analyza</code>; automatické vytvoření požadavku na revizi FMEA, nikoliv automatická změna S/O/D/RPN.</li>
+    </ul>
+
+    <h2>Hodnoticí metoda</h2>
+    <p>Každé riziko je posouzeno před zavedením navržených kontrol pomocí tří stupnic 1–5: <strong>závažnost (S)</strong>, <strong>výskyt (O)</strong> a <strong>odhalitelnost (D)</strong>. RPN = S × O × D. Hodnocení používá stejný princip jako stávající FMEA, avšak konkrétní hodnoty musí při řízené změně potvrdit QA/FMEA tým.</p>
+    <div class="grid">
+      <div class="metric"><strong>RPN ≥ 28</strong><span>vysoké riziko — vyžaduje opatření, vlastníka a termín</span></div>
+      <div class="metric"><strong>13–27</strong><span>střední riziko — sledovat a odůvodnit rozhodnutí</span></div>
+      <div class="metric"><strong>1–12</strong><span>mírné riziko — přijatelné při zachování běžných kontrol</span></div>
+    </div>
+
+    <h2>Prioritní rizika před spuštěním</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Riziko / možná lidská chyba</th><th>Dopad</th><th>S/O/D<br>RPN</th><th>Navržená prevence a detekce</th><th>Vlastník</th></tr></thead>
+      <tbody>
+        <tr><td>R-01</td><td>Dotčená šarže není při kritické odchylce včas blokována.</td><td>Expedice potenciálně nevyhovujícího léčiva nebo krmiva; ohrožení jakosti a regulatorní nesoulad.</td><td class="high">5/3/4<br>60</td><td>Povinná volba „blokovat / neblokovat“ s odůvodněním; pro definované typy odchylek automatický úkol blokace a eskalace QA.</td><td>QA + sklad</td></tr>
+        <tr><td>R-02</td><td>Odchylka je uzavřena bez úplného šetření, CAPA nebo ověření účinnosti.</td><td>Opakování závady a neprokazatelné řízení jakosti.</td><td class="high">5/3/4<br>60</td><td>WFE nepovolí přechod do „Uzavřena“, dokud nejsou splněna povinná pole, CAPA, důkaz účinnosti a QA schválení.</td><td>QA</td></tr>
+        <tr><td>R-03</td><td>Opomene se revize FMEA po potvrzené příčině nebo CAPA.</td><td>Riziková analýza neodpovídá skutečnému procesu; preventivní kontroly nejsou aktualizovány.</td><td class="high">4/4/4<br>64</td><td>Automaticky vytvořit nesmazatelný úkol „Revize FMEA“ při definovaných spouštěčích; uzavření až po rozhodnutí FMEA/QA.</td><td>FMEA/QA</td></tr>
+        <tr><td>R-04</td><td>Uživatel zvolí špatný produkt, šarži, lokalitu nebo produktový režim.</td><td>Nesprávný rozsah šetření, blokace nebo stažení výrobku.</td><td class="high">5/3/3<br>45</td><td>Výběr z řízených číselníků a dostupných dat; kontrola formátu šarže; zobrazení souhrnu před odesláním.</td><td>Vlastník procesu</td></tr>
+        <tr><td>R-05</td><td>Dojde k obcházení systému e-mailem, Excelem nebo ústním pokynem.</td><td>Chybějící auditní stopa, nejednotné rozhodnutí a opožděné úkoly.</td><td class="high">4/4/3<br>48</td><td>Stanovit v SOP, že závazné rozhodnutí platí jen po zápisu v systému; notifikace posílat s přímým odkazem na kartu; pravidelná kontrola výjimek.</td><td>Vedoucí kvality</td></tr>
+        <tr><td>R-06</td><td>Neautorizovaná osoba změní, smaže či dodatečně upraví záznam nebo historii.</td><td>Ztráta integrity dat a nemožnost prokázat průběh rozhodnutí.</td><td class="high">5/2/4<br>40</td><td>Role SharePointu, omezené mazání, auditní seznam pouze pro přidávání, řízený stav „Zneplatněna“ namísto smazání.</td><td>IT + QA</td></tr>
+        <tr><td>R-07</td><td>Výpadek nebo chybné předání mezi SharePointem, Treeinfo a WFE vytvoří nekonzistentní stav.</td><td>Úkol se nezaloží, schválení se ztratí nebo se vytvoří duplicitně.</td><td class="high">4/3/4<br>48</td><td>Jedinečný identifikátor operace, idempotentní opakování, technický stav „chyba integrace“, log událostí a pravidelné porovnání stavů.</td><td>IT + vlastník WFE</td></tr>
+        <tr><td>R-08</td><td>Produkční data se uloží do localStorage nebo se při chybě SharePointu zobrazí zastaralá lokální data.</td><td>Ztráta společného zdroje pravdy, neúplný audit a chybné rozhodnutí.</td><td class="high">4/3/4<br>48</td><td>V produkci localStorage vypnout; při nedostupnosti SharePointu zobrazit chybu a zabránit schválení/uzavření; lokální režim pouze pro test.</td><td>IT + QA</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Další rizika a požadované kontroly</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Riziko</th><th>S/O/D<br>RPN</th><th>Kontrola</th><th>Ověření před spuštěním</th></tr></thead>
+      <tbody>
+        <tr><td>R-09</td><td>Neúplné nebo nevhodné přílohy/důkazy.</td><td class="medium">3/3/3<br>27</td><td>Kontrolní seznam podle typu a závažnosti; povinná příloha tam, kde ji vyžaduje SOP.</td><td>UAT scénář s každou kritickou klasifikací.</td></tr>
+        <tr><td>R-10</td><td>Špatně nastavené číselníky, lhůty nebo eskalace.</td><td class="high">4/3/3<br>36</td><td>Verzované číselníky, změny pouze přes QA/správce a testovací prostředí.</td><td>Schválení konfigurace a test mezních hodnot.</td></tr>
+        <tr><td>R-11</td><td>Chybná nebo neaktuální oprávnění uživatelů.</td><td class="high">4/3/3<br>36</td><td>Skupiny podle rolí, pravidelná recertifikace přístupů a test „nejnižšího oprávnění“.</td><td>Matice rolí a test se čtyřmi reprezentativními uživateli.</td></tr>
+        <tr><td>R-12</td><td>FMEA vazba je vybrána špatně nebo není vybrána, přestože existuje.</td><td class="medium">4/3/2<br>24</td><td>Vyhledávání podle procesu/produktu, povinné odůvodnění „FMEA neexistuje“, QA kontrola při klasifikaci.</td><td>Test shody na vzorových odchylkách.</td></tr>
+        <tr><td>R-13</td><td>FMEA se automaticky přepíše bez odborného schválení.</td><td class="high">5/2/4<br>40</td><td>Automatizace vytváří pouze požadavek na revizi; S/O/D/RPN mění výhradně role FMEA/QA.</td><td>Negativní test oprávnění a auditní stopa změny.</td></tr>
+        <tr><td>R-14</td><td>Nevhodná validace vstupu, XSS nebo chybná práce s bezpečnostním tokenem.</td><td class="medium">4/2/3<br>24</td><td>ES5 bezpečný kód, escapování výstupů, validace na klientu i v pravidlech SharePointu, HTTPS a SharePoint request digest.</td><td>Bezpečnostní test a kontrola zdrojového kódu.</td></tr>
+        <tr><td>R-15</td><td>Nedostatečné školení; uživatel nezná rozdíl mezi odchylkou, korekcí a CAPA.</td><td class="medium">4/3/2<br>24</td><td>Školení podle role, stručná nápověda ve formuláři, kontrola porozumění a podpora při pilotu.</td><td>Záznam o školení a pilotní zpětná vazba.</td></tr>
+        <tr><td>R-16</td><td>Reporty neodhalí opakované odchylky a zpožděná CAPA.</td><td class="medium">4/3/2<br>24</td><td>Pravidelné trendy podle příčiny, produktu, lokality, šarže a termínů; management review.</td><td>Ověření reportů na testovacích datech.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Bezpečný proces rozhodování</h2>
+    <div class="flow">
+      <div class="step">1. Záznam<small>Kontrola povinných údajů a šarže</small></div>
+      <div class="step">2. Zajištění<small>Blokace / karanténa nebo zdůvodnění</small></div>
+      <div class="step">3. Riziko<small>FMEA vazba a snímek RPN</small></div>
+      <div class="step">4. Šetření<small>Příčina a rozsah dopadu</small></div>
+      <div class="step">5. CAPA<small>Vlastník, termín, důkaz</small></div>
+      <div class="step">6. FMEA revize<small>Automatický povinný úkol</small></div>
+      <div class="step">7. Uzavření<small>Ověření účinnosti a QA schválení</small></div>
+    </div>
+
+    <h2>Minimální podmínky před ostrým spuštěním</h2>
+    <ol>
+      <li>Schválit proces, role, klasifikaci rizik, pravidla blokace a povinné spouštěče revize FMEA v interním SOP.</li>
+      <li>Dokončit specifikaci integračního rozhraní WFE Sapiens: předávané údaje, potvrzení výsledku, chybové stavy a opakování.</li>
+      <li>Nastavit a otestovat SharePoint oprávnění pro hlasitele, řešitele, QA/FMEA a správce; zakázat fyzické mazání auditních záznamů.</li>
+      <li>Provést uživatelské akceptační testy normálních, mezních i chybových scénářů — zejména blokace šarže, eskalace, FMEA revize a zamítnutí uzavření.</li>
+      <li>Provést řízené nasazení, školení uživatelů a přezkoumání pilotního provozu před plošným uvolněním.</li>
+    </ol>
+
+    <p class="footer">Verze 0.1 · Vychází z dosud definovaného zadání a z modelu FMEA používaného ve stávající aplikaci. Hodnocení RPN je návrhové a čeká na schválení odpovědnými rolemi.</p>
+  </main>
+</body>
+</html>
