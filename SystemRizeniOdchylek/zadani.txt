@@ -166,3 +166,14 @@ Statistiky a přehledy
 - Zobrazí počet založených a otevřených odchylek, plnění termínů, otevřené vysoké/kritické riziko a stav ověřování účinnosti CAPA.
 - Přehled obsahuje vývoj založených a uzavřených odchylek, rozložení rizikovosti, stav workflow, zdroje podnětů, termíny/eskalace a opakované příčiny navázané na FMEA.
 - Zdroj dat: hlavní seznam Odchylky a navázané seznamy posouzení rizika, vyšetřování, CAPA, ověření účinnosti a vazby FMEA. Kritické případy, případy po termínu a neúčinné CAPA se eskalují do fronty QA.
+
+Bezpečnost firemního nasazení
+- Autentizace probíhá přes firemní Active Directory / integrované přihlášení SharePointu; systém nezavádí vlastní hesla ani účty.
+- Autorizace je vynucena na serveru oprávněními SharePointu a rolemi ve WFE Sapiens. JavaScript/Treeinfo pouze skrývá nebo nabízí prvky rozhraní; nesmí být jedinou kontrolou přístupu.
+- Platí princip nejnižších oprávnění a oddělení rolí: oznamovatel, řešitel, vedoucí, QA posuzovatel rizika, vlastník CAPA, FMEA tým, QA schvalovatel uzavření a správce systému.
+- Kritická rozhodnutí (riziková klasifikace QA, uvolnění/blokace, schválení CAPA, revize FMEA a uzavření) vyžadují příslušnou roli a jsou neoddělitelně auditována s uživatelem, časem, předchozí a novou hodnotou.
+- Vstupy a přílohy se validují na serverové straně; HTML výstupy se kódují proti XSS. REST/JSOM volání používají standardní ověření SharePointu (včetně request digestu); žádné přístupové údaje, tokeny nebo citlivé údaje se neukládají do JavaScriptu.
+- Přílohy se ukládají pouze do řízené SharePoint knihovny, podléhají limitům typu/velikosti a firemní antivirové kontrole. Přímé sdílení mimo oprávněné skupiny je zakázáno.
+- Workflow WFE Sapiens používá dedikovaný servisní účet s minimálními nutnými oprávněními; běžný uživatel nesmí mít právo provádět jeho úkony ani měnit konfiguraci workflow.
+- Komunikace je výhradně po HTTPS ve firemní síti. Přístup administrátorů, změny skriptů Treeinfo, konfigurace seznamů a oprávnění jsou řízené změnou a auditované.
+- Auditní záznamy jsou neměnné pro běžné uživatele; stanoví se retence, zálohování a pravidelný test obnovy. Neodstraňovat uzavřené záznamy bez schváleného retenčního pravidla.
