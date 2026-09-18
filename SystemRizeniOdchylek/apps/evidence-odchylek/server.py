@@ -42,6 +42,16 @@ class App(SimpleHTTPRequestHandler):
     payload=json.dumps(obj,ensure_ascii=False).encode(); self.send_response(status); self.send_header("Content-Type","application/json; charset=utf-8"); self.send_header("Content-Length",str(len(payload))); self.end_headers(); self.wfile.write(payload)
   def body(self): return json.loads(self.rfile.read(int(self.headers.get("Content-Length",0))) or b"{}")
   def do_GET(self):
+    if self.path == "/form":
+      source=os.path.join(ROOT,"..","..","documents","navrh_vstupni_formular.html")
+      with open(source,"r",encoding="utf-8") as f: page=f.read()
+      bridge="""<script>
+      (function(){var form=document.getElementById('intakeForm'); if(!form)return;
+      form.addEventListener('submit',function(e){e.preventDefault();var get=function(id){var el=document.getElementById(id);return el?el.value:''};
+      fetch('/api/deviations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:get('title'),source:get('source'),scope:(document.querySelector('input[name=scope]:checked')||{}).value||'Proces',risk:(document.querySelector('input[name=urgency]:checked')||{}).value==='critical'?5:3,location:get('location'),process:get('processArea')||get('process'),owner:'QA',stock_state:get('stockDecision'),description:get('description')})}).then(function(r){return r.json()}).then(function(x){if(x.id)location.href='/?open='+x.id});});
+      }());</script>"""
+      page=page.replace("</body>",bridge+"</body>")
+      payload=page.encode("utf-8"); self.send_response(200); self.send_header("Content-Type","text/html; charset=utf-8"); self.send_header("Content-Length",str(len(payload))); self.end_headers(); self.wfile.write(payload); return
     if self.path.startswith("/api/overview"):
       ds=rows("SELECT * FROM deviations ORDER BY CASE status WHEN 'Uzavřena' THEN 9 ELSE 0 END, deadline, id DESC")
       self.send_json({"deviations":ds,"packages":rows("SELECT p.*,count(d.id) findings FROM packages p LEFT JOIN deviations d ON d.package_id=p.id GROUP BY p.id ORDER BY p.id DESC"),"steps":STEPS}); return

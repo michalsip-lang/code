@@ -3,6 +3,9 @@
 Účel tohoto dokumentu
 Tento soubor je pracovní zadání pro implementaci formulářů a souvisejícího systému. Průběžně jej aktualizujeme podle rozhodnutí v tomto chatu. Text má být dostatečně konkrétní, aby mohl sloužit jako prompt pro naprogramování řešení.
 
+Požadavek na lokální prototyp
+Lokální aplikace je věrná funkční simulace cílového řešení. Musí kopírovat toto zadání: stejné formuláře, datové vazby, pravidla povinných polí, role, workflow stavy, automatizace, FMEA/CAPA vazby, audit a přehledy. Liší se pouze technické napojení: v prototypu se data ukládají do SQLite a workflow se simuluje lokálně; po nasazení se stejná pravidla napojí na SharePoint 2013, Treeinfo a WFE Sapiens.
+
 Účel systému
 Systém eviduje a řídí odchylky od stanovených standardů. Musí umožnit jejich zaznamenání, sledování, řešení a uzavření podle definovaného procesu.
 
@@ -92,6 +95,7 @@ Stránky aplikace
 
 Příjem podnětů z kontrol, inspekcí a nehod (k potvrzení)
 - Z pohledu běžného uživatele existuje jediný vstupní formulář „Nový podnět“. Uživatel nejprve zvolí zdroj a základní naléhavost; formulář dynamicky zobrazí jen relevantní doplňující pole. Uživatel nevolí workflow ani technické seznamy.
+- Závazným vizuálním a funkčním vzorem vstupu je soubor `documents/navrh_vstupni_formular.html`. Produkční aplikace musí převzít jeho strukturu, dynamická pole a nápovědu beze zjednodušení; nahradí se pouze demonstrační odeslání skutečným uložením do SharePointu a spuštěním WFE workflow.
 - Běžný hlasitel (např. skladník) neurčuje odbornou klasifikaci rizika. Formulář mu nabídne pouze jednoduchý „první odhad dopadu“ s kontextovou nápovědou a bezpečnou výchozí hodnotou „nejistý — posoudí QA“. Konečné hodnocení závažnosti a rizika provádí QA/odpovědná osoba v kroku posouzení rizika.
 - Pokud jeden zdroj obsahuje více nálezů (např. deset neshod z interní kontroly), uživatel založí jednou „Balíček kontroly“ a vloží nálezy do opakovatelné tabulky nebo je importuje z předem schválené Excel/CSV šablony. Systém pro každý řádek vytvoří samostatnou odchylku se společnou vazbou na balíček.
 - Hromadné založení zobrazí před potvrzením kontrolní souhrn: počet nálezů, jejich názvy, rozsah (produkt/proces), závažnost, vlastníky a případné termíny. Teprve po potvrzení se založí jednotlivé záznamy, audit a workflow úkoly.
