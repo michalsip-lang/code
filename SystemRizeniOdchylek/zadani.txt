@@ -177,3 +177,18 @@ Bezpečnost firemního nasazení
 - Workflow WFE Sapiens používá dedikovaný servisní účet s minimálními nutnými oprávněními; běžný uživatel nesmí mít právo provádět jeho úkony ani měnit konfiguraci workflow.
 - Komunikace je výhradně po HTTPS ve firemní síti. Přístup administrátorů, změny skriptů Treeinfo, konfigurace seznamů a oprávnění jsou řízené změnou a auditované.
 - Auditní záznamy jsou neměnné pro běžné uživatele; stanoví se retence, zálohování a pravidelný test obnovy. Neodstraňovat uzavřené záznamy bez schváleného retenčního pravidla.
+
+Potvrzené organizační role
+- Interní auditor: uživatel. Provádí interní kontroly a inspekce, zakládá balíčky kontrol a odchylky ze svých zjištění, sleduje nápravná opatření a ověřuje jejich plnění. Neschvaluje vlastní zjištění jako QA.
+- QP a QA: jedna osoba. Provádí odborné posouzení rizika, rozhoduje o opatření k produktu (např. blokace/uvolnění v mezích svých oprávnění), schvaluje CAPA, vyžaduje revizi FMEA a schvaluje uzavření odchylky.
+- Ředitel: rozhoduje o finančně významných opatřeních, rozpočtu, investicích a eskalovaných rozhodnutích dle stanovených limitů. Není nahrazován workflow automatizací.
+- Vedoucí daného střediska: vlastník lokálního procesu; poskytuje podklady a zdroje pro vyšetřování, určuje řešitele a odpovídá za realizaci opatření ve svém středisku.
+- Pravidlo nezávislosti: osoba nesmí schválit vlastní provedené opatření ani uzavřít odchylku, u níž je současně uvedena jako řešitel nebo vlastník CAPA. V takovém případě systém předá schválení internímu auditorovi; je-li rozhodnutí finančně významné, rovněž řediteli.
+
+K potvrzení – návrh klasifikace rizika a základních lhůt
+- Závažnost se neposuzuje jen podle FMEA RPN. QA vyhodnotí skutečný i potenciální dopad na pacienta/zvíře, jakost a integritu produktu, sledovatelnost, dodržení GDP/GMP a možnost včasného zachycení či zajištění produktu. Formálnost postupu musí být úměrná riziku.
+- Kritické: skutečné nebo rozumně možné ohrožení pacienta/zvířete, významné ohrožení kvality/integrity produktu, podezření na padělek či ztrátu sledovatelnosti, nutnost stažení nebo závažné regulatorní riziko. Okamžité zajištění produktu/procesu, okamžité informování QP/QA; předběžné posouzení do 1 pracovního dne.
+- Vysoké: možný významný dopad na kvalitu, bezpečnost nebo shodu, který lze zatím řízeně zajistit. Zajištění a oznámení QP/QA v den zjištění; dokončení vyšetřování cílově do 10 pracovních dnů a plán CAPA do 20 pracovních dnů.
+- Střední: omezený, kontrolovatelný dopad bez očekávaného ohrožení bezpečnosti; vyšetřování a opatření jsou potřebná. Posouzení QA do 3 pracovních dnů; cílové uzavření do 30 kalendářních dnů.
+- Nízké: izolovaná administrativní nebo procesní neshoda bez dopadu na jakost, bezpečnost, sledovatelnost či shodu. Dokumentace a přiměřené lokální opatření; cílové uzavření do 30 kalendářních dnů.
+- Lhůty jsou návrhové cíle, nikoliv zákonné univerzální limity. Systém eviduje odůvodnění každého prodloužení a eskaluje případy po termínu QA; kritické a vysoké případy nesmí pokračovat bez zdokumentovaného rozhodnutí QA.
