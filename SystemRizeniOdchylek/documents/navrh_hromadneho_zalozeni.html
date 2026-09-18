@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Návrh hromadného založení nálezů</title>
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; background:#edf2f6; color:#1d2c39; font:14px/1.4 Arial,Helvetica,sans-serif; }
+    .app { max-width:1240px; margin:26px auto; background:#fff; box-shadow:0 3px 18px rgba(23,45,65,.15); }
+    header { padding:24px 32px; color:#fff; background:#12324d; }
+    h1 { font-size:25px; margin:0 0 5px; } header p { margin:0; opacity:.84; }
+    main { padding:26px 32px 34px; }
+    h2 { font-size:17px; color:#163b5a; margin:0; }
+    .section { border:1px solid #d4e0e8; border-radius:5px; overflow:hidden; margin-bottom:20px; }
+    .section-header { background:#f4f8fb; padding:12px 15px; border-bottom:1px solid #d4e0e8; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .content { padding:16px; }
+    .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+    .span-2 { grid-column:span 2; }
+    label { display:block; color:#334e63; font-weight:bold; margin-bottom:5px; }
+    .required { color:#bb251d; }
+    input,select,textarea { width:100%; min-height:37px; padding:7px 8px; border:1px solid #afc0cd; border-radius:3px; font:inherit; color:#1b2c39; background:#fff; }
+    textarea { min-height:62px; resize:vertical; }
+    .note { padding:10px 12px; background:#edf7fc; border-left:4px solid #1886bc; color:#26465c; margin-bottom:15px; }
+    .count { color:#5d6e7c; font-size:13px; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; min-width:950px; border-collapse:collapse; }
+    th { text-align:left; background:#e8f0f5; color:#2d4a61; padding:9px 8px; font-size:12px; border-bottom:1px solid #cedae2; }
+    td { padding:8px; vertical-align:top; border-bottom:1px solid #e0e8ed; }
+    td input,td select { min-height:34px; font-size:13px; }
+    .risk { border-radius:10px; padding:3px 7px; font-size:12px; font-weight:bold; white-space:nowrap; display:inline-block; }
+    .risk-high { background:#fff0ef; color:#b42318; } .risk-medium { background:#fff7e6; color:#975800; } .risk-low { background:#ebf8f0; color:#287344; }
+    button { border:0; border-radius:3px; padding:9px 13px; font-weight:bold; cursor:pointer; font-size:13px; }
+    .secondary { background:#e6edf2; color:#28465c; } .primary { background:#1673ac; color:#fff; } .danger { color:#a52a23; background:#fff1f0; }
+    .actions { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:16px; }
+    .actions-right { display:flex; gap:9px; }
+    .summary { display:none; margin-top:16px; padding:14px; border-left:4px solid #2a8251; background:#eaf8ef; color:#1c5d38; }
+    .summary.visible { display:block; }
+    @media (max-width:780px) { .app { margin:0; } header,main { padding-left:18px; padding-right:18px; } .grid { grid-template-columns:1fr 1fr; } .span-2 { grid-column:span 2; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Balíček kontroly — hromadné založení nálezů</h1>
+      <p>Jeden zdroj kontroly, více samostatně řízených odchylek</p>
+    </header>
+    <main>
+      <div class="section">
+        <div class="section-header"><h2>1. Společné údaje kontroly</h2><span class="count">Tyto údaje se použijí pro všechny nálezy</span></div>
+        <div class="content grid">
+          <div><label for="source">Zdroj <span class="required">*</span></label><select id="source"><option>Interní kontrola</option><option>Vnitřní inspekce</option><option>Kontrola státní správy</option></select></div>
+          <div><label for="reference">Číslo kontroly <span class="required">*</span></label><input id="reference" value="IK-2026-041"></div>
+          <div><label for="auditor">Kontrolující / auditor</label><input id="auditor" value="Jana Nováková"></div>
+          <div><label for="date">Datum kontroly</label><input id="date" type="date" value="2026-09-18"></div>
+          <div class="span-2"><label for="location">Lokalita</label><select id="location"><option>Centrální sklad</option><option>Distribuční sklad</option><option>Přeprava</option></select></div>
+          <div><label for="deadline">Hlavní lhůta</label><input id="deadline" type="date" value="2026-10-18"></div>
+          <div><label for="attachment">Společný protokol</label><input id="attachment" type="file"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header"><h2>2. Jednotlivé nálezy</h2><span id="count" class="count">3 nálezy</span></div>
+        <div class="content">
+          <div class="note">Každý řádek se po potvrzení založí jako samostatná odchylka. Společný protokol zůstane připojený k celému balíčku.</div>
+          <div class="table-wrap">
+            <table id="findingsTable">
+              <thead><tr><th>#</th><th>Název nálezu <span class="required">*</span></th><th>Rozsah <span class="required">*</span></th><th>Proces / produkt</th><th>Závažnost</th><th>Navržený vlastník</th><th>Termín</th><th></th></tr></thead>
+              <tbody>
+                <tr><td class="row-number">1</td><td><input value="Chybí záznam o kontrole teploty"></td><td><select><option>Proces</option><option>Produkt</option><option>Produkt i proces</option></select></td><td><input value="Teplotní režim — centrální sklad"></td><td><span class="risk risk-high">Vysoká</span></td><td><select><option>Vedoucí skladu</option><option>QA</option><option>Logistika</option></select></td><td><input type="date" value="2026-09-25"></td><td><button class="danger remove" type="button">Odebrat</button></td></tr>
+                <tr><td class="row-number">2</td><td><input value="Neúplné značení vyčleněné zásoby"></td><td><select><option>Produkt i proces</option><option>Proces</option><option>Produkt</option></select></td><td><input value="Krmivo, šarže K-2409"></td><td><span class="risk risk-medium">Střední</span></td><td><select><option>Vedoucí skladu</option><option>QA</option><option>Logistika</option></select></td><td><input type="date" value="2026-09-28"></td><td><button class="danger remove" type="button">Odebrat</button></td></tr>
+                <tr><td class="row-number">3</td><td><input value="Pracovní postup není aktuální"></td><td><select><option>Proces</option><option>Produkt</option><option>Produkt i proces</option></select></td><td><input value="Řízená dokumentace"></td><td><span class="risk risk-low">Nízká</span></td><td><select><option>QA</option><option>Vedoucí skladu</option><option>Logistika</option></select></td><td><input type="date" value="2026-10-10"></td><td><button class="danger remove" type="button">Odebrat</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="actions"><button id="add" class="secondary" type="button">+ Přidat nález</button><div class="actions-right"><button class="secondary" type="button">Uložit jako rozpracované</button><button id="create" class="primary" type="button">Založit 3 odchylky</button></div></div>
+          <div id="summary" class="summary" role="status"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script>
+    (function () {
+      var table = document.getElementById('findingsTable').getElementsByTagName('tbody')[0];
+      var count = document.getElementById('count');
+      var create = document.getElementById('create');
+      var summary = document.getElementById('summary');
+      function total() { return table.getElementsByTagName('tr').length; }
+      function updateCount() { var number = total(); count.innerHTML = number + (number === 1 ? ' nález' : number < 5 ? ' nálezy' : ' nálezů'); create.innerHTML = 'Založit ' + number + (number === 1 ? ' odchylku' : number < 5 ? ' odchylky' : ' odchylek'); }
+      function bindRemove(button) { button.onclick = function () { if (total() > 1) { table.removeChild(button.parentNode.parentNode); updateCount(); } }; }
+      function bindAll() { var buttons = table.querySelectorAll('.remove'); for (var i = 0; i < buttons.length; i += 1) { bindRemove(buttons[i]); } }
+      document.getElementById('add').onclick = function () {
+        var row = document.createElement('tr');
+        row.innerHTML = '<td class="row-number">' + (total() + 1) + '</td><td><input placeholder="Popis nálezu"></td><td><select><option>Proces</option><option>Produkt</option><option>Produkt i proces</option></select></td><td><input placeholder="Proces nebo produkt"></td><td><span class="risk risk-medium">Stanovit</span></td><td><select><option>Vyberte vlastníka</option><option>QA</option><option>Vedoucí skladu</option><option>Logistika</option></select></td><td><input type="date"></td><td><button class="danger remove" type="button">Odebrat</button></td>';
+        table.appendChild(row); bindRemove(row.querySelector('.remove')); updateCount();
+      };
+      create.onclick = function () { var number = total(); summary.innerHTML = 'Návrh: vznikne balíček <strong>' + document.getElementById('reference').value + '</strong> a ' + number + ' samostatné odchylky. WFE Sapiens každé z nich přiřadí vlastní workflow podle rozsahu a závažnosti.'; summary.className = 'summary visible'; };
+      bindAll(); updateCount();
+    }());
+  </script>
+</body>
+</html>

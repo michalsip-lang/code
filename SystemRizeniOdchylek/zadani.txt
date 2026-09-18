@@ -42,8 +42,8 @@ Navržená struktura systému (k potvrzení)
 Uživatelská část bude vložitelná Treeinfo aplikace s jedním HTML blokem, jedním ES5 JavaScript blokem a jedním CSS blokem. Data budou v samostatných SharePoint seznamech; workflow a schvalovací kroky obslouží WFE Sapiens.
 
 1. Seznam `ODCH_Odchylky` — hlavní karta odchylky
-- Identifikace: automatické číslo, název, stav, produktový režim (léčiva / krmiva / chovatelské potřeby), lokalita, proces, zdroj zjištění a datum/čas zjištění.
-- Dopad a klasifikace: popis, dotčený produkt, šarže, expirace, množství, dodavatel/odběratel, závažnost, riziko, potřeba oznámení nebo stažení.
+- Identifikace: automatické číslo, název, stav, rozsah odchylky (produkt / proces / produkt i proces), produktový režim (je-li produkt dotčen), lokalita, proces, zdroj zjištění a datum/čas zjištění.
+- Dopad a klasifikace: popis, dopad na proces a na produkt; pro produktovou odchylku také produkt, šarže, expirace, množství a dodavatel/odběratel. Dále závažnost, riziko, potřeba oznámení nebo stažení.
 - Rozhodnutí o zajištění: blokace/karanténa, zastavení expedice, uvolnění, likvidace či stažení; odpovědná osoba, datum/čas a odůvodnění.
 - Vyšetřování: příčina, rozsah dopadu, závěr, vlastník šetření a termíny.
 - Řízený stav: Nová → posouzení rizika → zajištění → vyšetřování → CAPA → ověření účinnosti → schválení uzavření → uzavřena. Výjimečně Zneplatněna, vždy se zdůvodněním.
@@ -78,6 +78,11 @@ Pravidla propojení FMEA, odchylek, CAPA a workflow (k potvrzení)
 - Produktové režimy, klasifikace rizik, důvody odchylek, typy opatření, povinná pole, lhůty a pravidla eskalace.
 - Umožní upravit proces bez zásahu do vloženého JavaScriptu; zápis omezen na správce systému jakosti.
 
+6. Seznam `ODCH_BalickyPodnetu` — hlavička hromadného zdroje
+- Použije se pro jednu kontrolu, inspekci, audit, reklamaci s více nálezy nebo jiný zdroj s více jednotlivými případy.
+- Obsahuje společné údaje: zdroj, kontrolní orgán/auditor, číslo protokolu, datum, lokalita, společné lhůty, odpovědná osoba a společné přílohy.
+- Položky `ODCH_Odchylky` na něj mají vazbu. Jednotlivé odchylky zůstávají samostatně klasifikovatelné, řešitelné, uzavíratelné a reportovatelné.
+
 Stránky aplikace
 - Přehled: filtrování podle stavu, produktu, lokality, závažnosti, lhůty a vlastníka; upozornění na zpožděné CAPA a neuzavřené vysoké riziko.
 - Nová odchylka: krátký, rychlý záznam a okamžité zajištění.
@@ -87,6 +92,9 @@ Stránky aplikace
 
 Příjem podnětů z kontrol, inspekcí a nehod (k potvrzení)
 - Z pohledu běžného uživatele existuje jediný vstupní formulář „Nový podnět“. Uživatel nejprve zvolí zdroj a základní naléhavost; formulář dynamicky zobrazí jen relevantní doplňující pole. Uživatel nevolí workflow ani technické seznamy.
+- Pokud jeden zdroj obsahuje více nálezů (např. deset neshod z interní kontroly), uživatel založí jednou „Balíček kontroly“ a vloží nálezy do opakovatelné tabulky nebo je importuje z předem schválené Excel/CSV šablony. Systém pro každý řádek vytvoří samostatnou odchylku se společnou vazbou na balíček.
+- Hromadné založení zobrazí před potvrzením kontrolní souhrn: počet nálezů, jejich názvy, rozsah (produkt/proces), závažnost, vlastníky a případné termíny. Teprve po potvrzení se založí jednotlivé záznamy, audit a workflow úkoly.
+- Balíček slouží pro přehled a společné informace, nenahrazuje jednotlivé odchylky. Nelze proto společně uzavřít deset neshod bez kontroly každé z nich; lze jen hromadně přiřadit stejného vlastníka, termín nebo dokument, pokud to role dovolí.
 - Všechny případy vstupují do společného registru `ODCH_Odchylky`, aby měly jednotnou auditní stopu, rizikové posouzení, CAPA a ověření účinnosti. Původ se povinně eviduje v poli `ZdrojPodnetu`: státní správa, interní kontrola, vnitřní inspekce, nehoda/incident, reklamace nebo jiný zdroj.
 - Karta případu bude mít navíc pole: externí číslo protokolu či spisu, kontrolní orgán, datum kontroly/nehody, zjištění, porušený požadavek/SOP, právní nebo interní lhůta, osoba pro komunikaci, stupeň důvěrnosti a odkaz na původní dokumenty.
 - Při založení proběhne triáž: 1) vyžaduje událost okamžité zajištění produktu nebo bezpečnosti, 2) jde o závazný nález státní správy s pevnou lhůtou, 3) jde o nález interní kontroly/inspekce, nebo 4) jde o nehodu/incident. Podle výsledku WFE Sapiens automaticky přidělí vlastníka, QA a případně management.

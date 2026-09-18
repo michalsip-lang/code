@@ -126,15 +126,34 @@
         </div>
 
         <div class="section">
-          <h2>3. Dotčený produkt a okamžité rozhodnutí</h2>
-          <div class="section-content grid grid-3">
-            <div><label for="productRegime">Produktový režim <span class="required">*</span></label><select id="productRegime" required><option value="">Vyberte režim</option><option>Léčiva</option><option>Krmiva</option><option>Chovatelské potřeby</option><option>Neurčeno</option></select></div>
-            <div><label for="product">Název / kód produktu</label><input id="product" type="text"></div>
-            <div><label for="batch">Šarže</label><input id="batch" type="text"></div>
-            <div><label for="expiry">Expirace</label><input id="expiry" type="date"></div>
-            <div><label for="quantity">Dotčené množství</label><input id="quantity" type="text" placeholder="Např. 24 ks"></div>
-            <div><label for="stockDecision">Stav zásoby <span class="required">*</span></label><select id="stockDecision" required><option value="">Rozhodněte</option><option>Blokováno / karanténa</option><option>Neblokováno — vyžaduje odůvodnění</option><option>Produkt není dotčen</option><option>Nelze zatím určit</option></select></div>
-            <div id="stockReasonRow" class="full" style="display:none"><label for="stockReason">Odůvodnění, proč zásoba není blokována <span class="required">*</span></label><textarea id="stockReason"></textarea></div>
+          <h2>3. Dotčený rozsah a okamžité rozhodnutí</h2>
+          <div class="section-content">
+            <label>Odchylka se týká <span class="required">*</span></label>
+            <div class="urgency">
+              <label><input type="radio" name="scope" value="product" required> Produktu</label>
+              <label><input type="radio" name="scope" value="process"> Procesu</label>
+              <label><input type="radio" name="scope" value="both"> Produktu i procesu</label>
+            </div>
+          </div>
+          <div id="processScopeFields" class="conditional">
+            <strong>Dotčený proces</strong>
+            <div class="grid" style="margin-top:14px">
+              <div><label for="processArea">Oblast procesu <span class="required">*</span></label><select id="processArea"><option value="">Vyberte oblast</option><option>Příjem zboží</option><option>Skladování</option><option>Teplotní režim</option><option>Expedice</option><option>Přeprava</option><option>Dokumentace</option><option>IT systém</option><option>Jiná oblast</option></select></div>
+              <div><label for="processOwner">Vlastník procesu</label><input id="processOwner" type="text"></div>
+              <div class="full"><label for="processImpact">Dopad na proces <span class="required">*</span></label><textarea id="processImpact" placeholder="Co v procesu neproběhlo podle standardu a co může být ovlivněno?"></textarea></div>
+            </div>
+          </div>
+          <div id="productScopeFields" class="conditional">
+            <strong>Dotčený produkt</strong>
+            <div class="grid grid-3" style="margin-top:14px">
+              <div><label for="productRegime">Produktový režim <span class="required">*</span></label><select id="productRegime"><option value="">Vyberte režim</option><option>Léčiva</option><option>Krmiva</option><option>Chovatelské potřeby</option><option>Neurčeno</option></select></div>
+              <div><label for="product">Název / kód produktu</label><input id="product" type="text"></div>
+              <div><label for="batch">Šarže</label><input id="batch" type="text"></div>
+              <div><label for="expiry">Expirace</label><input id="expiry" type="date"></div>
+              <div><label for="quantity">Dotčené množství</label><input id="quantity" type="text" placeholder="Např. 24 ks"></div>
+              <div><label for="stockDecision">Stav zásoby <span class="required">*</span></label><select id="stockDecision"><option value="">Rozhodněte</option><option>Blokováno / karanténa</option><option>Neblokováno — vyžaduje odůvodnění</option><option>Nelze zatím určit</option></select></div>
+              <div id="stockReasonRow" class="full" style="display:none"><label for="stockReason">Odůvodnění, proč zásoba není blokována <span class="required">*</span></label><textarea id="stockReason"></textarea></div>
+            </div>
           </div>
         </div>
 
@@ -160,6 +179,15 @@
       var incident = document.getElementById('incidentFields');
       var stockDecision = document.getElementById('stockDecision');
       var stockReason = document.getElementById('stockReasonRow');
+      var productScope = document.getElementById('productScopeFields');
+      var processScope = document.getElementById('processScopeFields');
+      var productRegime = document.getElementById('productRegime');
+      var processArea = document.getElementById('processArea');
+      var processImpact = document.getElementById('processImpact');
+      var authorityName = document.getElementById('authorityName');
+      var protocolNo = document.getElementById('protocolNo');
+      var incidentLocation = document.getElementById('incidentLocation');
+      var immediateAction = document.getElementById('immediateAction');
       var form = document.getElementById('intakeForm');
       var status = document.getElementById('status');
 
@@ -170,13 +198,32 @@
         setVisibility(authority, source.value === 'authority');
         setVisibility(inspection, source.value === 'internal-control' || source.value === 'internal-inspection');
         setVisibility(incident, source.value === 'incident');
+        authorityName.required = source.value === 'authority';
+        protocolNo.required = source.value === 'authority';
+        incidentLocation.required = source.value === 'incident';
+        immediateAction.required = source.value === 'incident';
       }
       function updateStockReason() {
         stockReason.style.display = stockDecision.value === 'Neblokováno — vyžaduje odůvodnění' ? 'block' : 'none';
       }
+      function updateScopeFields() {
+        var selected = document.querySelector('input[name="scope"]:checked');
+        var scope = selected ? selected.value : '';
+        var hasProduct = scope === 'product' || scope === 'both';
+        var hasProcess = scope === 'process' || scope === 'both';
+        setVisibility(productScope, hasProduct);
+        setVisibility(processScope, hasProcess);
+        productRegime.required = hasProduct;
+        stockDecision.required = hasProduct;
+        processArea.required = hasProcess;
+        processImpact.required = hasProcess;
+        if (!hasProduct) { stockDecision.value = ''; updateStockReason(); }
+      }
       source.onchange = updateSourceFields;
       stockDecision.onchange = updateStockReason;
-      form.onreset = function () { window.setTimeout(function () { updateSourceFields(); updateStockReason(); status.className = 'status'; }, 0); };
+      var scopeOptions = document.querySelectorAll('input[name="scope"]');
+      for (var i = 0; i < scopeOptions.length; i += 1) { scopeOptions[i].onchange = updateScopeFields; }
+      form.onreset = function () { window.setTimeout(function () { updateSourceFields(); updateScopeFields(); updateStockReason(); status.className = 'status'; }, 0); };
       form.onsubmit = function (event) {
         event.preventDefault();
         if (!form.checkValidity()) { form.reportValidity(); return; }
