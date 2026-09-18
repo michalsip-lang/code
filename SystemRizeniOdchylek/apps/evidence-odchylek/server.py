@@ -61,7 +61,7 @@ class App(SimpleHTTPRequestHandler):
     except Exception: return self.send_json({"error":"Neplatná data"},400)
     if self.path=="/api/deviations":
       risk=int(data.get("risk",3)); fmea=1 if risk>=4 or data.get("scope") in ("Produkt","Produkt i proces") else 0
-      did=write("INSERT INTO deviations(package_id,title,scope,source,location,product_regime,process,risk,status,owner,deadline,stock_state,fmea_required,description,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(None,data["title"],data["scope"],data["source"],data.get("location",""),data.get("product_regime",""),data.get("process",""),risk,"Nová",data.get("owner","QA"),data.get("deadline",""),data.get("stock_state",""),fmea,data.get("description",""),now()))
+      did=write("INSERT INTO deviations(package_id,title,scope,source,location,product_regime,process,risk,status,owner,deadline,stock_state,fmea_required,description,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(None,data["title"],data["scope"],data["source"],data.get("location",""),data.get("product_regime",""),data.get("process",""),risk,"Posouzení rizika",data.get("owner","QA"),data.get("deadline",""),data.get("stock_state",""),fmea,data.get("description",""),now()))
       audit(did,"Založeno","Nový podnět založen."); self.send_json({"id":did,"message":"Podnět byl založen."},201); return
     if self.path=="/api/packages":
       pid=write("INSERT INTO packages(ref,source,location,auditor,deadline,created_at) VALUES(?,?,?,?,?,?)",(data["ref"],data["source"],data.get("location",""),data.get("auditor",""),data.get("deadline",""),now()))
@@ -81,6 +81,7 @@ class App(SimpleHTTPRequestHandler):
         decision=data.get("decision")
         if decision not in ("FMEA aktualizována","FMEA beze změny"): return self.send_json({"error":"Vyberte rozhodnutí FMEA."},400)
         write("UPDATE deviations SET fmea_decision=? WHERE id=?",(decision,did)); audit(did,"Revize FMEA",decision); return self.send_json({"message":"Rozhodnutí FMEA uloženo."})
+      if not data.get("complete"): return self.send_json({"error":"Aktuální krok musí být nejdříve vyplněn a dokončen."},409)
       try: next_status=STEPS[STEPS.index(d["status"])+1]
       except (ValueError,IndexError): return self.send_json({"error":"Případ již nelze posunout."},400)
       if next_status=="Uzavřena" and d["fmea_required"] and not d["fmea_decision"]: return self.send_json({"error":"Nelze uzavřít: čeká se na povinné rozhodnutí o revizi FMEA."},409)
