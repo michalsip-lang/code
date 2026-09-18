@@ -9,6 +9,8 @@ Systém eviduje a řídí odchylky od stanovených standardů. Musí umožnit je
 Regulatorní kontext a zásady návrhu
 - Firma distribuuje léčiva, krmiva a chovatelské potřeby. Systém musí umožnit rozlišit režim produktu a použít odpovídající proces a rozsah dokumentace.
 - Řízení rizik se provádí metodou FMEA. Systém odchylek má umožnit odkaz na příslušnou FMEA analýzu a její položku; při vyšetřování a CAPA se mají zohlednit zjištěné příčiny, stávající preventivní opatření a výsledné hodnocení rizika.
+- Zdrojovou aplikací FMEA je projekt `/Users/michalsip/repo/code/legion/FMEA-Projekt`. Její schválený model používá hodnocení závažnosti (S), výskytu (O) a odhalitelnosti (D) ve stupnici 1–5; RPN = S × O × D (1–125). RPN 1–12 je mírné, 13–27 střední a 28–125 vysoké riziko. Opatření, vlastník a termín jsou povinné při RPN ≥ 28 nebo S = 5.
+- Existující FMEA položka obsahuje: proces, způsob selhání, následek, příčinu, preventivní kontrolu, detekční kontrolu, S/O/D před opatřením, opatření, vlastníka, termín, důkaz účinnosti a S/O/D po opatření. Součástí je historie změn.
 - Pro léčiva je základním režimem správná distribuční praxe (GDP). Návrh podporuje požadavky na bezodkladný, úplný a dohledatelný záznam odchylky, její vyšetření, řízení rizik, CAPA a přezkoumání účinnosti. Pokud se systém použije v činnostech podléhajících výrobě, musí podporovat rovněž principy správné výrobní praxe (GMP), zejména farmaceutický systém jakosti, řízenou dokumentaci a řízení změn.
 - Pro krmiva systém podporuje dohledatelnost šarže, evidenci a vyřízení reklamací, rozhodnutí o uvolnění či blokaci a případné stažení výrobku z distribuce. Potřeba a konkrétní interpretace požadavků se před nasazením ověří proti platným českým předpisům, povolením firmy a interním SOP.
 - Chovatelské potřeby mohou podléhat odlišnému, obvykle nižšímu regulatornímu režimu. Systém u nich zachová přiměřené řízení kvality a dohledatelnost, aniž by automaticky zaměňoval jejich požadavky s GDP/GMP.
@@ -17,18 +19,74 @@ Proces řízení odchylky
 Proces vychází z osvědčené automotive disciplíny řešení neshod (8D/PDCA), přenesené do regulovaného distribučního prostředí:
 1. Záznam: evidovat co se stalo, kdy, kde, kdo odchylku zjistil, dotčený proces, produkt, šarži, množství a přiložené důkazy.
 2. Posouzení rizika a klasifikace: určit produktový režim, závažnost, možné dopady na jakost, bezpečnost, integritu produktu, pacienta/zvíře/zákazníka a regulatorní povinnosti.
+   - Formulář odchylky umožní vybrat jednu či více souvisejících položek FMEA a uloží jejich identifikátor, název procesu, výchozí S/O/D, RPN a stav v okamžiku posouzení. Tím zůstane rozhodnutí dohledatelné i po pozdější změně FMEA.
 3. Okamžité zajištění (containment): rozhodnout o karanténě/blokaci zásoby a šarže, zastavení expedice, kontrole dalších dotčených zásilek nebo jiném dočasném opatření. Rozhodnutí, odpovědnou osobu a čas zaznamenat.
 4. Vyšetřování: určit kořenovou příčinu, rozsah dopadu a propojené odchylky; rozlišit přímou opravu, nápravné opatření a preventivní opatření.
 5. CAPA: naplánovat opatření s vlastníkem, termínem, důkazem provedení a dopadem na podobné produkty či procesy.
+   - Je-li příčina, kontrola nebo hodnocení rizika změněno, CAPA musí určit, zda se aktualizuje související položka FMEA; tato změna podléhá řízení změn a záznamu důvodu.
 6. Ověření účinnosti: nezávisle či oprávněnou rolí ověřit, zda CAPA skutečně zabránilo opakování; neúčinné opatření vrátit k řešení.
 7. Schválení a uzavření: uzavřít pouze po kompletním záznamu, schválení oprávněnou rolí a splnění kritérií uzavření.
 8. Trendování a přezkoumání: poskytovat přehledy odchylek, CAPA, prodlení, opakovaných příčin a závažnosti pro management review.
 
 Minimální datové a auditní požadavky
 - Každá odchylka musí mít jedinečné číslo, neměnnou historii stavů, času, autora, rozhodnutí a změn klíčových údajů.
+- Vazba na FMEA musí být obousměrně dohledatelná: z odchylky na položku FMEA a z položky FMEA na související odchylky/CAPA.
 - U dotčeného produktu evidovat alespoň název/kód, šarži, expiraci, množství, skladovou či distribuční lokalitu, dodavatele a odběratele, pokud jsou pro daný režim relevantní.
 - Rozhodnutí o blokaci, uvolnění, likvidaci, stažení nebo oznámení musí mít odpovědnou osobu, datum/čas, odůvodnění a schvalovací stopu.
 - Záznamy, přílohy a přístupy musí odpovídat rolím, být dohledatelné a chráněné před neautorizovanou změnou.
+- Produkční záznam odchylky ani jeho auditní historii nesmí uživatel fyzicky smazat. Případné zneplatnění se provede řízeným stavem se zdůvodněním, autorem, časem a zachovanou historií.
+- SharePoint seznam je jediným produkčním zdrojem dat. localStorage je přípustný pouze pro lokální vývoj či demonstraci, nikdy jako nouzové produkční úložiště nebo auditní záznam.
+- Auditní stopu řešit samostatným SharePoint seznamem s omezenými oprávněními (doporučený model obdobný `FMEA_Historie`), nikoliv pouze JSON textem v položce, který může editor přepsat.
+
+Navržená struktura systému (k potvrzení)
+Uživatelská část bude vložitelná Treeinfo aplikace s jedním HTML blokem, jedním ES5 JavaScript blokem a jedním CSS blokem. Data budou v samostatných SharePoint seznamech; workflow a schvalovací kroky obslouží WFE Sapiens.
+
+1. Seznam `ODCH_Odchylky` — hlavní karta odchylky
+- Identifikace: automatické číslo, název, stav, produktový režim (léčiva / krmiva / chovatelské potřeby), lokalita, proces, zdroj zjištění a datum/čas zjištění.
+- Dopad a klasifikace: popis, dotčený produkt, šarže, expirace, množství, dodavatel/odběratel, závažnost, riziko, potřeba oznámení nebo stažení.
+- Rozhodnutí o zajištění: blokace/karanténa, zastavení expedice, uvolnění, likvidace či stažení; odpovědná osoba, datum/čas a odůvodnění.
+- Vyšetřování: příčina, rozsah dopadu, závěr, vlastník šetření a termíny.
+- Řízený stav: Nová → posouzení rizika → zajištění → vyšetřování → CAPA → ověření účinnosti → schválení uzavření → uzavřena. Výjimečně Zneplatněna, vždy se zdůvodněním.
+
+2. Seznam `ODCH_CAPA` — opatření
+- Jedno hlavní hlášení odchylky může mít více opatření.
+- Vazba na odchylku, typ (okamžitá oprava / nápravné / preventivní), popis, vlastník, termín, stav, důkaz provedení, výsledek ověření účinnosti a schvalovatel.
+
+3. Seznam `ODCH_FMEA_Vazby` — vazba na FMEA
+- Vazba na odchylku a na ID položky v `FMEA_Analyza`.
+- Snímek: proces, FM, S/O/D, RPN, klasifikace a existující kontroly v okamžiku posouzení odchylky.
+- Rozhodnutí, zda CAPA vyžaduje aktualizaci FMEA, odkaz na realizovanou změnu a její schválení.
+
+Pravidla propojení FMEA, odchylek, CAPA a workflow (k potvrzení)
+- Identifikátory: položka FMEA používá SharePoint `ID` jako technický klíč, ale v aplikaci se zobrazí také čitelný identifikátor FMEA; odchylka má vlastní automatické číslo (např. `ODCH-YYYY-00001`) a CAPA vlastní číslo. Propojení nikdy nestojí pouze na názvu procesu nebo volném textu.
+- Volba FMEA: při založení či posouzení odchylky si řešitel vyhledá FMEA položku podle procesu, produktu a klíčových slov. JavaScript načte položky z `FMEA_Analyza` pouze pro čtení; po potvrzení vytvoří položku v `ODCH_FMEA_Vazby`.
+- Neměnný snímek: vytvořená vazba uloží identifikátor FMEA i kopii relevantních údajů (S/O/D, RPN, selhání, příčina, kontroly). Historické rozhodnutí tak zůstane prokazatelné, i když se zdrojová FMEA později upraví.
+- M:N model: jedna odchylka se může týkat více FMEA položek a jedna FMEA položka může být propojena s více odchylkami. `ODCH_FMEA_Vazby` je proto samostatný seznam, ne jediné lookup pole na kartě odchylky.
+- Změna FMEA: řešitel odchylky FMEA přímo nepřepisuje. V CAPA zvolí „Aktualizovat FMEA“ a vytvoří návrh změny. Oprávněná role FMEA/QA změnu schválí a provede ve stávající aplikaci FMEA; do vazby následně zapíše ID změněné položky, nové S/O/D/RPN, autora, čas a odůvodnění.
+- WFE Sapiens: workflow je zdrojem pravdy pro přechody stavů a schválení. Po vytvoření či změně položek v `ODCH_Odchylky` nebo `ODCH_CAPA` aplikace předá WFE Sapiens identifikátor, požadovanou akci, stav, odpovědnou roli a odkaz na detail. WFE vrátí výsledek/aktuální stav; teprve poté klientská aplikace zapíše schválený stav do SharePointu a `ODCH_Audit`.
+- Jednosměrná odpovědnost: Treeinfo/JavaScript zobrazuje formuláře, provádí validaci a volá SharePoint REST API; SharePoint seznamy ukládají data a audit; WFE Sapiens řídí workflow; FMEA aplikace je vlastníkem odborného hodnocení rizika. Žádná vrstva nesmí obcházet odpovědnost jiné vrstvy.
+- Selhání integrace: pokud nelze načíst FMEA nebo potvrdit krok WFE, odchylka se nesmí tvářit jako schválená. Uloží se rozpracovaný záznam s chybovým stavem, zobrazí se uživateli a zapíše auditní událost; opakování musí být idempotentní, aby nevznikly duplicitní CAPA či schválení.
+
+4. Seznam `ODCH_Audit` — auditní stopa
+- Pouze přidávání, nikoliv editace a mazání běžnými uživateli.
+- Vazba na odchylku/CAPA/FMEA vazbu, typ akce, původní a nová hodnota, důvod, uživatel a čas. Slouží pro dohledatelnost rozhodnutí a změn.
+
+5. Seznam `ODCH_Konfigurace` — řízené číselníky a pravidla
+- Produktové režimy, klasifikace rizik, důvody odchylek, typy opatření, povinná pole, lhůty a pravidla eskalace.
+- Umožní upravit proces bez zásahu do vloženého JavaScriptu; zápis omezen na správce systému jakosti.
+
+Stránky aplikace
+- Přehled: filtrování podle stavu, produktu, lokality, závažnosti, lhůty a vlastníka; upozornění na zpožděné CAPA a neuzavřené vysoké riziko.
+- Nová odchylka: krátký, rychlý záznam a okamžité zajištění.
+- Detail odchylky: rozdělený do záložek Záznam, Riziko a FMEA, Zajištění, Vyšetřování, CAPA, Audit a Přílohy.
+- Moje úkoly: CAPA a schválení přidělená přihlášenému uživateli.
+- Reporty: trend odchylek, příčin, RPN, CAPA po termínu, opakovaných odchylek a stavu podle produktového režimu.
+
+Oprávnění
+- Hlasitel: založí odchylku a sleduje její průběh.
+- Řešitel: provádí šetření a plní přidělené CAPA.
+- QA / odpovědná osoba: klasifikuje riziko, rozhoduje o produktu, schvaluje CAPA, ověřuje účinnost a uzavírá odchylku.
+- Správce: spravuje číselníky, oprávnění a technické nastavení; nesmí nahrazovat schvalovací roli QA.
 
 Referenční zdroje pro návrh
 - EU GDP Guidelines 2013/C 343/01: dokumentace a vyšetření odchylek, CAPA založené na řízení rizik, přezkoumání ukazatelů kvality a hlášení odchylek při přepravě.
@@ -60,6 +118,8 @@ K rozhodnutí
 - Kdo bude jednotlivé formuláře vyplňovat, schvalovat a spravovat?
 - Jaký je očekávaný životní cyklus odchylky?
 - Jaké údaje, škála hodnocení a prahové hodnoty se používají ve stávající FMEA aplikaci (např. závažnost, výskyt, odhalitelnost a výsledné skóre)?
+- Bude mít odchylka pouze odkaz na FMEA, nebo bude uživatel moci založit novou FMEA položku z formuláře odchylky?
+- Kdo smí měnit FMEA a kdo schvaluje její aktualizaci po CAPA?
 - Které role smí odchylku klasifikovat, nařídit blokaci či uvolnění zásoby, schválit CAPA a odchylku uzavřít?
 - Které produktové režimy a závažnosti firma zavede a jaké budou jejich lhůty a eskalace?
 - Jaká data, přílohy, notifikace a přehledy systém potřebuje?
