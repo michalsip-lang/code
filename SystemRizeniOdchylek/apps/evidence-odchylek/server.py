@@ -43,6 +43,10 @@ class App(SimpleHTTPRequestHandler):
       self.send_json({"deviations":ds,"packages":rows("SELECT p.*,count(d.id) findings FROM packages p LEFT JOIN deviations d ON d.package_id=p.id GROUP BY p.id ORDER BY p.id DESC"),"steps":STEPS}); return
     if self.path.startswith("/api/deviations/"):
       did=int(self.path.split("/")[3]); self.send_json({"deviation":deviation(did),"audit":rows("SELECT * FROM audit WHERE deviation_id=? ORDER BY id DESC",(did,)),"steps":STEPS}); return
+    if self.path.startswith("/api/packages/"):
+      pid=int(self.path.split("/")[3]); package=rows("SELECT * FROM packages WHERE id=?",(pid,))
+      if not package: return self.send_json({"error":"Nenalezeno"},404)
+      self.send_json({"package":package[0],"deviations":rows("SELECT * FROM deviations WHERE package_id=? ORDER BY id",(pid,))}); return
     return super().do_GET()
   def do_POST(self):
     try: data=self.body()
