@@ -85,6 +85,16 @@ Stránky aplikace
 - Moje úkoly: CAPA a schválení přidělená přihlášenému uživateli.
 - Reporty: trend odchylek, příčin, RPN, CAPA po termínu, opakovaných odchylek a stavu podle produktového režimu.
 
+Příjem podnětů z kontrol, inspekcí a nehod (k potvrzení)
+- Všechny případy vstupují do společného registru `ODCH_Odchylky`, aby měly jednotnou auditní stopu, rizikové posouzení, CAPA a ověření účinnosti. Původ se povinně eviduje v poli `ZdrojPodnetu`: státní správa, interní kontrola, vnitřní inspekce, nehoda/incident, reklamace nebo jiný zdroj.
+- Karta případu bude mít navíc pole: externí číslo protokolu či spisu, kontrolní orgán, datum kontroly/nehody, zjištění, porušený požadavek/SOP, právní nebo interní lhůta, osoba pro komunikaci, stupeň důvěrnosti a odkaz na původní dokumenty.
+- Při založení proběhne triáž: 1) vyžaduje událost okamžité zajištění produktu nebo bezpečnosti, 2) jde o závazný nález státní správy s pevnou lhůtou, 3) jde o nález interní kontroly/inspekce, nebo 4) jde o nehodu/incident. Podle výsledku WFE Sapiens automaticky přidělí vlastníka, QA a případně management.
+- Pro státní správu se vytvoří podtyp „Inspekční nález“ se samostatným balíčkem povinných úkolů: záznam nálezu, plán odpovědi, akční plán, schválení QA/právní či odpovědnou osobou, důkaz realizace a datum odeslání odpovědi. Lhůta z rozhodnutí/protokolu má přednost před běžnými CAPA lhůtami a automaticky se eskaluje.
+- Pro interní kontroly a vnitřní inspekce se založí nález s odkazem na audit/inspekci; více nálezů může být spojeno pod jednou akcí, ale každý nález má vlastní klasifikaci, CAPA a ověření účinnosti.
+- Pro nehody/incidenty se nejdříve vede samostatný bezpečnostní záznam: okamžité zabezpečení osob, produktu, provozu a případné hlášení kompetentním orgánům. Teprve poté se podle dopadu automaticky založí nebo propojí odchylka kvality, CAPA a revize FMEA. Nedělat záznam o úrazu či osobní údaje zbytečně dostupné uživatelům odchylkového systému.
+- Původní dokument (protokol, zápis z interní kontroly, fotografie, oznámení nehody) se uchová jako příloha s metadaty. Jeho obsah se nepřepisuje; následné odpovědi a vysvětlení se vedou jako samostatné řízené záznamy.
+- Systém podporuje slučování duplicit: nový podnět lze připojit k existující odchylce, ale původní záznam a důvod sloučení zůstávají dohledatelné. Jedna událost může zároveň založit více samostatných odchylek, pokud se týká rozdílných produktů, lokalit nebo regulatorních povinností.
+
 Oprávnění
 - Hlasitel: založí odchylku a sleduje její průběh.
 - Řešitel: provádí šetření a plní přidělené CAPA.
