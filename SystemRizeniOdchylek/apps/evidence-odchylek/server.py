@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Lokální demonstrátor systému řízení odchylek. Spusťte: python3 server.py"""
 import json, sqlite3, os
+from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
@@ -42,6 +43,12 @@ class App(SimpleHTTPRequestHandler):
     payload=json.dumps(obj,ensure_ascii=False).encode(); self.send_response(status); self.send_header("Content-Type","application/json; charset=utf-8"); self.send_header("Content-Length",str(len(payload))); self.end_headers(); self.wfile.write(payload)
   def body(self): return json.loads(self.rfile.read(int(self.headers.get("Content-Length",0))) or b"{}")
   def do_GET(self):
+    if self.path.startswith("/capa-form"):
+      query=parse_qs(urlparse(self.path).query); did=query.get("deviation",[""])[0]
+      source=os.path.join(ROOT,"..","..","documents","navrh_capa_formular.html")
+      with open(source,"r",encoding="utf-8") as f: page=f.read()
+      bridge="""<script>(function(){var f=document.getElementById('capaForm');if(!f)return;f.addEventListener('submit',function(e){e.preventDefault();if(!f.checkValidity()){f.reportValidity();return}fetch('/api/deviations/%s/capa',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('type').value,description:document.getElementById('action').value,owner:document.getElementById('owner').value,deadline:document.getElementById('deadline').value})}).then(function(r){return r.json()}).then(function(){location.href='/?open=%s'});});}())</script>"""%(did,did)
+      page=page.replace("</body>",bridge+"</body>"); payload=page.encode("utf-8"); self.send_response(200); self.send_header("Content-Type","text/html; charset=utf-8"); self.send_header("Content-Length",str(len(payload))); self.end_headers(); self.wfile.write(payload); return
     if self.path == "/form":
       source=os.path.join(ROOT,"..","..","documents","navrh_vstupni_formular.html")
       with open(source,"r",encoding="utf-8") as f: page=f.read()
