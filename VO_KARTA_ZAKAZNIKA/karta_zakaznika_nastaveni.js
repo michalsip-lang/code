@@ -5,15 +5,25 @@ $(document).ready(function () {
     // =====================================================
 
     var path = String(window.location && window.location.pathname ? window.location.pathname : "").toLowerCase();
-    var isEditFormPage = /\/editform\.aspx$/.test(path);
+    var query = String(window.location && window.location.search ? window.location.search : "").toLowerCase();
+    var isEditFormPage = /\/editform\.aspx$/.test(path) ||
+        (/\/listform\.aspx$/.test(path) && /(?:^|[?&])pagetype=(?:6|8)(?:&|$)/.test(query));
 
     if (!isEditFormPage) {
         return;
     }
 
     var ctx = window._spPageContextInfo || {};
-    var loginName = String(ctx.userLoginName || "").toLowerCase();
-    var isMichalSip = loginName.indexOf("michal.sip") !== -1;
+    var loginName = String(
+        ctx.userLoginName ||
+        ctx.userName ||
+        ctx.systemUserKey ||
+        ""
+    ).toLowerCase();
+    var isMichalSip =
+        loginName.indexOf("michal.sip") !== -1 ||
+        loginName.indexOf("i:0#.w|sam\\michal.sip") !== -1 ||
+        Number(ctx.userId) === 1119;
 
     if (!isMichalSip) {
         return;
