@@ -299,7 +299,13 @@ $(document).ready(function () {
     function getFormRows() {
 
         return $(".ms-formtable tr").filter(function () {
-            return $(this).find("td").length > 0 || $(this).is("#idAttachmentsRow");
+            var row = $(this);
+            var rowId = String(row.attr("id") || "").toLowerCase();
+
+            return row.find("td").length > 0 ||
+                row.find("th").length > 0 ||
+                row.is("#idAttachmentsRow") ||
+                rowId.indexOf("spfield") === 0;
         });
     }
 
@@ -360,7 +366,19 @@ $(document).ready(function () {
             return false;
         }
 
-        if (getAttributeText(row, "id").indexOf(wanted) >= 0) {
+        function tokenMatches(probe) {
+            if (!probe) {
+                return false;
+            }
+
+            if (probe === wanted) {
+                return true;
+            }
+
+            return probe.indexOf(wanted) >= 0 || wanted.indexOf(probe) >= 0;
+        }
+
+        if (tokenMatches(getAttributeText(row, "id")) || tokenMatches(getAttributeText(row, "class"))) {
             return true;
         }
 
@@ -368,12 +386,14 @@ $(document).ready(function () {
         $(row).find("*").each(function () {
             var probes = [
                 getAttributeText(this, "id"),
+                getAttributeText(this, "class"),
                 getAttributeText(this, "name"),
                 getAttributeText(this, "title"),
+                getAttributeText(this, "data-fieldinternalname"),
                 getAttributeText(this, "data-sp-field-internal-name")
             ];
 
-            if (probes.some(function (probe) { return probe.indexOf(wanted) >= 0; })) {
+            if (probes.some(tokenMatches)) {
                 found = true;
                 return false;
             }
