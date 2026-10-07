@@ -4,7 +4,18 @@ $(document).ready(function () {
     // POUZE MICHAL ŠÍP
     // =====================================================
 
-    if (!_spPageContextInfo || _spPageContextInfo.userId !== 1119) {
+    var path = String(window.location && window.location.pathname ? window.location.pathname : "").toLowerCase();
+    var isEditFormPage = /\/editform\.aspx$/.test(path);
+
+    if (!isEditFormPage) {
+        return;
+    }
+
+    var ctx = window._spPageContextInfo || {};
+    var loginName = String(ctx.userLoginName || "").toLowerCase();
+    var isMichalSip = loginName.indexOf("michal.sip") !== -1;
+
+    if (!isMichalSip) {
         return;
     }
 
@@ -131,6 +142,31 @@ $(document).ready(function () {
                 background:#eaeaea;
             }
 
+            .msSectionBtn.is-active{
+                background:#d9ecff;
+                border-color:#0078d4;
+            }
+
+            .msWizardActions{
+                margin-top:14px;
+                display:flex;
+                gap:10px;
+            }
+
+            .msWizardApply,
+            .msWizardCancel{
+                padding:10px 14px;
+                border:1px solid #ccc;
+                background:#f8f8f8;
+                cursor:pointer;
+            }
+
+            .msWizardApply{
+                background:#0078d4;
+                border-color:#0078d4;
+                color:#fff;
+            }
+
             #msChangeSection{
                 position:fixed;
                 top:10px;
@@ -171,9 +207,41 @@ $(document).ready(function () {
         $(".ms-formtable tr").show();
     }
 
-    function showSection(sectionName) {
+    function normalizeText(value) {
 
-        if (sectionName === "vse") {
+        if (!value) {
+            return "";
+        }
+
+        var text = String(value).toLowerCase();
+
+        if (typeof text.normalize === "function") {
+            text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
+        return text
+            .replace(/\s+/g, " ")
+            .replace(/[:*]/g, "")
+            .trim();
+    }
+
+    function getRowLabel(row) {
+
+        return normalizeText(
+            $(row).find("h3:first").text() ||
+            $(row).find("th h3:first").text() ||
+            $(row).find("th nobr:first").text() ||
+            $(row).find("th:first").text()
+        );
+    }
+
+    function showSections(sectionNames) {
+
+        if (!Array.isArray(sectionNames)) {
+            sectionNames = [sectionNames];
+        }
+
+        if (sectionNames.indexOf("vse") >= 0) {
 
             showAllRows();
 
@@ -185,22 +253,41 @@ $(document).ready(function () {
 
         hideAllRows();
 
-        var rows = sections[sectionName];
+        var wantedBySection = {};
+        sectionNames.forEach(function (sectionName) {
+            (sections[sectionName] || []).forEach(function (name) {
+                wantedBySection[normalizeText(name)] = true;
+            });
+        });
+
+        var rows = Object.keys(wantedBySection);
+        var shown = 0;
 
         $(".ms-formtable tr").each(function () {
 
-            var label = $(this)
-                .find("h3")
-                .text()
-                .trim();
+            var label = getRowLabel(this);
+            var match = rows.some(function (wanted) {
+                return label === wanted ||
+                    label.indexOf(wanted) >= 0 ||
+                    wanted.indexOf(label) >= 0;
+            });
 
-            if (rows.indexOf(label) >= 0) {
+            if (match) {
                 $(this).show();
+                shown += 1;
             }
         });
 
+        if (shown === 0) {
+            showAllRows();
+            $("#msCurrentSection")
+                .text("Nenalezena pole pro sekci, zobrazen celý formulář");
+            return;
+        }
+
+        var caption = sectionNames.join(", ");
         $("#msCurrentSection")
-            .text("Aktivní oblast: " + sectionName);
+            .text("Aktivní oblasti: " + caption);
     }
 
 
@@ -252,24 +339,55 @@ $(document).ready(function () {
                         Zobrazit celý formulář
                     </button>
 
+                    <div class="msWizardActions">
+                        <button class="msWizardApply" type="button">Použít výběr</button>
+                        <button class="msWizardCancel" type="button">Zrušit</button>
+                    </div>
+
                 </div>
 
             </div>
 
         `);
 
-        $(".msSectionBtn").click(function () {
+        $(".msSectionBtn").on("click", function () {
 
-            var selected = $(this).data("section");
+            var selected = String($(this).data("section") || "");
 
-            showSection(selected);
+            if (selected === "vse") {
+                $(".msSectionBtn").removeClass("is-active");
+                $(this).addClass("is-active");
+                return;
+            }
+
+            $(".msSectionBtn[data-section='vse']").removeClass("is-active");
+            $(this).toggleClass("is-active");
+        });
+
+        $(".msWizardApply").on("click", function () {
+
+            var selected = [];
+
+            $(".msSectionBtn.is-active").each(function () {
+                selected.push(String($(this).data("section") || ""));
+            });
+
+            if (!selected.length) {
+                alert("Vyberte alespoň jednu oblast.");
+                return;
+            }
+
+            showSections(selected);
 
             $("#msWizardOverlay").remove();
 
             $("#msChangeSection").show();
 
             $("#msCurrentSection").show();
+        });
 
+        $(".msWizardCancel").on("click", function () {
+            $("#msWizardOverlay").remove();
         });
     }
 
