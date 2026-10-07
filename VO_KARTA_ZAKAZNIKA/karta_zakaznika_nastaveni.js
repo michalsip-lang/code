@@ -542,7 +542,9 @@ $(document).ready(function () {
         }
 
         control.trigger("input");
+        control.trigger("keyup");
         control.trigger("change");
+        control.trigger("blur");
     }
 
     function getFieldKey(field, row) {
@@ -650,6 +652,7 @@ $(document).ready(function () {
             $("#msEditRows").append(rowHtml);
 
             var proxy = $("#" + proxyId);
+            descriptor.proxyId = proxyId;
 
             if (tag === "select") {
                 control.find("option").each(function () {
@@ -671,7 +674,25 @@ $(document).ready(function () {
             });
         });
 
+        function applyModalValuesToForm() {
+            activeFieldDescriptors.forEach(function (descriptor) {
+                var proxy = $("#" + descriptor.proxyId);
+                if (!proxy.length) {
+                    return;
+                }
+
+                var type = String(descriptor.control.attr("type") || "").toLowerCase();
+                var value = type === "checkbox"
+                    ? (proxy.prop("checked") ? "1" : "0")
+                    : String(proxy.val() == null ? "" : proxy.val());
+
+                writeControlValue(descriptor.control, value);
+                updateRowHighlight(descriptor);
+            });
+        }
+
         $("#msModalSave").on("click", function () {
+            applyModalValuesToForm();
             $("#msEditModalOverlay").remove();
         });
 
@@ -691,6 +712,9 @@ $(document).ready(function () {
         if (sectionNames.indexOf("vse") >= 0) {
 
             showAllRows();
+            getFormRows().removeClass("msChangedField");
+            activeFieldDescriptors = [];
+            $("#msOpenModalEditor").hide();
 
             $("#msCurrentSection")
                 .text("Zobrazen celý formulář");
@@ -712,7 +736,6 @@ $(document).ready(function () {
         }
 
         activeFieldDescriptors.forEach(function (descriptor) {
-            descriptor.row.hide();
             ensureDefaultValue(descriptor);
             updateRowHighlight(descriptor);
         });
