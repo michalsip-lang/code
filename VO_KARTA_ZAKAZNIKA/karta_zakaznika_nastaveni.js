@@ -321,12 +321,28 @@ $(document).ready(function () {
             .trim();
     }
 
+    function decodeSharePointToken(value) {
+
+        if (!value) {
+            return "";
+        }
+
+        return String(value).replace(/_x([0-9a-fA-F]{4})_/g, function (_, hex) {
+            return String.fromCharCode(parseInt(hex, 16));
+        });
+    }
+
+    function normalizeFieldToken(value) {
+        return normalizeText(decodeSharePointToken(value || ""));
+    }
+
     function getRowLabel(row) {
 
-        return normalizeText(
+        return normalizeFieldToken(
             $(row).find("h3:first").text() ||
             $(row).find("th h3:first").text() ||
             $(row).find("th nobr:first").text() ||
+            $(row).find(".ms-formlabel:first").text() ||
             $(row).find("th:first").text()
         );
     }
@@ -334,12 +350,12 @@ $(document).ready(function () {
     function getAttributeText(element, attrName) {
 
         var value = $(element).attr(attrName);
-        return normalizeText(value || "");
+        return normalizeFieldToken(value || "");
     }
 
     function rowMatchesInternalName(row, internalName) {
 
-        var wanted = normalizeText(internalName);
+        var wanted = normalizeFieldToken(internalName);
         if (!wanted) {
             return false;
         }
@@ -368,7 +384,7 @@ $(document).ready(function () {
 
     function rowMatchesTitle(row, title) {
 
-        var wanted = normalizeText(title);
+        var wanted = normalizeFieldToken(title);
         if (!wanted) {
             return false;
         }
