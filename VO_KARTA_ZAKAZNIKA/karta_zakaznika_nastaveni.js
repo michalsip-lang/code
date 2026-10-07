@@ -185,6 +185,9 @@ $(document).ready(function () {
         groupByKey[group.key] = group;
     });
 
+    var activeFieldDescriptors = [];
+    var defaultsStore = {};
+
     // =====================================================
     // VZHLED
     // =====================================================
@@ -276,6 +279,64 @@ $(document).ready(function () {
                 border-radius:4px;
                 display:none;
             }
+
+            #msEditModalOverlay{
+                position:fixed;
+                left:0;
+                top:0;
+                width:100%;
+                height:100%;
+                background:rgba(0,0,0,.55);
+                z-index:1000000;
+                display:none;
+            }
+
+            #msEditModal{
+                width:860px;
+                max-height:80vh;
+                overflow:auto;
+                background:#fff;
+                margin:40px auto;
+                padding:20px;
+                border-radius:10px;
+                box-shadow:0 0 20px rgba(0,0,0,.3);
+            }
+
+            .msEditRow{
+                margin-bottom:12px;
+            }
+
+            .msEditRow label{
+                display:block;
+                font-weight:600;
+                margin-bottom:5px;
+            }
+
+            .msEditRow input[type="text"],
+            .msEditRow input[type="number"],
+            .msEditRow input[type="date"],
+            .msEditRow textarea,
+            .msEditRow select{
+                width:100%;
+                box-sizing:border-box;
+                padding:8px;
+                border:1px solid #cfcfcf;
+                border-radius:4px;
+            }
+
+            .msChangedField th,
+            .msChangedField td{
+                background:#fff7cc !important;
+            }
+
+            #msOpenModalEditor{
+                position:fixed;
+                top:90px;
+                right:10px;
+                z-index:99999;
+                padding:8px 15px;
+                display:none;
+            }
         `)
         .appendTo("head");
 
@@ -307,6 +368,27 @@ $(document).ready(function () {
                 row.is("#idAttachmentsRow") ||
                 rowId.indexOf("spfield") === 0;
         });
+    }
+
+    function getItemIdFromUrl() {
+        var match = String(window.location.search || "").match(/[?&]ID=(\d+)/i);
+        return match ? match[1] : "no-id";
+    }
+
+    function getDefaultsStorageKey() {
+        return "msKartaZakaznikaDefaults::" + getItemIdFromUrl();
+    }
+
+    function loadDefaultsStore() {
+        try {
+            defaultsStore = JSON.parse(localStorage.getItem(getDefaultsStorageKey()) || "{}");
+        } catch (e) {
+            defaultsStore = {};
+        }
+    }
+
+    function saveDefaultsStore() {
+        localStorage.setItem(getDefaultsStorageKey(), JSON.stringify(defaultsStore));
     }
 
     function normalizeText(value) {
@@ -438,6 +520,168 @@ $(document).ready(function () {
         return match;
     }
 
+    function findEditableControl(row) {
+        var control = $(row).find("input:not([type='hidden']), textarea, select").filter(":enabled").first();
+        return control && control.length ? control : null;
+    }
+
+    function readControlValue(control) {
+        var type = String(control.attr("type") || "").toLowerCase();
+        if (type === "checkbox") {
+            return control.prop("checked") ? "1" : "0";
+        }
+        return String(control.val() == null ? "" : control.val());
+    }
+
+    function writeControlValue(control, value) {
+        var type = String(control.attr("type") || "").toLowerCase();
+        if (type === "checkbox") {
+            control.prop("checked", value === "1");
+        } else {
+            control.val(value);
+        }
+
+        control.trigger("input");
+        control.trigger("change");
+    }
+
+    function getFieldKey(field, row) {
+        var base = normalizeFieldToken(field.internalName || field.title || "");
+        return base || ("row_" + String(row.index()));
+    }
+
+    function updateRowHighlight(descriptor) {
+        var current = readControlValue(descriptor.control);
+        var baseline = String(defaultsStore[descriptor.key] == null ? "" : defaultsStore[descriptor.key]);
+        descriptor.row.toggleClass("msChangedField", current !== baseline);
+    }
+
+    function ensureDefaultValue(descriptor) {
+        if (defaultsStore[descriptor.key] == null) {
+            defaultsStore[descriptor.key] = readControlValue(descriptor.control);
+            saveDefaultsStore();
+        }
+    }
+
+    function buildActiveDescriptors(sectionNames) {
+        var fields = [];
+
+        sectionNames.forEach(function (sectionKey) {
+            var group = groupByKey[sectionKey];
+            if (!group) {
+                return;
+            }
+
+            group.fields.forEach(function (field) {
+                fields.push(field);
+            });
+        });
+
+        var usedRows = [];
+        var descriptors = [];
+
+        fields.forEach(function (field) {
+            var row = findRowForField(field);
+            if (!row || !row.length) {
+                return;
+            }
+
+            var alreadyUsed = usedRows.some(function (used) {
+                return used[0] === row[0];
+            });
+            if (alreadyUsed) {
+                return;
+            }
+
+            var control = findEditableControl(row);
+            if (!control) {
+                return;
+            }
+
+            usedRows.push(row);
+
+            var key = getFieldKey(field, row);
+            var label = field.title || getRowLabel(row) || field.internalName || "Pole";
+
+            descriptors.push({
+                key: key,
+                field: field,
+                row: row,
+                control: control,
+                label: label
+            });
+        });
+
+        return descriptors;
+    }
+
+    function openEditModal() {
+        $("#msEditModalOverlay").remove();
+
+        if (!activeFieldDescriptors.length) {
+            return;
+        }
+
+        var html = '<div id="msEditModalOverlay"><div id="msEditModal"><h2>Úprava vybraných polí</h2><div id="msEditRows"></div><div class="msWizardActions"><button class="msWizardApply" type="button" id="msModalSave">Uložit změny</button><button class="msWizardCancel" type="button" id="msModalClose">Zavřít</button></div></div></div>';
+        $("body").append(html);
+
+        activeFieldDescriptors.forEach(function (descriptor, index) {
+            ensureDefaultValue(descriptor);
+            updateRowHighlight(descriptor);
+
+            var control = descriptor.control;
+            var type = String(control.attr("type") || "").toLowerCase();
+            var tag = String(control.prop("tagName") || "").toLowerCase();
+            var proxyId = "msProxy_" + index;
+            var rowHtml = '<div class="msEditRow"><label for="' + proxyId + '">' + descriptor.label + '</label>';
+
+            if (tag === "select") {
+                rowHtml += '<select id="' + proxyId + '"></select>';
+            } else if (type === "checkbox") {
+                rowHtml += '<input id="' + proxyId + '" type="checkbox">';
+            } else if (tag === "textarea") {
+                rowHtml += '<textarea id="' + proxyId + '" rows="3"></textarea>';
+            } else {
+                var inputType = type || "text";
+                rowHtml += '<input id="' + proxyId + '" type="' + inputType + '">';
+            }
+
+            rowHtml += '</div>';
+            $("#msEditRows").append(rowHtml);
+
+            var proxy = $("#" + proxyId);
+
+            if (tag === "select") {
+                control.find("option").each(function () {
+                    var option = $(this);
+                    proxy.append('<option value="' + String(option.val()) + '">' + String(option.text()) + '</option>');
+                });
+            }
+
+            if (type === "checkbox") {
+                proxy.prop("checked", readControlValue(control) === "1");
+            } else {
+                proxy.val(readControlValue(control));
+            }
+
+            proxy.on("change input", function () {
+                var value = type === "checkbox" ? (proxy.prop("checked") ? "1" : "0") : String(proxy.val() == null ? "" : proxy.val());
+                writeControlValue(control, value);
+                updateRowHighlight(descriptor);
+            });
+        });
+
+        $("#msModalSave").on("click", function () {
+            $("#msEditModalOverlay").remove();
+        });
+
+        $("#msModalClose").on("click", function () {
+            $("#msEditModalOverlay").remove();
+        });
+
+        $("#msEditModalOverlay").show();
+    }
+
     function showSections(sectionNames) {
 
         if (!Array.isArray(sectionNames)) {
@@ -454,50 +698,27 @@ $(document).ready(function () {
             return;
         }
 
-        hideAllRows();
+        showAllRows();
+        getFormRows().removeClass("msChangedField");
 
-        var fields = [];
-        sectionNames.forEach(function (sectionKey) {
-            var group = groupByKey[sectionKey];
-            if (!group) {
-                return;
-            }
-
-            group.fields.forEach(function (field) {
-                fields.push(field);
-            });
-        });
-
-        var usedRows = [];
-        var shown = 0;
-
-        fields.forEach(function (field) {
-            var row = findRowForField(field);
-            if (!row || !row.length) {
-                return;
-            }
-
-            var alreadyUsed = usedRows.some(function (used) {
-                return used[0] === row[0];
-            });
-            if (alreadyUsed) {
-                return;
-            }
-
-            usedRows.push(row);
-            shown += 1;
-        });
-
-        usedRows.forEach(function (row) {
-            row.show();
-        });
+        activeFieldDescriptors = buildActiveDescriptors(sectionNames);
+        var shown = activeFieldDescriptors.length;
 
         if (shown === 0) {
-            showAllRows();
             $("#msCurrentSection")
                 .text("Nenalezena pole pro sekci, zobrazen celý formulář");
+            $("#msOpenModalEditor").hide();
             return;
         }
+
+        activeFieldDescriptors.forEach(function (descriptor) {
+            descriptor.row.hide();
+            ensureDefaultValue(descriptor);
+            updateRowHighlight(descriptor);
+        });
+
+        $("#msOpenModalEditor").show();
+        openEditModal();
 
         var caption = sectionNames.map(function (sectionKey) {
             return groupByKey[sectionKey] ? groupByKey[sectionKey].name : sectionKey;
@@ -593,6 +814,10 @@ $(document).ready(function () {
             Změnit oblast
         </button>
 
+        <button id="msOpenModalEditor">
+            Otevřít modal
+        </button>
+
         <div id="msCurrentSection" class="msSectionInfo"></div>
     `);
 
@@ -602,11 +827,16 @@ $(document).ready(function () {
 
     });
 
+    $("#msOpenModalEditor").on("click", function () {
+        openEditModal();
+    });
+
 
     // =====================================================
     // START
     // =====================================================
 
+    loadDefaultsStore();
     openWizard();
 
 });
