@@ -286,14 +286,21 @@ $(document).ready(function () {
 
     function hideAllRows() {
 
-        $(".ms-formtable tr").hide();
+        getFormRows().hide();
 
         $("#idAttachmentsRow").show();
     }
 
     function showAllRows() {
 
-        $(".ms-formtable tr").show();
+        getFormRows().show();
+    }
+
+    function getFormRows() {
+
+        return $(".ms-formtable tr").filter(function () {
+            return $(this).find("td").length > 0 || $(this).is("#idAttachmentsRow");
+        });
     }
 
     function normalizeText(value) {
@@ -374,7 +381,7 @@ $(document).ready(function () {
 
         var match = null;
 
-        $(".ms-formtable tr").each(function () {
+        getFormRows().each(function () {
             if (rowMatchesInternalName(this, field.internalName)) {
                 match = $(this);
                 return false;
@@ -385,7 +392,7 @@ $(document).ready(function () {
             return match;
         }
 
-        $(".ms-formtable tr").each(function () {
+        getFormRows().each(function () {
             if (rowMatchesTitle(this, field.title)) {
                 match = $(this);
                 return false;
@@ -425,13 +432,7 @@ $(document).ready(function () {
             });
         });
 
-        var table = $(".ms-formtable:first");
-        var parent = table.find("tbody:first");
-        if (!parent.length) {
-            parent = table;
-        }
-
-        var usedRowIds = {};
+        var usedRows = [];
         var shown = 0;
 
         fields.forEach(function (field) {
@@ -440,15 +441,19 @@ $(document).ready(function () {
                 return;
             }
 
-            var rowKey = row.attr("id") || String(row.index());
-            if (usedRowIds[rowKey]) {
+            var alreadyUsed = usedRows.some(function (used) {
+                return used[0] === row[0];
+            });
+            if (alreadyUsed) {
                 return;
             }
 
-            usedRowIds[rowKey] = true;
-            row.show();
-            parent.append(row);
+            usedRows.push(row);
             shown += 1;
+        });
+
+        usedRows.forEach(function (row) {
+            row.show();
         });
 
         if (shown === 0) {
